@@ -57,16 +57,16 @@ export default function ProductDetailPage({
           const { data: profileData } = await supabase
             .from("profiles")
             .select("nickname")
-            .eq("user_id", itemData.seller_id)
+            .eq("user_id", (itemData as any).seller_id)
             .single();
-          if (profileData?.nickname) {
-            nickname = profileData.nickname;
+          if ((profileData as any)?.nickname) {
+            nickname = (profileData as any).nickname;
           }
         } catch {
           // Profile not found, use default
         }
 
-        setItem({ ...itemData, seller_nickname: nickname });
+        setItem({ ...(itemData as any), seller_nickname: nickname });
       }
     } catch (err) {
       console.error("Error loading item:", err);
@@ -93,7 +93,7 @@ export default function ProductDetailPage({
       try {
         const { error } = await supabase
           .from("items")
-          .update({ status: "sold" })
+          .update({ status: "sold" } as any)
           .eq("id", params.id);
 
         if (error) throw error;

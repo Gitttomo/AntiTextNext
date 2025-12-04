@@ -39,7 +39,7 @@ export default function HomePage() {
         .limit(10);
 
       if (error) throw error;
-      if (data) setItems(data);
+      if (data) setItems(data as Item[]);
     } catch (err) {
       console.error("Error loading items:", err);
     } finally {
@@ -154,8 +154,8 @@ export default function HomePage() {
                     >
                       <Heart
                         className={`w-6 h-6 transition-all duration-200 ${favorites.includes(item.id)
-                            ? "fill-red-500 text-red-500 scale-110"
-                            : "text-gray-300 hover:text-red-300"
+                          ? "fill-red-500 text-red-500 scale-110"
+                          : "text-gray-300 hover:text-red-300"
                           }`}
                       />
                     </button>

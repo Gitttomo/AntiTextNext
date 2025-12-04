@@ -46,7 +46,7 @@ export default function SearchPage() {
         .limit(5);
 
       if (error) throw error;
-      if (data) setSearchHistory(data);
+      if (data) setSearchHistory(data as SearchHistory[]);
     } catch (err) {
       console.error("Error loading search history:", err);
     }
@@ -68,7 +68,7 @@ export default function SearchPage() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (data) setSearchResults(data);
+      if (data) setSearchResults(data as Item[]);
 
       // Save search history if user is logged in
       if (user) {

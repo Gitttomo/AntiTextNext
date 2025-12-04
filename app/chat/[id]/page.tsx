@@ -63,9 +63,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       if (itemError) throw itemError;
       if (itemData) {
-        setItem(itemData);
+        const item = itemData as Item;
+        setItem(item);
         // Determine the other user (if current user is seller, other user is buyer and vice versa)
-        const other = itemData.seller_id === user.id ? null : itemData.seller_id;
+        const other = item.seller_id === user.id ? null : item.seller_id;
         setOtherUserId(other);
       }
 
@@ -77,7 +78,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .order("created_at", { ascending: true });
 
       if (messagesError) throw messagesError;
-      if (messagesData) setMessages(messagesData);
+      if (messagesData) setMessages(messagesData as Message[]);
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {

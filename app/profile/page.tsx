@@ -39,8 +39,8 @@ export default function ProfilePage() {
             if (error) throw error;
 
             if (data) {
-                setNickname(data.nickname);
-                setDepartment(data.department);
+                setNickname((data as any).nickname);
+                setDepartment((data as any).department);
             }
         } catch (err: any) {
             setError(err.message);
@@ -63,7 +63,7 @@ export default function ProfilePage() {
                 .update({
                     nickname,
                     department,
-                })
+                } as any)
                 .eq("user_id", user.id);
 
             if (error) throw error;
