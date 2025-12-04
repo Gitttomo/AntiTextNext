@@ -49,11 +49,11 @@ export default function ChatListPage() {
       // Group by item_id and get the latest message for each
       const grouped = new Map<string, any>();
 
-      for (const msg of messages || []) {
+      for (const msg of (messages || []) as any[]) {
         if (!grouped.has(msg.item_id)) {
           grouped.set(msg.item_id, {
             item_id: msg.item_id,
-            item_title: (msg.items as any)?.title || "不明",
+            item_title: msg.items?.title || "不明",
             last_message: msg.message,
             last_message_time: msg.created_at,
             other_user_id: msg.sender_id === user.id ? msg.receiver_id : msg.sender_id,
