@@ -101,7 +101,7 @@ export default function ListingPage() {
           status: "available",
           front_image_url: frontImageUrl,
           back_image_url: backImageUrl,
-        });
+        } as any);
 
         if (error) throw error;
 

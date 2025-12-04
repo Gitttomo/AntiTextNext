@@ -75,7 +75,7 @@ export default function SearchPage() {
         await supabase.from("search_histories").insert({
           user_id: user.id,
           keyword: keyword,
-        });
+        } as any);
         loadSearchHistory();
       }
     } catch (err) {

@@ -119,7 +119,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         sender_id: user.id,
         receiver_id: otherUserId || item.seller_id,
         message: newMessage.trim(),
-      });
+      } as any);
 
       if (error) throw error;
 
@@ -183,8 +183,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 >
                   <div
                     className={`max-w-[70%] px-4 py-3 rounded-2xl shadow-sm ${isOwnMessage
-                        ? "bg-primary text-white"
-                        : "bg-white text-gray-900 border"
+                      ? "bg-primary text-white"
+                      : "bg-white text-gray-900 border"
                       }`}
                   >
                     <p className="whitespace-pre-wrap break-words">{msg.message}</p>

@@ -57,7 +57,7 @@ export default function SignupPage() {
                         user_id: authData.user.id,
                         nickname,
                         department,
-                    });
+                    } as any);
 
                 if (profileError) throw profileError;
 
