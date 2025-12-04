@@ -72,10 +72,10 @@ export default function SearchPage() {
 
       // Save search history if user is logged in
       if (user) {
-        await supabase.from("search_histories").insert({
+        await (supabase.from("search_histories") as any).insert({
           user_id: user.id,
           keyword: keyword,
-        } as any);
+        });
         loadSearchHistory();
       }
     } catch (err) {

@@ -92,7 +92,7 @@ export default function ListingPage() {
         }
 
         // Create item in database
-        const { error } = await supabase.from("items").insert({
+        const { error } = await (supabase.from("items") as any).insert({
           seller_id: user!.id,
           title: formData.bookName,
           original_price: Number(formData.originalPrice),
@@ -101,7 +101,7 @@ export default function ListingPage() {
           status: "available",
           front_image_url: frontImageUrl,
           back_image_url: backImageUrl,
-        } as any);
+        });
 
         if (error) throw error;
 

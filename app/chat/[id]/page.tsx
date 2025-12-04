@@ -115,12 +115,12 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     setSending(true);
 
     try {
-      const { error } = await supabase.from("messages").insert({
+      const { error } = await (supabase.from("messages") as any).insert({
         item_id: params.id,
         sender_id: user.id,
         receiver_id: otherUserId || item.seller_id,
         message: newMessage.trim(),
-      } as any);
+      });
 
       if (error) throw error;
 

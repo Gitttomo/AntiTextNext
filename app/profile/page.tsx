@@ -58,12 +58,12 @@ export default function ProfilePage() {
         setSuccess(false);
 
         try {
-            const { error } = await supabase
-                .from("profiles")
+            const { error } = await (supabase
+                .from("profiles") as any)
                 .update({
                     nickname,
                     department,
-                } as any)
+                })
                 .eq("user_id", user.id);
 
             if (error) throw error;

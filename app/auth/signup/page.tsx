@@ -51,13 +51,13 @@ export default function SignupPage() {
 
             if (authData.user) {
                 // Create profile
-                const { error: profileError } = await supabase
-                    .from("profiles")
+                const { error: profileError } = await (supabase
+                    .from("profiles") as any)
                     .insert({
                         user_id: authData.user.id,
                         nickname,
                         department,
-                    } as any);
+                    });
 
                 if (profileError) throw profileError;
 

@@ -91,9 +91,9 @@ export default function ProductDetailPage({
 
     if (confirm("この教科書を購入しますか？")) {
       try {
-        const { error } = await supabase
-          .from("items")
-          .update({ status: "sold" } as any)
+        const { error } = await (supabase
+          .from("items") as any)
+          .update({ status: "sold" })
           .eq("id", params.id);
 
         if (error) throw error;
