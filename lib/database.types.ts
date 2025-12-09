@@ -113,6 +113,41 @@ export interface Database {
                     created_at?: string
                 }
             }
+            transactions: {
+                Row: {
+                    id: string
+                    item_id: string
+                    buyer_id: string
+                    seller_id: string
+                    payment_method: string
+                    meetup_time_slots: string[]
+                    meetup_locations: string[]
+                    status: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    item_id: string
+                    buyer_id: string
+                    seller_id: string
+                    payment_method: string
+                    meetup_time_slots: string[]
+                    meetup_locations: string[]
+                    status?: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    item_id?: string
+                    buyer_id?: string
+                    seller_id?: string
+                    payment_method?: string
+                    meetup_time_slots?: string[]
+                    meetup_locations?: string[]
+                    status?: string
+                    created_at?: string
+                }
+            }
         }
         Views: {
             [_ in never]: never

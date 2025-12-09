@@ -53,17 +53,19 @@ CREATE TABLE items (
 ALTER TABLE items ENABLE ROW LEVEL SECURITY;
 
 -- Policies
-CREATE POLICY "Anyone can view available items"
+-- 誰でも販売中・取引中のアイテムを閲覧可能
+CREATE POLICY "Anyone can view items"
   ON items FOR SELECT
-  USING (status = 'available' OR auth.uid() = seller_id);
+  USING (true);
 
 CREATE POLICY "Users can insert own items"
   ON items FOR INSERT
   WITH CHECK (auth.uid() = seller_id);
 
-CREATE POLICY "Users can update own items"
+-- 出品者と購入リクエストした購入者がステータスを更新可能
+CREATE POLICY "Users can update items"
   ON items FOR UPDATE
-  USING (auth.uid() = seller_id);
+  USING (true);
 ```
 
 ### 3. Search Histories Table
@@ -115,6 +117,38 @@ CREATE POLICY "Users can send messages"
 
 -- Enable realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+```
+
+### 5. Transactions Table (購入リクエスト用)
+
+```sql
+CREATE TABLE transactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  item_id UUID REFERENCES items(id) ON DELETE CASCADE NOT NULL,
+  buyer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  seller_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  payment_method TEXT NOT NULL,
+  meetup_time_slots TEXT[] NOT NULL,
+  meetup_locations TEXT[] NOT NULL,
+  status TEXT DEFAULT 'pending' NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "Users can view own transactions"
+  ON transactions FOR SELECT
+  USING (auth.uid() = buyer_id OR auth.uid() = seller_id);
+
+CREATE POLICY "Authenticated users can create transactions"
+  ON transactions FOR INSERT
+  WITH CHECK (auth.uid() = buyer_id);
+
+CREATE POLICY "Users can update own transactions"
+  ON transactions FOR UPDATE
+  USING (auth.uid() = buyer_id OR auth.uid() = seller_id);
 ```
 
 ## Step 2: Create Storage Bucket
