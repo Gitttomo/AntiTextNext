@@ -15,10 +15,15 @@ type Message = {
   created_at: string;
 };
 
-type Item = {
+type Transaction = {
   id: string;
-  title: string;
+  item_id: string;
+  buyer_id: string;
   seller_id: string;
+  status: string;
+  item?: {
+    title: string;
+  };
 };
 
 export default function ChatPage({ params }: { params: { id: string } }) {
@@ -28,8 +33,9 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [item, setItem] = useState<Item | null>(null);
+  const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,8 +44,33 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       return;
     }
 
-    loadItemAndMessages();
-    subscribeToMessages();
+    loadTransactionAndMessages();
+
+    // Subscribe to real-time messages
+    const channel = supabase
+      .channel(`transaction-chat-${params.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `transaction_id=eq.${params.id}`,
+        },
+        (payload) => {
+          console.log("New message received:", payload);
+          setMessages((current) => [...current, payload.new as Message]);
+        }
+      )
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
+
+    // Cleanup on unmount
+    return () => {
+      console.log("Unsubscribing from chat channel");
+      supabase.removeChannel(channel);
+    };
   }, [params.id, user]);
 
   useEffect(() => {
@@ -50,31 +81,48 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const loadItemAndMessages = async () => {
+  const loadTransactionAndMessages = async () => {
     if (!user) return;
 
     try {
-      // Load item info
-      const { data: itemData, error: itemError } = await supabase
-        .from("items")
-        .select("id, title, seller_id")
+      // Load transaction info with item
+      const { data: txData, error: txError } = await supabase
+        .from("transactions")
+        .select("*, item:items(title)")
         .eq("id", params.id)
         .single();
 
-      if (itemError) throw itemError;
-      if (itemData) {
-        const item = itemData as Item;
-        setItem(item);
-        // Determine the other user (if current user is seller, other user is buyer and vice versa)
-        const other = item.seller_id === user.id ? null : item.seller_id;
+      if (txError) throw txError;
+
+      if (txData) {
+        const tx = txData as any;
+
+        // Check if user is part of this transaction
+        if (tx.buyer_id !== user.id && tx.seller_id !== user.id) {
+          setAccessDenied(true);
+          setLoading(false);
+          return;
+        }
+
+        setTransaction({
+          id: tx.id,
+          item_id: tx.item_id,
+          buyer_id: tx.buyer_id,
+          seller_id: tx.seller_id,
+          status: tx.status,
+          item: tx.item,
+        });
+
+        // Set other user
+        const other = tx.buyer_id === user.id ? tx.seller_id : tx.buyer_id;
         setOtherUserId(other);
       }
 
-      // Load messages
+      // Load messages for this transaction
       const { data: messagesData, error: messagesError } = await supabase
         .from("messages")
         .select("*")
-        .eq("item_id", params.id)
+        .eq("transaction_id", params.id)
         .order("created_at", { ascending: true });
 
       if (messagesError) throw messagesError;
@@ -86,39 +134,18 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const subscribeToMessages = () => {
-    const channel = supabase
-      .channel(`messages:${params.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `item_id=eq.${params.id}`,
-        },
-        (payload) => {
-          setMessages((current) => [...current, payload.new as Message]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user || !item || sending) return;
+    if (!newMessage.trim() || !user || !transaction || !otherUserId || sending) return;
 
     setSending(true);
 
     try {
       const { error } = await (supabase.from("messages") as any).insert({
-        item_id: params.id,
+        item_id: transaction.item_id,
+        transaction_id: transaction.id,
         sender_id: user.id,
-        receiver_id: otherUserId || item.seller_id,
+        receiver_id: otherUserId,
         message: newMessage.trim(),
       });
 
@@ -140,10 +167,28 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (!item) {
+  if (accessDenied) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-gray-600">商品が見つかりませんでした</p>
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">このチャットにアクセスする権限がありません</p>
+          <Link href="/" className="text-primary hover:underline">
+            ホームに戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!transaction) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">取引が見つかりませんでした</p>
+          <Link href="/" className="text-primary hover:underline">
+            ホームに戻る
+          </Link>
+        </div>
       </div>
     );
   }
@@ -153,18 +198,22 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       {/* Header */}
       <header className="bg-white px-6 py-4 border-b sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <Link href={`/product/${params.id}`}>
+          <Link href="/">
             <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
           </Link>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">{item.title}</h1>
-            <p className="text-sm text-gray-600">チャット</p>
+            <h1 className="text-lg font-bold text-gray-900">
+              {transaction.item?.title || "取引チャット"}
+            </h1>
+            <p className="text-sm text-gray-600">
+              {transaction.status === "pending" ? "取引調整中" : "取引完了"}
+            </p>
           </div>
         </div>
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="flex-1 overflow-y-auto px-6 py-6 pb-32">
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-12">
@@ -208,7 +257,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t px-6 py-4 safe-area-bottom">
+      <div className="fixed bottom-20 left-0 right-0 bg-white border-t px-6 py-4 z-40">
         <form onSubmit={handleSend} className="max-w-3xl mx-auto">
           <div className="flex gap-3">
             <input

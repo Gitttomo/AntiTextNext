@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -78,13 +78,7 @@ export default function ProductDetailPage({
     }
   };
 
-  const handleStartChat = () => {
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
-    router.push(`/chat/${params.id}`);
-  };
+
 
   const handleOpenPurchaseModal = () => {
     if (!user) {
@@ -100,8 +94,8 @@ export default function ProductDetailPage({
     setIsSubmitting(true);
 
     try {
-      // 1. Create transaction record
-      const { error: transactionError } = await (supabase
+      // 1. Create transaction record and get ID
+      const { data: transactionData, error: transactionError } = await (supabase
         .from("transactions") as any)
         .insert({
           item_id: item.id,
@@ -111,9 +105,13 @@ export default function ProductDetailPage({
           meetup_time_slots: data.timeSlots,
           meetup_locations: data.locations,
           status: "pending",
-        });
+        })
+        .select("id")
+        .single();
 
       if (transactionError) throw transactionError;
+
+      const transactionId = transactionData.id;
 
       // 2. Update item status to transaction_pending
       const { error: updateError } = await (supabase
@@ -123,12 +121,13 @@ export default function ProductDetailPage({
 
       if (updateError) throw updateError;
 
-      // 3. Send auto-message to chat
+      // 3. Send auto-message to chat (linked to transaction)
       const autoMessage = generatePurchaseMessage(data);
       const { error: messageError } = await (supabase
         .from("messages") as any)
         .insert({
           item_id: item.id,
+          transaction_id: transactionId,
           sender_id: user.id,
           receiver_id: item.seller_id,
           message: autoMessage,
@@ -136,9 +135,9 @@ export default function ProductDetailPage({
 
       if (messageError) throw messageError;
 
-      // 4. Close modal and redirect to chat
+      // 4. Close modal and redirect to transaction chat
       setIsPurchaseModalOpen(false);
-      router.push(`/chat/${params.id}`);
+      router.push(`/chat/${transactionId}`);
     } catch (err: any) {
       console.error("Error submitting purchase request:", err);
       alert("購入リクエストの送信に失敗しました: " + err.message);
@@ -254,9 +253,12 @@ export default function ProductDetailPage({
                 <h3 className="text-sm font-medium text-gray-600 mb-2">
                   出品者
                 </h3>
-                <p className="text-lg font-semibold text-gray-900">
+                <Link
+                  href={`/seller/${item.seller_id}`}
+                  className="text-lg font-semibold text-primary hover:underline"
+                >
                   {item.seller_nickname || "匿名"}
-                </p>
+                </Link>
               </div>
 
               <div>
@@ -280,23 +282,14 @@ export default function ProductDetailPage({
               自分の出品商品です
             </div>
           ) : (
-            <>
-              <button
-                onClick={handleStartChat}
-                className="flex-1 py-4 bg-white border-2 border-primary text-primary rounded-xl font-semibold hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
-              >
-                <MessageCircle className="w-5 h-5" />
-                チャット
-              </button>
-              <button
-                onClick={handleOpenPurchaseModal}
-                disabled={!isAvailable}
-                className="flex-1 py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {isSold ? "売り切れ" : isPending ? "取引中" : "購入リクエスト"}
-              </button>
-            </>
+            <button
+              onClick={handleOpenPurchaseModal}
+              disabled={!isAvailable}
+              className="w-full py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {isSold ? "売り切れ" : isPending ? "取引中" : "購入リクエストへ進む"}
+            </button>
           )}
         </div>
       </div>

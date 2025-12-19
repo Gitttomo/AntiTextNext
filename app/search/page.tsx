@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Search, History, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowLeft, Search, History } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -20,19 +20,83 @@ type Item = {
   condition: string;
 };
 
+type Suggestion = {
+  id: string;
+  title: string;
+};
+
+// ひらがな→カタカナ変換
+const hiraganaToKatakana = (str: string): string => {
+  return str.replace(/[\u3041-\u3096]/g, (match) =>
+    String.fromCharCode(match.charCodeAt(0) + 0x60)
+  );
+};
+
+// カタカナ→ひらがな変換
+const katakanaToHiragana = (str: string): string => {
+  return str.replace(/[\u30A1-\u30F6]/g, (match) =>
+    String.fromCharCode(match.charCodeAt(0) - 0x60)
+  );
+};
+
 export default function SearchPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Item[]>([]);
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadSearchHistory();
     }
   }, [user]);
+
+  // 入力時にサジェストを取得
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (searchQuery.length < 1) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      try {
+        const query = searchQuery.trim();
+        const hiragana = katakanaToHiragana(query);
+        const katakana = hiraganaToKatakana(query);
+
+        // 複数パターンで検索（元の入力、ひらがな変換、カタカナ変換）
+        const { data, error } = await supabase
+          .from("items")
+          .select("id, title")
+          .eq("status", "available")
+          .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
+          .limit(8);
+
+        if (error) throw error;
+
+        // 重複を除去
+        const uniqueTitles = new Map<string, Suggestion>();
+        (data || []).forEach((item: any) => {
+          if (!uniqueTitles.has(item.title)) {
+            uniqueTitles.set(item.title, { id: item.id, title: item.title });
+          }
+        });
+
+        setSuggestions(Array.from(uniqueTitles.values()));
+        setShowSuggestions(true);
+      } catch (err) {
+        console.error("Error fetching suggestions:", err);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchSuggestions, 200);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
 
   const loadSearchHistory = async () => {
     if (!user) return;
@@ -57,14 +121,19 @@ export default function SearchPage() {
 
     setLoading(true);
     setSearchQuery(keyword);
+    setShowSuggestions(false);
 
     try {
-      // Search items
+      const query = keyword.trim();
+      const hiragana = katakanaToHiragana(query);
+      const katakana = hiraganaToKatakana(query);
+
+      // 複数パターンで検索
       const { data, error } = await supabase
         .from("items")
         .select("id, title, selling_price, condition")
-        .ilike("title", `%${keyword}%`)
         .eq("status", "available")
+        .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -90,6 +159,11 @@ export default function SearchPage() {
     handleSearch(searchQuery);
   };
 
+  const handleSuggestionClick = (suggestion: Suggestion) => {
+    setSearchQuery(suggestion.title);
+    handleSearch(suggestion.title);
+  };
+
   const handleHistoryClick = (keyword: string) => {
     handleSearch(keyword);
   };
@@ -107,8 +181,8 @@ export default function SearchPage() {
           </h1>
         </div>
 
-        {/* Search Bar */}
-        <form onSubmit={handleSubmit}>
+        {/* Search Bar with Suggestions */}
+        <form onSubmit={handleSubmit} className="relative">
           <div className="relative">
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
               <Search className="w-5 h-5 text-gray-400" />
@@ -117,12 +191,38 @@ export default function SearchPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="教科書名を入力..."
+              onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
+              placeholder="教科書名を入力...（ひらがな・カタカナ対応）"
               className="w-full py-3 pl-12 pr-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
+
+          {/* Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-64 overflow-y-auto">
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.id}
+                  type="button"
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3 border-b last:border-b-0"
+                >
+                  <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-900 truncate">{suggestion.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </form>
       </header>
+
+      {/* Click outside to close suggestions */}
+      {showSuggestions && (
+        <div
+          className="fixed inset-0 z-0"
+          onClick={() => setShowSuggestions(false)}
+        />
+      )}
 
       {/* Search History */}
       {user && searchHistory.length > 0 && !searchQuery && (
