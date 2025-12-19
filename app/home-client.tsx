@@ -19,7 +19,7 @@ const conditionColors: Record<string, string> = {
 };
 
 export default function HomeClient({ items }: { items: Item[] }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [favorites, setFavorites] = useState<string[]>([]);
 
   const toggleFavorite = useCallback((id: string) => {
@@ -41,7 +41,9 @@ export default function HomeClient({ items }: { items: Item[] }) {
               <BookOpen className="w-5 h-5" />
               <span className="text-sm font-medium">学内教科書フリマ</span>
             </div>
-            {user ? (
+            {loading ? (
+              <div className="w-10 h-10 bg-gray-100 rounded-full animate-pulse" />
+            ) : user ? (
               <Link href="/profile">
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors">
                   <User className="w-5 h-5 text-primary" />
