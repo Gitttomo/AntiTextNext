@@ -92,7 +92,7 @@ export default function SignupPage() {
             <div className="px-6 py-8">
                 <div className="max-w-md mx-auto">
                     <div className="bg-white rounded-2xl shadow-lg border p-8">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center animate-slide-in-left">
                             アカウント作成
                         </h2>
 
@@ -188,10 +188,11 @@ export default function SignupPage() {
                                 />
                             </div>
 
-                            <button
+                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg mt-6"
+                                className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg mt-6 animate-slide-in-left"
+                                style={{ animationDelay: '500ms' }}
                             >
                                 {loading ? "登録中..." : "登録"}
                             </button>

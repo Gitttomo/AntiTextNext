@@ -49,7 +49,7 @@ export default function LoginPage() {
                     <Link href="/">
                         <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
                     </Link>
-                    <h1 className="text-3xl font-bold text-primary">
+                    <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
                         ログイン
                     </h1>
                 </div>
@@ -58,7 +58,7 @@ export default function LoginPage() {
             <div className="px-6 py-8">
                 <div className="max-w-md mx-auto">
                     <div className="bg-white rounded-2xl shadow-lg border p-8">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center animate-slide-in-left">
                             TextNext
                         </h2>
 
@@ -69,7 +69,7 @@ export default function LoginPage() {
                         )}
 
                         <form onSubmit={handleLogin} className="space-y-5">
-                            <div>
+                            <div className="animate-slide-in-left" style={{ animationDelay: '100ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <Mail className="w-4 h-4 inline mr-1" />
                                     メールアドレス
@@ -84,7 +84,7 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            <div>
+                            <div className="animate-slide-in-left" style={{ animationDelay: '200ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <Lock className="w-4 h-4 inline mr-1" />
                                     パスワード
@@ -102,7 +102,8 @@ export default function LoginPage() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+                                className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg animate-slide-in-left"
+                                style={{ animationDelay: '300ms' }}
                             >
                                 {loading ? "ログイン中..." : "ログイン"}
                             </button>

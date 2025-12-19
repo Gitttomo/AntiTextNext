@@ -265,7 +265,7 @@ export default function ListingPage() {
           <Link href="/">
             <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
           </Link>
-          <h1 className="text-3xl font-bold text-primary">
+          <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
             教科書の出品
           </h1>
         </div>
@@ -275,7 +275,7 @@ export default function ListingPage() {
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-2xl border shadow-lg p-8">
             <div className="space-y-6">
-              <div>
+              <div className="animate-slide-in-bottom">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   教科書名 <span className="text-red-500">*</span>
                 </label>
@@ -290,7 +290,7 @@ export default function ListingPage() {
                 />
               </div>
 
-              <div>
+              <div className="animate-slide-in-bottom" style={{ animationDelay: '100ms' }}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   状態 <span className="text-red-500">*</span>
                 </label>
@@ -307,7 +307,7 @@ export default function ListingPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="animate-slide-in-bottom" style={{ animationDelay: '200ms' }}>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   写真 <span className="text-red-500">*</span>
                 </label>
@@ -370,7 +370,7 @@ export default function ListingPage() {
                 </div>
               </div>
 
-              <div>
+              <div className="animate-slide-in-bottom" style={{ animationDelay: '300ms' }}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   定価（税抜き） <span className="text-red-500">*</span>
                 </label>
@@ -388,7 +388,7 @@ export default function ListingPage() {
                 </p>
               </div>
 
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-200 animate-slide-in-bottom" style={{ animationDelay: '400ms' }}>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-700 font-medium">出品価格</span>
                   <span className="text-2xl font-bold text-primary">
@@ -404,7 +404,8 @@ export default function ListingPage() {
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full mt-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+              className="w-full mt-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg animate-slide-in-bottom"
+              style={{ animationDelay: '500ms' }}
             >
               確認画面へ
             </button>
