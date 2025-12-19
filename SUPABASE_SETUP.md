@@ -97,6 +97,7 @@ CREATE POLICY "Users can insert own search history"
 CREATE TABLE messages (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   item_id UUID REFERENCES items(id) ON DELETE CASCADE NOT NULL,
+  transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
   sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   receiver_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   message TEXT NOT NULL,
@@ -106,7 +107,7 @@ CREATE TABLE messages (
 -- Enable Row Level Security
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
--- Policies
+-- Policies (only buyer/seller of transaction can view/send)
 CREATE POLICY "Users can view messages they're involved in"
   ON messages FOR SELECT
   USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
@@ -117,6 +118,13 @@ CREATE POLICY "Users can send messages"
 
 -- Enable realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+```
+
+### Migration: Add transaction_id to existing messages table
+
+```sql
+-- 既存のテーブルがある場合、このSQLを実行
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE;
 ```
 
 ### 5. Transactions Table (購入リクエスト用)
