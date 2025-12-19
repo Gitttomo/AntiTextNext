@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Camera, MessageSquare } from "lucide-react";
+import { Home, Camera, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
@@ -15,8 +15,8 @@ export function BottomNav() {
           href="/"
           className={cn(
             "flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200",
-            pathname === "/" 
-              ? "text-primary scale-105" 
+            pathname === "/"
+              ? "text-primary scale-105"
               : "text-gray-500 hover:text-primary/70"
           )}
         >
@@ -30,8 +30,8 @@ export function BottomNav() {
         >
           <div className={cn(
             "w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-lg transition-all duration-200",
-            pathname === "/listing" 
-              ? "scale-110 shadow-primary/40 shadow-xl" 
+            pathname === "/listing"
+              ? "scale-110 shadow-primary/40 shadow-xl"
               : "hover:scale-105 hover:shadow-xl"
           )}>
             <Camera className="w-8 h-8 text-white" strokeWidth={2} />
@@ -43,19 +43,19 @@ export function BottomNav() {
         </Link>
 
         <Link
-          href="/chat"
+          href="/transactions"
           className={cn(
             "flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200",
-            pathname?.startsWith("/chat") 
-              ? "text-primary scale-105" 
+            pathname?.startsWith("/transactions")
+              ? "text-primary scale-105"
               : "text-gray-500 hover:text-primary/70"
           )}
         >
-          <MessageSquare
+          <ClipboardList
             className="w-7 h-7"
-            strokeWidth={pathname?.startsWith("/chat") ? 2.5 : 2}
+            strokeWidth={pathname?.startsWith("/transactions") ? 2.5 : 2}
           />
-          <span className="text-xs font-medium">チャット</span>
+          <span className="text-xs font-medium">取引一覧</span>
         </Link>
       </div>
     </nav>
