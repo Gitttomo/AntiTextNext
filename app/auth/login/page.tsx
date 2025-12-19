@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +12,11 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    // Prefetch the home page for instant transition
+    useEffect(() => {
+        router.prefetch("/");
+    }, [router]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,7 +33,8 @@ export default function LoginPage() {
 
             if (data.user) {
                 router.push("/");
-                router.refresh();
+                // Removed router.refresh() to prevent double fetch and latency
+                // The client-side AuthProvider will detect the session change
             }
         } catch (err: any) {
             setError(err.message || "ログインに失敗しました");

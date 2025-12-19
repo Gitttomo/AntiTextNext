@@ -18,6 +18,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <link rel="preconnect" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
+        <link rel="dns-prefetch" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           <main className="min-h-screen pb-24">{children}</main>

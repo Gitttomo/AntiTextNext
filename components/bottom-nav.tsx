@@ -13,6 +13,7 @@ export function BottomNav() {
       <div className="flex items-center justify-around h-20 max-w-screen-lg mx-auto">
         <Link
           href="/"
+          prefetch={true}
           className={cn(
             "flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200",
             pathname === "/"
@@ -26,6 +27,7 @@ export function BottomNav() {
 
         <Link
           href="/listing"
+          prefetch={true}
           className="flex flex-col items-center justify-center -mt-6"
         >
           <div className={cn(
@@ -44,6 +46,7 @@ export function BottomNav() {
 
         <Link
           href="/transactions"
+          prefetch={true}
           className={cn(
             "flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200",
             pathname?.startsWith("/transactions")

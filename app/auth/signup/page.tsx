@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -15,6 +15,11 @@ export default function SignupPage() {
     const [department, setDepartment] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    // Prefetch login page for instant transition
+    useEffect(() => {
+        router.prefetch("/auth/login");
+    }, [router]);
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
