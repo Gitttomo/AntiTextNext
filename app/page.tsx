@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Search, Heart, BookOpen, TrendingUp, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
@@ -47,11 +47,11 @@ export default function HomePage() {
     }
   };
 
-  const toggleFavorite = (id: string) => {
+  const toggleFavorite = useCallback((id: string) => {
     setFavorites((prev) =>
       prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]
     );
-  };
+  }, []);
 
   return (
     <div className="min-h-screen bg-white">
