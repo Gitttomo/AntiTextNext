@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Heart, BookOpen, TrendingUp, User } from "lucide-react";
+import Image from "next/image";
+import { Search, Heart, BookOpen, TrendingUp, User, Users, ChevronDown } from "lucide-react";
 import { useState, useCallback, memo, useMemo } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { supabase } from "@/lib/supabase";
 
 type Item = {
   id: string;
   title: string;
   selling_price: number;
   condition: string;
+  front_image_url?: string;
 };
 
 const conditionColors: Record<string, string> = {
@@ -22,40 +25,66 @@ const conditionColors: Record<string, string> = {
 const ItemCard = memo(function ItemCard({
   item,
   isFavorite,
-  onToggleFavorite
+  onToggleFavorite,
+  index,
 }: {
   item: Item;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
+  index: number;
 }) {
   return (
     <Link href={`/product/${item.id}`}>
-      <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
-        <div className="flex items-start justify-between gap-4">
+      <div 
+        className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 animate-slide-in-up"
+        style={{ animationDelay: `${index * 80}ms` }}
+      >
+        <div className="flex items-start gap-4">
+          {/* サムネイル画像 */}
+          <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
+            {item.front_image_url ? (
+              <Image
+                src={item.front_image_url}
+                alt={item.title}
+                width={80}
+                height={80}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                <BookOpen className="w-8 h-8" />
+              </div>
+            )}
+          </div>
+
+          {/* コンテンツ */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs font-medium px-2 py-1 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
                 {item.condition}
               </span>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
+            <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
               {item.title}
             </h3>
-            <p className="text-2xl font-bold text-primary">
+            <p className="text-xl font-bold text-primary">
               ¥{item.selling_price.toLocaleString()}
             </p>
           </div>
+
+          {/* ハートボタン */}
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onToggleFavorite(item.id);
             }}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all active:scale-90"
+            className="p-2 hover:bg-gray-100 rounded-full transition-all active:scale-90 flex-shrink-0"
             aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
           >
             <Heart
-              className={`w-6 h-6 transition-all duration-200 ${isFavorite
+              className={`w-5 h-5 transition-all duration-200 ${isFavorite
                 ? "fill-red-500 text-red-500 scale-110"
                 : "text-gray-300 hover:text-red-300"
               }`}
@@ -67,9 +96,20 @@ const ItemCard = memo(function ItemCard({
   );
 });
 
-export default function HomeClient({ items }: { items: Item[] }) {
+type HomeClientProps = {
+  items: Item[];
+  popularItems: Item[];
+  totalPopularCount: number;
+};
+
+export default function HomeClient({ items, popularItems: initialPopularItems, totalPopularCount }: HomeClientProps) {
   const { user, loading } = useAuth();
   const [favorites, setFavorites] = useState<string[]>([]);
+  
+  // みんなの出品の状態管理
+  const [popularItems, setPopularItems] = useState<Item[]>(initialPopularItems);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initialPopularItems.length < totalPopularCount);
 
   // お気に入りセットをメモ化
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
@@ -80,8 +120,53 @@ export default function HomeClient({ items }: { items: Item[] }) {
     );
   }, []);
 
+  const loadMorePopular = async () => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const currentLength = popularItems.length;
+      const { data, error } = await supabase
+        .from("items")
+        .select("id, title, selling_price, condition, front_image_url")
+        .eq("status", "available")
+        .order("created_at", { ascending: false })
+        .range(currentLength, currentLength + 14);
+
+      if (!error && data) {
+        const newItems = data as Item[];
+        setPopularItems(prev => [...prev, ...newItems]);
+        if (currentLength + newItems.length >= totalPopularCount || newItems.length < 15) {
+          setHasMore(false);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading more items:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pb-24">
+      {/* CSS for animations */}
+      <style jsx global>{`
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-in-up {
+          animation: slideInUp 0.4s ease-out forwards;
+          opacity: 0;
+        }
+      `}</style>
+
       {/* Header */}
       <header className="bg-white px-6 pt-8 pb-6 border-b">
         <div className="flex items-center justify-between mb-6">
@@ -128,7 +213,7 @@ export default function HomeClient({ items }: { items: Item[] }) {
         </Link>
       </header>
 
-      {/* Content */}
+      {/* おすすめの教材 */}
       <div className="px-6 py-8">
         <div className="flex items-center gap-2 mb-6">
           <TrendingUp className="w-6 h-6 text-primary" />
@@ -151,17 +236,69 @@ export default function HomeClient({ items }: { items: Item[] }) {
           </div>
         ) : (
           <div className="space-y-4">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <ItemCard
                 key={item.id}
                 item={item}
                 isFavorite={favoriteSet.has(item.id)}
                 onToggleFavorite={toggleFavorite}
+                index={index}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* みんなの出品 */}
+      {popularItems.length > 0 && (
+        <div className="px-6 py-8 bg-gray-50">
+          <div className="flex items-center gap-2 mb-6">
+            <Users className="w-6 h-6 text-primary" />
+            <h2 className="text-xl font-bold text-gray-900">
+              みんなの出品
+            </h2>
+          </div>
+
+          <div className="space-y-4">
+            {popularItems.map((item, index) => (
+              <ItemCard
+                key={`popular-${item.id}`}
+                item={item}
+                isFavorite={favoriteSet.has(item.id)}
+                onToggleFavorite={toggleFavorite}
+                index={index}
+              />
+            ))}
+          </div>
+
+          {/* もっと見る / 出品物は以上です */}
+          <div className="mt-8 text-center">
+            {hasMore ? (
+              <button
+                onClick={loadMorePopular}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-primary/50 transition-all disabled:opacity-50"
+              >
+                {loadingMore ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+                    読み込み中...
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-5 h-5" />
+                    もっと見る
+                  </>
+                )}
+              </button>
+            ) : (
+              <p className="text-gray-500 py-4">
+                出品物は以上です...!
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
