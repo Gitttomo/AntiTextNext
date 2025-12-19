@@ -33,8 +33,7 @@ export default function LoginPage() {
 
             if (data.user) {
                 router.push("/");
-                // Removed router.refresh() to prevent double fetch and latency
-                // The client-side AuthProvider will detect the session change
+                router.refresh(); // Ensure the server-side catches the new session
             }
         } catch (err: any) {
             setError(err.message || "ログインに失敗しました");

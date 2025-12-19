@@ -80,12 +80,13 @@ const ItemCard = memo(function ItemCard({
               e.stopPropagation();
               onToggleFavorite(item.id);
             }}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all active:scale-90 flex-shrink-0"
+            className="p-2 hover:bg-gray-100 rounded-full transition-all active:scale-90 flex-shrink-0 heart-container"
             aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
           >
+            <div className={`heart-lines ${isFavorite ? 'active' : ''}`} />
             <Heart
-              className={`w-5 h-5 transition-all duration-200 ${isFavorite
-                ? "fill-red-500 text-red-500 scale-110"
+              className={`w-5 h-5 transition-all duration-200 relative ${isFavorite
+                ? "fill-red-500 text-red-500 scale-110 heart-burst"
                 : "text-gray-300 hover:text-red-300"
               }`}
             />
@@ -103,7 +104,7 @@ type HomeClientProps = {
 };
 
 export default function HomeClient({ items, popularItems: initialPopularItems, totalPopularCount }: HomeClientProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, avatarUrl } = useAuth();
   const [favorites, setFavorites] = useState<string[]>([]);
   
   // みんなの出品の状態管理
@@ -182,8 +183,20 @@ export default function HomeClient({ items, popularItems: initialPopularItems, t
               <div className="w-10 h-10 bg-gray-100 rounded-full animate-pulse" />
             ) : user ? (
               <Link href="/profile">
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors">
-                  <User className="w-5 h-5 text-primary" />
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 hover:border-primary/50 transition-colors">
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
+                      alt="プロフィール"
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                  )}
                 </div>
               </Link>
             ) : (

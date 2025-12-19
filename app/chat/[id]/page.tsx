@@ -199,11 +199,11 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col page-transition-slide-right">
       {/* Header */}
       <header className="bg-white px-6 py-4 border-b sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <Link href="/">
+          <Link href="/transactions">
             <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
           </Link>
           <div>

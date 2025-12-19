@@ -53,12 +53,73 @@
     animation: slideInRight 0.3s ease-out forwards;
   }
   
+  .animate-slide-in-left {
+    animation: slideInLeft 0.3s ease-out forwards;
+  }
+  
+  .animate-slide-in-top {
+    animation: slideInTop 0.4s ease-out forwards;
+    opacity: 0;
+  }
+  
+  .animate-slide-in-bottom {
+    animation: slideInBottom 0.4s ease-out forwards;
+    opacity: 0;
+  }
+  
   .animate-scale-in {
     animation: scaleIn 0.2s ease-out forwards;
   }
   
   .animate-bounce-in {
     animation: bounceIn 0.4s ease-out forwards;
+  }
+  
+  /* Page transition wrapper */
+  .page-transition-slide-up {
+    animation: pageSlideUp 0.35s ease-out forwards;
+  }
+  
+  .page-transition-slide-right {
+    animation: pageSlideRight 0.35s ease-out forwards;
+  }
+  
+  /* Heart burst effect with radiating lines */
+  .heart-container {
+    position: relative;
+  }
+  
+  .heart-burst {
+    animation: heartPop 0.4s ease-out forwards;
+  }
+  
+  .heart-lines {
+    position: absolute;
+    inset: -12px;
+    pointer-events: none;
+  }
+  
+  .heart-lines.active::before,
+  .heart-lines.active::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 16px;
+    background: linear-gradient(to top, transparent, #ef4444, transparent);
+    border-radius: 2px;
+    animation: heartLinesFade 0.5s ease-out forwards;
+  }
+  
+  .heart-lines.active::before {
+    transform: translate(-50%, -50%) rotate(0deg);
+    animation-delay: 0s;
+  }
+  
+  .heart-lines.active::after {
+    transform: translate(-50%, -50%) rotate(60deg);
+    animation-delay: 0.05s;
   }
 }
 
@@ -118,6 +179,91 @@
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes slideInTop {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pageSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes heartPop {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.35);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes heartLinesFade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scaleY(0.3);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--rotation, 0deg)) scaleY(1.5) translateY(-8px);
   }
 }
 

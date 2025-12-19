@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { User, GraduationCap, MessageCircle, Package } from "lucide-react";
+import Image from "next/image";
+import { User, GraduationCap, MessageCircle, Package, BookOpen } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -18,13 +19,14 @@ type TransactionItem = {
     title: string;
     selling_price: number;
     status: string;
+    front_image_url: string | null;
     isBuyer: boolean;
     hasTransaction: boolean;
 };
 
 export default function TransactionsPage() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, avatarUrl } = useAuth();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [activeTab, setActiveTab] = useState<"active" | "history">("active");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>([]);
@@ -38,7 +40,6 @@ export default function TransactionsPage() {
             return;
         }
 
-        // 同じユーザーで既に読み込み済みなら再取得しない
         if (loadedUserRef.current === user.id) return;
         loadedUserRef.current = user.id;
         loadData();
@@ -48,34 +49,29 @@ export default function TransactionsPage() {
         if (!user) return;
 
         try {
-            // 全てのクエリを並列実行して高速化
             const [
                 { data: profileData },
                 { data: buyerTransactions },
                 { data: sellerItems },
                 { data: sellerTransactions }
             ] = await Promise.all([
-                // Load user profile
                 supabase
                     .from("profiles")
                     .select("nickname, department")
                     .eq("user_id", user.id)
                     .single(),
-                // Load items where user is buyer (has transaction)
                 supabase
                     .from("transactions")
                     .select(`
                         id,
                         status,
-                        items(id, title, selling_price, status)
+                        items(id, title, selling_price, status, front_image_url)
                     `)
                     .eq("buyer_id", user.id),
-                // Load items where user is seller
                 supabase
                     .from("items")
-                    .select("id, title, selling_price, status, seller_id")
+                    .select("id, title, selling_price, status, seller_id, front_image_url")
                     .eq("seller_id", user.id),
-                // Load transactions where user is seller
                 supabase
                     .from("transactions")
                     .select("id, item_id, status")
@@ -86,11 +82,9 @@ export default function TransactionsPage() {
                 setProfile(profileData as Profile);
             }
 
-            // Process active items
             const active: TransactionItem[] = [];
             const history: TransactionItem[] = [];
 
-            // Buyer items (transactions)
             for (const tx of (buyerTransactions || []) as any[]) {
                 const item = tx.items;
                 if (!item) continue;
@@ -100,61 +94,49 @@ export default function TransactionsPage() {
                     transaction_id: tx.id,
                     title: item.title,
                     selling_price: item.selling_price,
-                    status: tx.status,
+                    status: item.status,
+                    front_image_url: item.front_image_url || null,
                     isBuyer: true,
                     hasTransaction: true,
                 };
 
-                if (tx.status === "completed") {
+                if (tx.status === "completed" || item.status === "sold") {
                     history.push(txItem);
                 } else {
                     active.push(txItem);
                 }
             }
 
-            // Seller items
-            const sellerTxMap = new Map<string, any>();
+            const sellerTxMap = new Map<string, { txId: string; txStatus: string }>();
             for (const tx of (sellerTransactions || []) as any[]) {
-                sellerTxMap.set(tx.item_id, tx);
+                sellerTxMap.set(tx.item_id, { txId: tx.id, txStatus: tx.status });
             }
 
             for (const item of (sellerItems || []) as any[]) {
-                const tx = sellerTxMap.get(item.id);
+                const txInfo = sellerTxMap.get(item.id);
 
                 const txItem: TransactionItem = {
                     id: item.id,
-                    transaction_id: tx?.id || null,
+                    transaction_id: txInfo?.txId || null,
                     title: item.title,
                     selling_price: item.selling_price,
-                    status: tx?.status || item.status,
+                    status: item.status,
+                    front_image_url: item.front_image_url || null,
                     isBuyer: false,
-                    hasTransaction: !!tx,
+                    hasTransaction: !!txInfo,
                 };
 
-                if (item.status === "sold" || tx?.status === "completed") {
+                if (item.status === "sold" || txInfo?.txStatus === "completed") {
                     history.push(txItem);
-                } else {
+                } else if (item.status === "transaction_pending" || txInfo) {
                     active.push(txItem);
                 }
             }
-
-            // Sort active items: items with transactions first (for sellers)
-            active.sort((a, b) => {
-                // Buyers first
-                if (a.isBuyer && !b.isBuyer) return -1;
-                if (!a.isBuyer && b.isBuyer) return 1;
-                // Then sellers with transactions
-                if (!a.isBuyer && !b.isBuyer) {
-                    if (a.hasTransaction && !b.hasTransaction) return -1;
-                    if (!a.hasTransaction && b.hasTransaction) return 1;
-                }
-                return 0;
-            });
 
             setActiveItems(active);
             setHistoryItems(history);
         } catch (err) {
-            console.error("Error loading data:", err);
+            console.error("Error loading transactions:", err);
         } finally {
             setLoading(false);
         }
@@ -168,6 +150,10 @@ export default function TransactionsPage() {
         );
     }
 
+    if (!user) {
+        return null;
+    }
+
     const displayItems = activeTab === "active" ? activeItems : historyItems;
 
     return (
@@ -178,18 +164,32 @@ export default function TransactionsPage() {
 
                 {/* User Profile Info */}
                 {profile && (
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                            <p className="font-bold text-gray-900">{profile.nickname}</p>
-                            <div className="flex items-center gap-1 text-gray-600">
-                                <GraduationCap className="w-4 h-4" />
-                                <span className="text-sm">{profile.department}</span>
+                    <Link href="/profile">
+                        <div className="flex items-center gap-3 hover:bg-gray-50 rounded-xl p-2 -m-2 transition-colors cursor-pointer">
+                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary/20">
+                                {avatarUrl ? (
+                                    <Image
+                                        src={avatarUrl}
+                                        alt="プロフィール"
+                                        width={48}
+                                        height={48}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+                                        <User className="w-6 h-6 text-primary" />
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900">{profile.nickname}</p>
+                                <div className="flex items-center gap-1 text-gray-600">
+                                    <GraduationCap className="w-4 h-4" />
+                                    <span className="text-sm">{profile.department}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </Link>
                 )}
             </header>
 
@@ -199,42 +199,62 @@ export default function TransactionsPage() {
                     onClick={() => setActiveTab("active")}
                     className={`flex-1 py-4 text-center font-semibold transition-colors ${activeTab === "active"
                             ? "text-primary border-b-2 border-primary"
-                            : "text-gray-500 hover:text-gray-700"
+                            : "text-gray-500"
                         }`}
                 >
-                    取引中
+                    取引中 ({activeItems.length})
                 </button>
                 <button
                     onClick={() => setActiveTab("history")}
                     className={`flex-1 py-4 text-center font-semibold transition-colors ${activeTab === "history"
                             ? "text-primary border-b-2 border-primary"
-                            : "text-gray-500 hover:text-gray-700"
+                            : "text-gray-500"
                         }`}
                 >
-                    履歴
+                    履歴 ({historyItems.length})
                 </button>
             </div>
 
-            {/* Items List */}
+            {/* Transaction List */}
             <div className="px-6 py-6">
                 {displayItems.length === 0 ? (
                     <div className="text-center py-12">
-                        <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-500">
-                            {activeTab === "active" ? "取引中の商品はありません" : "取引履歴はありません"}
+                            {activeTab === "active"
+                                ? "取引中の商品はありません"
+                                : "取引履歴はありません"}
                         </p>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {displayItems.map((item) => (
+                        {displayItems.map((item, index) => (
                             <div
                                 key={`${item.id}-${item.isBuyer ? "buyer" : "seller"}`}
-                                className={`bg-white rounded-2xl p-5 shadow-md transition-all duration-300 border-2 ${item.isBuyer
+                                className={`bg-white rounded-2xl p-5 shadow-md transition-all duration-300 border-2 animate-slide-in-top ${item.isBuyer
                                         ? "border-blue-400 hover:border-blue-500"
                                         : "border-red-400 hover:border-red-500"
                                     }`}
+                                style={{ animationDelay: `${index * 80}ms` }}
                             >
-                                <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-4">
+                                    {/* Product Image */}
+                                    <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
+                                        {item.front_image_url ? (
+                                            <Image
+                                                src={item.front_image_url}
+                                                alt={item.title}
+                                                width={64}
+                                                height={64}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                <BookOpen className="w-6 h-6" />
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="flex-1 min-w-0">
                                         {/* Role Badge */}
                                         <div className="flex items-center gap-2 mb-2">
@@ -247,33 +267,25 @@ export default function TransactionsPage() {
                                                 {item.isBuyer ? "購入" : "出品"}
                                             </span>
                                             {activeTab === "active" && (
-                                                <span className="text-xs text-gray-500">
-                                                    {item.isBuyer
-                                                        ? "購入中"
-                                                        : item.hasTransaction
-                                                            ? "取引中"
-                                                            : "出品中"}
-                                                </span>
-                                            )}
-                                            {activeTab === "history" && (
-                                                <span className="text-xs text-gray-500">
-                                                    {item.isBuyer ? "購入済" : "出品済"}
+                                                <span className="text-xs font-medium px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">
+                                                    取引中
                                                 </span>
                                             )}
                                         </div>
 
-                                        <Link href={`/product/${item.id}`}>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-2 hover:text-primary transition-colors">
-                                                {item.title}
-                                            </h3>
-                                        </Link>
-                                        <p className="text-xl font-bold text-primary">
+                                        {/* Title */}
+                                        <h3 className="font-bold text-gray-900 truncate">
+                                            {item.title}
+                                        </h3>
+
+                                        {/* Price */}
+                                        <p className="text-lg font-bold text-primary">
                                             ¥{item.selling_price.toLocaleString()}
                                         </p>
                                     </div>
 
-                                    {/* Chat Button - only for active items with transaction */}
-                                    {activeTab === "active" && item.hasTransaction && item.transaction_id && (
+                                    {/* Action Button */}
+                                    {item.hasTransaction && item.transaction_id && (
                                         <Link
                                             href={`/chat/${item.transaction_id}`}
                                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm"
