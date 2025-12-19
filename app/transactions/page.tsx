@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { User, GraduationCap, MessageCircle, Package } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -30,6 +30,7 @@ export default function TransactionsPage() {
     const [activeItems, setActiveItems] = useState<TransactionItem[]>([]);
     const [historyItems, setHistoryItems] = useState<TransactionItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const loadedUserRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!user) {
@@ -37,6 +38,9 @@ export default function TransactionsPage() {
             return;
         }
 
+        // 同じユーザーで既に読み込み済みなら再取得しない
+        if (loadedUserRef.current === user.id) return;
+        loadedUserRef.current = user.id;
         loadData();
     }, [user]);
 

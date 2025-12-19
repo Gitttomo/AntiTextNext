@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Search, Heart, BookOpen, TrendingUp, User } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
@@ -24,8 +24,12 @@ export default function HomePage() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
+    // 重複リクエスト防止
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     loadItems();
   }, []);
 

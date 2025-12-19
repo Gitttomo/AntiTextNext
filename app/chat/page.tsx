@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -20,6 +20,7 @@ export default function ChatListPage() {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadedUserRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -27,6 +28,9 @@ export default function ChatListPage() {
       return;
     }
 
+    // 同じユーザーで既に読み込み済みなら再取得しない
+    if (loadedUserRef.current === user.id) return;
+    loadedUserRef.current = user.id;
     loadConversations();
   }, [user]);
 

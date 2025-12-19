@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -16,6 +16,7 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
+    const loadedUserRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!user) {
@@ -23,6 +24,9 @@ export default function ProfilePage() {
             return;
         }
 
+        // 同じユーザーで既に読み込み済みなら再取得しない
+        if (loadedUserRef.current === user.id) return;
+        loadedUserRef.current = user.id;
         loadProfile();
     }, [user]);
 
