@@ -231,15 +231,16 @@ export default function TransactionsPage() {
                         {displayItems.map((item, index) => (
                             <div
                                 key={`${item.id}-${item.isBuyer ? "buyer" : "seller"}`}
-                                className={`bg-white rounded-2xl p-5 shadow-md transition-all duration-300 border-2 animate-slide-in-top ${item.isBuyer
-                                        ? "border-blue-400 hover:border-blue-500"
-                                        : "border-red-400 hover:border-red-500"
+                                onClick={() => router.push(`/product/${item.id}`)}
+                                className={`bg-white rounded-2xl p-5 shadow-md transition-all duration-300 border-2 cursor-pointer group active:scale-[0.98] animate-slide-in-top ${item.isBuyer
+                                        ? "border-blue-400 hover:border-blue-500 hover:shadow-lg"
+                                        : "border-red-400 hover:border-red-500 hover:shadow-lg"
                                     }`}
                                 style={{ animationDelay: `${index * 80}ms` }}
                             >
                                 <div className="flex items-start gap-4">
                                     {/* Product Image */}
-                                    <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
+                                    <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden group-hover:scale-105 transition-transform">
                                         {item.front_image_url ? (
                                             <Image
                                                 src={item.front_image_url}
@@ -274,7 +275,7 @@ export default function TransactionsPage() {
                                         </div>
 
                                         {/* Title */}
-                                        <h3 className="font-bold text-gray-900 truncate">
+                                        <h3 className="font-bold text-gray-900 truncate group-hover:text-primary transition-colors">
                                             {item.title}
                                         </h3>
 
@@ -286,13 +287,16 @@ export default function TransactionsPage() {
 
                                     {/* Action Button */}
                                     {item.hasTransaction && item.transaction_id && (
-                                        <Link
-                                            href={`/chat/${item.transaction_id}`}
-                                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm"
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                router.push(`/chat/${item.transaction_id}`);
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm z-10"
                                         >
                                             <MessageCircle className="w-4 h-4" />
                                             チャット
-                                        </Link>
+                                        </button>
                                     )}
                                 </div>
                             </div>

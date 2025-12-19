@@ -24,14 +24,24 @@ export default async function ProductDetailPage({
     try {
       const { data: joinedData, error: joinedError } = await supabase
         .from("items")
-        .select(`${itemFields}, profiles!items_seller_id_fkey_profiles(nickname)`)
+        .select(`${itemFields}, profiles!items_seller_id_fkey_profiles(nickname, avatar_url)`)
         .eq("id", id)
         .single();
 
       if (!joinedError && joinedData) {
         // Optimized path succeeded
-        const nickname = (joinedData as any).profiles?.nickname || "匿名";
-        fullItem = { ...(joinedData as any), seller_nickname: nickname };
+        const profile = (joinedData as any).profiles;
+        let avatarUrl = profile?.avatar_url;
+        if (avatarUrl && !avatarUrl.startsWith('http')) {
+          const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(avatarUrl);
+          avatarUrl = publicUrl;
+        }
+
+        fullItem = { 
+          ...(joinedData as any), 
+          seller_nickname: profile?.nickname || "匿名",
+          seller_avatar_url: avatarUrl
+        };
       }
     } catch (e) {
       // Ignore error and fall back
@@ -52,12 +62,22 @@ export default async function ProductDetailPage({
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("nickname")
+        .select("nickname, avatar_url")
         .eq("user_id", (itemData as any).seller_id)
         .single();
 
-      const nickname = (profileData as any)?.nickname || "匿名";
-      fullItem = { ...(itemData as any), seller_nickname: nickname };
+      const profile = profileData as any;
+      let avatarUrl = profile?.avatar_url;
+      if (avatarUrl && !avatarUrl.startsWith('http')) {
+        const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(avatarUrl);
+        avatarUrl = publicUrl;
+      }
+
+      fullItem = { 
+        ...(itemData as any), 
+        seller_nickname: profile?.nickname || "匿名",
+        seller_avatar_url: avatarUrl
+      };
     }
 
     return <ProductDetailClient item={fullItem as Item} />;

@@ -8,7 +8,7 @@ export default async function HomePage() {
   // おすすめの教材（最新10件）
   const { data: recommendedData, error: recommendedError } = await supabase
     .from("items")
-    .select("id, title, selling_price, condition, front_image_url")
+    .select("id, title, selling_price, condition, front_image_url, favorites(count)")
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .limit(10);
@@ -16,7 +16,7 @@ export default async function HomePage() {
   // みんなの出品（新着順 上位15件）
   const { data: popularData, error: popularError } = await supabase
     .from("items")
-    .select("id, title, selling_price, condition, front_image_url")
+    .select("id, title, selling_price, condition, front_image_url, favorites(count)")
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .range(0, 14);
@@ -34,10 +34,18 @@ export default async function HomePage() {
     console.error("Error loading popular items:", popularError);
   }
 
+  const mapItems = (data: any[] | null) => {
+    return (data || []).map(item => ({
+      ...item,
+      favorite_count: item.favorites?.[0]?.count || 0,
+      favorites: undefined // Clean up the object
+    }));
+  };
+
   return (
     <HomeClient 
-      items={(recommendedData as any) || []} 
-      popularItems={(popularData as any) || []}
+      items={mapItems(recommendedData)} 
+      popularItems={mapItems(popularData)}
       totalPopularCount={totalCount || 0}
     />
   );

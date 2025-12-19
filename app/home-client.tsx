@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Search, Heart, BookOpen, TrendingUp, User, Users, ChevronDown } from "lucide-react";
-import { useState, useCallback, memo, useMemo } from "react";
+import { useState, useCallback, memo, useMemo, useEffect } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase";
 
@@ -12,7 +12,8 @@ type Item = {
   title: string;
   selling_price: number;
   condition: string;
-  front_image_url?: string;
+  front_image_url: string | null;
+  favorite_count?: number;
 };
 
 const conditionColors: Record<string, string> = {
@@ -73,24 +74,40 @@ const ItemCard = memo(function ItemCard({
             </p>
           </div>
 
-          {/* ハートボタン */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleFavorite(item.id);
-            }}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all active:scale-90 flex-shrink-0 heart-container"
-            aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
-          >
-            <div className={`heart-lines ${isFavorite ? 'active' : ''}`} />
-            <Heart
-              className={`w-5 h-5 transition-all duration-200 relative ${isFavorite
-                ? "fill-red-500 text-red-500 scale-110 heart-burst"
-                : "text-gray-300 hover:text-red-300"
-              }`}
-            />
-          </button>
+          {/* ハートボタン & カウント */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleFavorite(item.id);
+              }}
+              className="group/heart relative p-2 -m-2 hover:bg-red-50 rounded-full transition-all active:scale-90 flex items-center justify-center heart-container"
+              aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+            >
+              {/* Expanding Ring */}
+              <div className={`heart-ring ${isFavorite ? 'active' : ''}`} />
+              
+              {/* Particles */}
+              <div className={`heart-particle-container ${isFavorite ? 'active' : ''}`}>
+                {[...Array(7)].map((_, i) => (
+                  <div key={i} className="heart-dot" />
+                ))}
+              </div>
+
+              <Heart
+                className={`w-5 h-5 transition-all duration-300 relative heart-main ${isFavorite
+                  ? "fill-red-500 text-red-500 heart-pop"
+                  : "text-gray-300 group-hover/heart:text-red-300"
+                }`}
+              />
+            </button>
+            {item.favorite_count !== undefined && item.favorite_count > 0 && (
+              <span className={`text-xs font-bold transition-colors duration-300 ${isFavorite ? 'text-red-500' : 'text-gray-400'}`}>
+                {item.favorite_count}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </Link>
@@ -103,23 +120,121 @@ type HomeClientProps = {
   totalPopularCount: number;
 };
 
-export default function HomeClient({ items, popularItems: initialPopularItems, totalPopularCount }: HomeClientProps) {
+export default function HomeClient({ items: initialRecommendedItems, popularItems: initialPopularItems, totalPopularCount }: HomeClientProps) {
   const { user, loading, avatarUrl } = useAuth();
   const [favorites, setFavorites] = useState<string[]>([]);
   
-  // みんなの出品の状態管理
+  // 各アイテムの状態管理（サーバーのキャッシュを上書きできるようにState化）
+  const [recommendedItems, setRecommendedItems] = useState<Item[]>(initialRecommendedItems);
   const [popularItems, setPopularItems] = useState<Item[]>(initialPopularItems);
+  
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialPopularItems.length < totalPopularCount);
 
   // お気に入りセットをメモ化
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
 
-  const toggleFavorite = useCallback((id: string) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]
+  // 初期表示時にお気に入り & 最新のカウントをロード（キャッシュ対策）
+  useEffect(() => {
+    const fetchData = async () => {
+      const itemIds = [
+        ...recommendedItems.map(i => i.id),
+        ...popularItems.map(i => i.id)
+      ];
+      
+      if (itemIds.length === 0) return;
+
+      // 1. 各アイテムの最新カウントを取得 (itemsテーブルから)
+      // 2. 自分の追加済みお気に入りを取得 (userがいる場合)
+      const promises: any[] = [
+        supabase
+          .from("items")
+          .select("id, favorites(count)")
+          .in("id", itemIds)
+      ];
+
+      if (user) {
+        promises.push(
+          supabase
+            .from("favorites")
+            .select("item_id")
+            .eq("user_id", user.id)
+        );
+      }
+
+      const [countRes, favRes] = await Promise.all(promises);
+
+      // 最新カウントの反映
+      if (countRes.data) {
+        const countMap = new Map((countRes.data as any[]).map((i: any) => [i.id, i.favorites?.[0]?.count || 0]));
+        
+        const updateItemCounts = (prev: Item[]) => prev.map(item => ({
+          ...item,
+          favorite_count: countMap.get(item.id) ?? item.favorite_count
+        }));
+
+        setRecommendedItems(prev => updateItemCounts(prev));
+        setPopularItems(prev => updateItemCounts(prev));
+      }
+
+      // お気に入り状態の反映
+      if (user && favRes?.data) {
+        setFavorites(favRes.data.map((f: any) => f.item_id));
+      } else if (!user) {
+        setFavorites([]); // ログアウト時はクリア
+      }
+    };
+
+    fetchData();
+  }, [user, recommendedItems.length, popularItems.length]);
+
+  const toggleFavorite = useCallback(async (id: string) => {
+    if (!user) return;
+
+    const isFav = favoriteSet.has(id);
+    
+    // 状態が既に遷移中（連打防止）などのためのガードは特になし（Setなので重複はしない）
+    
+    // 楽観的UI更新
+    setFavorites(prev => 
+      isFav ? prev.filter(favId => favId !== id) : [...prev, id]
     );
-  }, []);
+
+    // カウントの見た目上の調整
+    const updateCount = (prev: Item[]) => prev.map(item => {
+      if (item.id === id) {
+        return {
+          ...item,
+          favorite_count: Math.max(0, (item.favorite_count || 0) + (isFav ? -1 : 1))
+        };
+      }
+      return item;
+    });
+
+    setRecommendedItems(prev => updateCount(prev));
+    setPopularItems(prev => updateCount(prev));
+
+    // バックエンド同期
+    try {
+      if (isFav) {
+        await (supabase
+          .from("favorites") as any)
+          .delete()
+          .match({ user_id: user.id, item_id: id });
+      } else {
+        // 重複挿入エラーを避けるために一応チェック（DBにはUNIQUE制約がある）
+        await (supabase
+          .from("favorites") as any)
+          .upsert({ user_id: user.id, item_id: id }, { onConflict: 'user_id,item_id' });
+      }
+    } catch (err) {
+      console.error("Favorite sync failed:", err);
+      // 失敗時はロールバックするのが丁寧
+      setFavorites(prev => 
+        isFav ? [...prev, id] : prev.filter(favId => favId !== id)
+      );
+    }
+  }, [user, favoriteSet]);
 
   const loadMorePopular = async () => {
     if (loadingMore || !hasMore) return;
@@ -129,13 +244,16 @@ export default function HomeClient({ items, popularItems: initialPopularItems, t
       const currentLength = popularItems.length;
       const { data, error } = await supabase
         .from("items")
-        .select("id, title, selling_price, condition, front_image_url")
+        .select("id, title, selling_price, condition, front_image_url, favorites(count)")
         .eq("status", "available")
         .order("created_at", { ascending: false })
         .range(currentLength, currentLength + 14);
 
       if (!error && data) {
-        const newItems = data as Item[];
+        const newItems = (data as any[]).map(item => ({
+          ...item,
+          favorite_count: item.favorites?.[0]?.count || 0
+        })) as Item[];
         setPopularItems(prev => [...prev, ...newItems]);
         if (currentLength + newItems.length >= totalPopularCount || newItems.length < 15) {
           setHasMore(false);
@@ -235,7 +353,7 @@ export default function HomeClient({ items, popularItems: initialPopularItems, t
           </h2>
         </div>
 
-        {items.length === 0 ? (
+        {recommendedItems.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">まだ出品がありません</p>
             {user && (
@@ -249,7 +367,7 @@ export default function HomeClient({ items, popularItems: initialPopularItems, t
           </div>
         ) : (
           <div className="space-y-4">
-            {items.map((item, index) => (
+            {recommendedItems.map((item, index) => (
               <ItemCard
                 key={item.id}
                 item={item}

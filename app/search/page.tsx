@@ -27,13 +27,17 @@ const searchItems = unstable_cache(
   async (query: string, hiragana: string, katakana: string) => {
     const { data } = await supabase
       .from("items")
-      .select("id, title, selling_price, condition")
+      .select("id, title, selling_price, condition, favorites(count)")
       .eq("status", "available")
       .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
       .order("created_at", { ascending: false })
       .limit(20);
 
-    return (data as Item[]) || [];
+    return (data || []).map((item: any) => ({
+      ...item,
+      favorite_count: item.favorites?.[0]?.count || 0,
+      favorites: undefined
+    })) as Item[];
   },
   ["search-items"],
   { revalidate: 30 }

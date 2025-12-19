@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, ShoppingCart, X } from "lucide-react";
+import { ArrowLeft, ShoppingCart, X, Search, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
@@ -24,6 +24,7 @@ export type Item = {
   created_at: string;
   seller_id: string;
   seller_nickname?: string;
+  seller_avatar_url?: string;
 };
 
 export default function ProductDetailClient({ item }: { item: Item }) {
@@ -33,14 +34,14 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   useEffect(() => {
-    requestAnimationFrame(() => {
-      setIsVisible(true);
-    });
+    setIsVisible(true);
+    // モーダル表示時に背景のスクロールを固定
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = 'unset';
     };
   }, []);
 
@@ -174,37 +175,53 @@ export default function ProductDetailClient({ item }: { item: Item }) {
             {/* Images */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               {item.front_image_url && (
-                <div className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse">
+                <div 
+                  className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse cursor-zoom-in group"
+                  onClick={() => setZoomedImage(item.front_image_url)}
+                >
                   <Image
                     src={item.front_image_url}
                     alt={`${item.title} 表紙`}
                     fill
-                    sizes="(max-width: 768px) 40vw, 300px"
-                    className="object-cover"
+                    sizes="(max-width: 768px) 40vw, 500px"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="eager"
-                    quality={50}
+                    quality={70}
                     onLoad={(e) => {
                       (e.target as HTMLElement).parentElement?.classList.remove('animate-pulse', 'bg-gray-200');
                       (e.target as HTMLElement).parentElement?.classList.add('bg-gray-100');
                     }}
                   />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-md p-2 rounded-full">
+                      <Search className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
                 </div>
               )}
               {item.back_image_url && (
-                <div className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse">
+                <div 
+                  className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse cursor-zoom-in group"
+                  onClick={() => setZoomedImage(item.back_image_url)}
+                >
                   <Image
                     src={item.back_image_url}
                     alt={`${item.title} 裏表紙`}
                     fill
-                    sizes="(max-width: 768px) 40vw, 300px"
-                    className="object-cover"
+                    sizes="(max-width: 768px) 40vw, 500px"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
-                    quality={50}
+                    quality={70}
                     onLoad={(e) => {
                       (e.target as HTMLElement).parentElement?.classList.remove('animate-pulse', 'bg-gray-200');
                       (e.target as HTMLElement).parentElement?.classList.add('bg-gray-100');
                     }}
                   />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-md p-2 rounded-full">
+                      <Search className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -243,9 +260,24 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                   <h3 className="text-sm font-medium text-gray-600 mb-2">出品者</h3>
                   <Link
                     href={`/seller/${item.seller_id}`}
-                    className="text-lg font-semibold text-primary hover:underline"
+                    className="flex items-center gap-2 group p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-primary/30 hover:bg-primary/5 transition-all w-fit"
                   >
-                    {item.seller_nickname || "匿名"}
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors overflow-hidden">
+                      {item.seller_avatar_url ? (
+                        <Image
+                          src={item.seller_avatar_url}
+                          alt={item.seller_nickname || "出品者"}
+                          width={32}
+                          height={32}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-5 h-5" />
+                      )}
+                    </div>
+                    <span className="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors">
+                      {item.seller_nickname || "匿名"}
+                    </span>
                   </Link>
                 </div>
 
@@ -280,6 +312,34 @@ export default function ProductDetailClient({ item }: { item: Item }) {
           </div>
         </div>
       </div>
+
+      {/* Zoomed Image Overlay */}
+      {zoomedImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 md:p-12 animate-[fadeIn_0.3s_ease-out]"
+          onClick={() => setZoomedImage(null)}
+        >
+          <button 
+            className="absolute top-12 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-[110]"
+            onClick={() => setZoomedImage(null)}
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <div 
+            className="relative w-full h-full max-w-4xl max-h-[90vh] flex items-center justify-center overflow-hidden animate-[pinchOut_0.4s_cubic-bezier(0.34,1.56,0.64,1)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image
+              src={zoomedImage}
+              alt="拡大画像"
+              fill
+              className="object-contain"
+              quality={100}
+              priority
+            />
+          </div>
+        </div>
+      )}
 
       {/* Purchase Modal */}
       <PurchaseModal

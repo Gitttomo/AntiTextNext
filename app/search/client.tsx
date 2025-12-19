@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Search, History } from "lucide-react";
+import { ArrowLeft, Search, History, Heart } from "lucide-react";
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -18,6 +18,7 @@ export type Item = {
   title: string;
   selling_price: number;
   condition: string;
+  favorite_count?: number;
 };
 
 type Suggestion = {
@@ -45,21 +46,59 @@ type SearchClientProps = {
 };
 
 // 検索結果アイテムをメモ化
-const SearchResultItem = memo(function SearchResultItem({ item }: { item: Item }) {
+const SearchResultItem = memo(function SearchResultItem({ 
+  item, 
+  isFavorite, 
+  onToggleFavorite 
+}: { 
+  item: Item; 
+  isFavorite: boolean;
+  onToggleFavorite: (id: string, e: React.MouseEvent) => void;
+}) {
   return (
     <Link href={`/product/${item.id}`} prefetch={false}>
       <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-gray-500 mb-1">
               {item.condition}
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
+            <h3 className="text-lg font-bold text-gray-900 mb-2 truncate">
               {item.title}
             </h3>
             <p className="text-xl font-bold text-primary">
               ¥{item.selling_price.toLocaleString()}
             </p>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => onToggleFavorite(item.id, e)}
+              className="group/heart relative p-2 -m-2 hover:bg-red-50 rounded-full transition-all active:scale-90 flex items-center justify-center heart-container"
+              aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+            >
+              {/* Expanding Ring */}
+              <div className={`heart-ring ${isFavorite ? 'active' : ''}`} />
+              
+              {/* Particles */}
+              <div className={`heart-particle-container ${isFavorite ? 'active' : ''}`}>
+                {[...Array(7)].map((_, i) => (
+                  <div key={i} className="heart-dot" />
+                ))}
+              </div>
+
+              <Heart
+                className={`w-6 h-6 transition-all duration-300 relative heart-main ${isFavorite
+                  ? "fill-red-500 text-red-500 heart-pop"
+                  : "text-gray-300 group-hover/heart:text-red-300"
+                }`}
+              />
+            </button>
+            {item.favorite_count !== undefined && item.favorite_count > 0 && (
+              <span className={`text-xs font-bold transition-colors duration-300 ${isFavorite ? 'text-red-500' : 'text-gray-400'}`}>
+                {item.favorite_count}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -71,35 +110,115 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
+  const [results, setResults] = useState<Item[]>(initialResults);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const historyLoadedRef = useRef(false);
 
   // 文字変換結果（サジェスト用）
   const convertedQuery = useMemo(() => {
-    const query = searchQuery.trim();
+    const q = searchQuery.trim();
     return {
-      original: query,
-      hiragana: katakanaToHiragana(query),
-      katakana: hiraganaToKatakana(query),
+      original: q,
+      hiragana: katakanaToHiragana(q),
+      katakana: hiraganaToKatakana(q),
     };
   }, [searchQuery]);
 
-  // 検索履歴は遅延読み込み（初期表示をブロックしない）
+  // 初期表示時にお気に入り & 最新のカウントをロード（キャッシュ対策）
   useEffect(() => {
-    if (authLoading || !user || historyLoadedRef.current) return;
+    const fetchData = async () => {
+      const itemIds = initialResults.map(item => item.id);
+      if (itemIds.length === 0) return;
 
-    // 初期表示後に遅延読み込み
-    const timer = setTimeout(() => {
-      if (historyLoadedRef.current) return;
-      historyLoadedRef.current = true;
-      loadSearchHistory();
-    }, 100);
+      // 1. 各アイテムの最新カウントを取得 (itemsテーブルから)
+      // 2. 自分の追加済みお気に入りを取得 (userがいる場合)
+      const promises: any[] = [
+        supabase
+          .from("items")
+          .select("id, favorites(count)")
+          .in("id", itemIds)
+      ];
 
-    return () => clearTimeout(timer);
-  }, [user, authLoading]);
+      if (user) {
+        promises.push(
+          supabase
+            .from("favorites")
+            .select("item_id")
+            .eq("user_id", user.id)
+        );
+      }
+
+      const [countRes, favRes] = await Promise.all(promises);
+
+      if (countRes.data) {
+        const countsMap = new Map((countRes.data as any[]).map((i: any) => [i.id, i.favorites?.[0]?.count || 0]));
+        setResults(prevResults =>
+          prevResults.map(item => ({
+            ...item,
+            favorite_count: countsMap.get(item.id) ?? item.favorite_count,
+          }))
+        );
+      }
+
+      if (user && favRes?.data) {
+        setFavorites(favRes.data.map((f: any) => f.item_id));
+      } else if (!user) {
+        setFavorites([]);
+      }
+    };
+    fetchData();
+  }, [user, initialResults]);
+
+  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+
+  const toggleFavorite = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) return;
+
+    const isFav = favoriteSet.has(id);
+    
+    // 楽観的UI更新
+    setFavorites(prev => 
+      isFav ? prev.filter(favId => favId !== id) : [...prev, id]
+    );
+
+    // カウントの見た目上の調整
+    setResults(prev => prev.map(item => {
+      if (item.id === id) {
+        return {
+          ...item,
+          favorite_count: Math.max(0, (item.favorite_count || 0) + (isFav ? -1 : 1))
+        };
+      }
+      return item;
+    }));
+
+    // バックエンド同期
+    try {
+      if (isFav) {
+        await (supabase
+          .from("favorites") as any)
+          .delete()
+          .match({ user_id: user.id, item_id: id });
+      } else {
+        await (supabase
+          .from("favorites") as any)
+          .upsert({ user_id: user.id, item_id: id }, { onConflict: 'user_id,item_id' });
+      }
+    } catch (err) {
+      console.error("Favorite sync failed:", err);
+      // Rollback
+      setFavorites(prev => 
+        isFav ? [...prev, id] : prev.filter(favId => favId !== id)
+      );
+    }
+  }, [user, favoriteSet]);
 
   // 入力時にサジェストを取得（デバウンス強化）
   useEffect(() => {
@@ -275,11 +394,16 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         {initialResults.length > 0 ? (
           <>
             <h3 className="text-sm font-semibold text-gray-700 mb-4">
-              {initialResults.length}件の結果
+              {results.length}件の結果
             </h3>
             <div className="space-y-4">
-              {initialResults.map((item) => (
-                <SearchResultItem key={item.id} item={item} />
+              {results.map((item) => (
+                <SearchResultItem 
+                  key={item.id} 
+                  item={item} 
+                  isFavorite={favoriteSet.has(item.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
               ))}
             </div>
           </>
@@ -289,6 +413,30 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
           </div>
         ) : null}
       </div>
+      
+      <SearchHistoryEffect 
+        user={user} 
+        authLoading={authLoading} 
+        historyLoadedRef={historyLoadedRef} 
+        loadSearchHistory={loadSearchHistory} 
+      />
     </div>
   );
+}
+
+// 履歴読み込み用サブルーチン（メインコンポーネントをスッキリさせるため）
+function SearchHistoryEffect({ user, authLoading, historyLoadedRef, loadSearchHistory }: any) {
+  useEffect(() => {
+    if (authLoading || !user || historyLoadedRef.current) return;
+
+    const timer = setTimeout(() => {
+      if (historyLoadedRef.current) return;
+      historyLoadedRef.current = true;
+      loadSearchHistory();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [user, authLoading, historyLoadedRef, loadSearchHistory]);
+
+  return null;
 }
