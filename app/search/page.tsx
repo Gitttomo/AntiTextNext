@@ -1,8 +1,8 @@
-
 import { createClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import SearchClient, { Item } from "./client";
 
-// Initialize Supabase client for Server Component (Public access is fine for search)
+// Initialize Supabase client for Server Component
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -22,7 +22,25 @@ const katakanaToHiragana = (str: string): string => {
   );
 };
 
-export const revalidate = 0; // Search results should be fresh
+// 検索結果をキャッシュ（30秒）
+const searchItems = unstable_cache(
+  async (query: string, hiragana: string, katakana: string) => {
+    const { data } = await supabase
+      .from("items")
+      .select("id, title, selling_price, condition")
+      .eq("status", "available")
+      .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    return (data as Item[]) || [];
+  },
+  ["search-items"],
+  { revalidate: 30 }
+);
+
+// 動的レンダリング
+export const dynamic = "force-dynamic";
 
 export default async function SearchPage({
   searchParams,
@@ -37,19 +55,9 @@ export default async function SearchPage({
     const katakana = hiraganaToKatakana(query);
 
     try {
-      const { data, error } = await supabase
-        .from("items")
-        .select("id, title, selling_price, condition")
-        .eq("status", "available")
-        .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (!error && data) {
-        initialResults = data as Item[];
-      }
+      initialResults = await searchItems(query, hiragana, katakana);
     } catch (err) {
-      console.error("Error searching items:", err);
+      // エラー時は空結果
     }
   }
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Search, Heart, BookOpen, TrendingUp, User } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo, useMemo } from "react";
 import { useAuth } from "@/components/auth-provider";
 
 type Item = {
@@ -18,9 +18,61 @@ const conditionColors: Record<string, string> = {
   "可": "bg-yellow-100 text-yellow-700",
 };
 
+// アイテムカードをメモ化して再レンダリングを防止
+const ItemCard = memo(function ItemCard({
+  item,
+  isFavorite,
+  onToggleFavorite
+}: {
+  item: Item;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
+}) {
+  return (
+    <Link href={`/product/${item.id}`}>
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
+                {item.condition}
+              </span>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              {item.title}
+            </h3>
+            <p className="text-2xl font-bold text-primary">
+              ¥{item.selling_price.toLocaleString()}
+            </p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleFavorite(item.id);
+            }}
+            className="p-2 hover:bg-gray-100 rounded-full transition-all active:scale-90"
+            aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+          >
+            <Heart
+              className={`w-6 h-6 transition-all duration-200 ${isFavorite
+                ? "fill-red-500 text-red-500 scale-110"
+                : "text-gray-300 hover:text-red-300"
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+    </Link>
+  );
+});
+
 export default function HomeClient({ items }: { items: Item[] }) {
   const { user, loading } = useAuth();
   const [favorites, setFavorites] = useState<string[]>([]);
+
+  // お気に入りセットをメモ化
+  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
 
   const toggleFavorite = useCallback((id: string) => {
     setFavorites((prev) =>
@@ -100,41 +152,12 @@ export default function HomeClient({ items }: { items: Item[] }) {
         ) : (
           <div className="space-y-4">
             {items.map((item) => (
-              <Link key={item.id} href={`/product/${item.id}`}>
-                <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
-                          {item.condition}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">
-                        {item.title}
-                      </h3>
-                      <p className="text-2xl font-bold text-primary">
-                        ¥{item.selling_price.toLocaleString()}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleFavorite(item.id);
-                      }}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-all active:scale-90"
-                      aria-label={favorites.includes(item.id) ? "お気に入りから削除" : "お気に入りに追加"}
-                    >
-                      <Heart
-                        className={`w-6 h-6 transition-all duration-200 ${favorites.includes(item.id)
-                          ? "fill-red-500 text-red-500 scale-110"
-                          : "text-gray-300 hover:text-red-300"
-                          }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </Link>
+              <ItemCard
+                key={item.id}
+                item={item}
+                isFavorite={favoriteSet.has(item.id)}
+                onToggleFavorite={toggleFavorite}
+              />
             ))}
           </div>
         )}

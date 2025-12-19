@@ -264,14 +264,14 @@ export default function PurchaseModal({
                     </div>
                 </div>
 
-                {/* Submit Button */}
-                <div className="sticky bottom-0 bg-white px-6 py-4 border-t">
+                {/* Submit Button - BottomNavの高さ（80px）分の余白を確保 */}
+                <div className="sticky bottom-0 bg-white px-6 py-4 border-t pb-24 sm:pb-4">
                     <button
                         onClick={handleSubmit}
                         disabled={selectedTimeSlots.length === 0 || selectedLocations.length === 0}
                         className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
                     >
-                        候補を送信してチャットへ
+                        購入リクエストの送信
                     </button>
                 </div>
             </div>

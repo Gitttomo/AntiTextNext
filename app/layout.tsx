@@ -1,10 +1,19 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
-import { BottomNav } from "@/components/bottom-nav";
 import { AuthProvider } from "@/components/auth-provider";
 
-const inter = Inter({ subsets: ["latin"] });
+// BottomNavを遅延読み込み（初期表示を高速化）
+const BottomNav = dynamic(() => import("@/components/bottom-nav").then(mod => ({ default: mod.BottomNav })), {
+  ssr: false,
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap", // フォント読み込み中もテキスト表示
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: "TextNext - 学内教科書フリマ",
