@@ -13,6 +13,9 @@ export default function SignupPage() {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [nickname, setNickname] = useState("");
     const [department, setDepartment] = useState("");
+    const [degree, setDegree] = useState("学士");
+    const [grade, setGrade] = useState("1");
+    const [major, setMajor] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -62,6 +65,9 @@ export default function SignupPage() {
                         user_id: authData.user.id,
                         nickname,
                         department,
+                        degree,
+                        grade: parseInt(grade),
+                        major: (degree !== "学士" || parseInt(grade) >= 2) ? major : null,
                     });
 
                 if (profileError) throw profileError;
@@ -143,7 +149,10 @@ export default function SignupPage() {
                                 </label>
                                 <select
                                     value={department}
-                                    onChange={(e) => setDepartment(e.target.value)}
+                                    onChange={(e) => {
+                                        setDepartment(e.target.value);
+                                        setMajor(""); // 学院が変わったら専攻をリセット
+                                    }}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                     required
                                 >
@@ -157,6 +166,80 @@ export default function SignupPage() {
                                     <option value="その他">その他</option>
                                 </select>
                             </div>
+
+                            <div className="flex gap-4 animate-slide-in-left" style={{ animationDelay: '250ms' }}>
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        課程
+                                    </label>
+                                    <select
+                                        value={degree}
+                                        onChange={(e) => setDegree(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        required
+                                    >
+                                        <option value="学士">学士</option>
+                                        <option value="修士">修士</option>
+                                        <option value="博士">博士</option>
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        学年
+                                    </label>
+                                    <select
+                                        value={grade}
+                                        onChange={(e) => setGrade(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        required
+                                    >
+                                        {degree === "学士" && [1, 2, 3, 4].map(g => (
+                                            <option key={g} value={g}>{g}年</option>
+                                        ))}
+                                        {degree === "修士" && [1, 2].map(g => (
+                                            <option key={g} value={g}>{g}年</option>
+                                        ))}
+                                        {degree === "博士" && [1, 2, 3, 4, 5].map(g => (
+                                            <option key={g} value={g}>{g}年</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {(degree !== "学士" || parseInt(grade) >= 2) && department && (
+                                <div className="animate-slide-in-left" style={{ animationDelay: '280ms' }}>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        系（専攻）
+                                    </label>
+                                    <select
+                                        value={major}
+                                        onChange={(e) => setMajor(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                        required
+                                    >
+                                        <option value="">選択してください</option>
+                                        {department === "理学院" && ["数学系", "物理学系", "化学系", "地球惑星科学系"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                        {department === "工学院" && ["機械系", "システム制御系", "電気電子系", "情報通信系", "経営工学系"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                        {department === "物質理工学院" && ["材料系", "応用科学系"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                        {department === "情報理工学院" && ["数理・計算科学系", "情報工学系"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                        {department === "生命理工学院" && ["生命理工系"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                        {department === "環境・社会理工学院" && ["建築学系", "土木・環境工学系", "融合理工学系"].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                        <option value="その他">その他</option>
+                                    </select>
+                                </div>
+                            )}
 
                             <div className="animate-slide-in-left" style={{ animationDelay: '300ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
