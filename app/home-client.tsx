@@ -128,30 +128,35 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
   const [recommendedItems, setRecommendedItems] = useState<Item[]>(initialRecommendedItems);
   const [popularItems, setPopularItems] = useState<Item[]>(initialPopularItems);
   
+  const [loadingMoreRecommended, setLoadingMoreRecommended] = useState(false);
+  const [hasMoreRecommended, setHasMoreRecommended] = useState(false); // 初期はサーバーサイドの10件
+  const [totalRecommendedCount, setTotalRecommendedCount] = useState(10);
+
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialPopularItems.length < totalPopularCount);
 
   // お気に入りセットをメモ化
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
 
-  // 初期表示時にお気に入り & 最新のカウントをロード（キャッシュ対策）
+  // 初期表示時にお気に入り & パーソナライズされたおすすめをロード
   useEffect(() => {
     const fetchData = async () => {
+      // 1. お気に入り状態のロード & 最新カウントの取得
       const itemIds = [
         ...recommendedItems.map(i => i.id),
         ...popularItems.map(i => i.id)
       ];
       
-      if (itemIds.length === 0) return;
-
-      // 1. 各アイテムの最新カウントを取得 (itemsテーブルから)
-      // 2. 自分の追加済みお気に入りを取得 (userがいる場合)
-      const promises: any[] = [
-        supabase
-          .from("items")
-          .select("id, favorites(count)")
-          .in("id", itemIds)
-      ];
+      const promises: any[] = [];
+      
+      if (itemIds.length > 0) {
+        promises.push(
+          supabase
+            .from("items")
+            .select("id, favorites(count)")
+            .in("id", itemIds)
+        );
+      }
 
       if (user) {
         promises.push(
@@ -160,19 +165,28 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             .select("item_id")
             .eq("user_id", user.id)
         );
+        // ユーザーの所属情報を取得
+        promises.push(
+          supabase
+            .from("profiles")
+            .select("department, major")
+            .eq("user_id", user.id)
+            .single()
+        );
       }
 
-      const [countRes, favRes] = await Promise.all(promises);
+      const results = await Promise.all(promises);
+      let countRes = itemIds.length > 0 ? results[0] : null;
+      let favRes = user ? results[1] : null;
+      let profileRes = user ? results[2] : null;
 
-      // 最新カウントの反映
-      if (countRes.data) {
+      // カウントの反映
+      if (countRes?.data) {
         const countMap = new Map((countRes.data as any[]).map((i: any) => [i.id, i.favorites?.[0]?.count || 0]));
-        
         const updateItemCounts = (prev: Item[]) => prev.map(item => ({
           ...item,
           favorite_count: countMap.get(item.id) ?? item.favorite_count
         }));
-
         setRecommendedItems(prev => updateItemCounts(prev));
         setPopularItems(prev => updateItemCounts(prev));
       }
@@ -181,12 +195,45 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       if (user && favRes?.data) {
         setFavorites(favRes.data.map((f: any) => f.item_id));
       } else if (!user) {
-        setFavorites([]); // ログアウト時はクリア
+        setFavorites([]);
+        // ログアウト時は初期のおすすめ(最新10件)に戻す
+        setRecommendedItems(initialRecommendedItems);
+        setHasMoreRecommended(false);
+      }
+
+      // 2. パーソナライズされたおすすめの取得
+      if (user && profileRes?.data) {
+        const { department, major } = profileRes.data as any;
+        
+        let query = supabase
+          .from("items")
+          .select("id, title, selling_price, condition, front_image_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
+          .eq("status", "available")
+          .eq("profiles.department", department);
+        
+        if (major) {
+          query = query.eq("profiles.major", major);
+        }
+        
+        const { data: majorData, count, error } = await query
+          .order("created_at", { ascending: false })
+          .limit(15);
+
+        if (!error && majorData) {
+          const personalized = (majorData as any[]).map(item => ({
+            ...item,
+            favorite_count: item.favorites?.[0]?.count || 0
+          })) as Item[];
+          
+          setRecommendedItems(personalized);
+          setTotalRecommendedCount(count || 0);
+          setHasMoreRecommended((count || 0) > personalized.length);
+        }
       }
     };
 
     fetchData();
-  }, [user, recommendedItems.length, popularItems.length]);
+  }, [user]); // userが変わった時（ログイン/ログアウト）に再実行
 
   const toggleFavorite = useCallback(async (id: string) => {
     if (!user) return;
@@ -235,6 +282,53 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       );
     }
   }, [user, favoriteSet]);
+
+  const loadMoreRecommended = async () => {
+    if (loadingMoreRecommended || !hasMoreRecommended || !user) return;
+
+    setLoadingMoreRecommended(true);
+    try {
+      const currentLength = recommendedItems.length;
+      
+      // ユーザーの所属情報を再取得（またはStateから持ってくる）
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("department, major")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profile) {
+        let query = supabase
+          .from("items")
+          .select("id, title, selling_price, condition, front_image_url, favorites(count), profiles!inner(department, major)")
+          .eq("status", "available")
+          .eq("profiles.department", (profile as any).department);
+        
+        if ((profile as any).major) {
+          query = query.eq("profiles.major", (profile as any).major);
+        }
+
+        const { data, error } = await query
+          .order("created_at", { ascending: false })
+          .range(currentLength, currentLength + 14);
+
+        if (!error && data) {
+          const newItems = (data as any[]).map(item => ({
+            ...item,
+            favorite_count: item.favorites?.[0]?.count || 0
+          })) as Item[];
+          setRecommendedItems(prev => [...prev, ...newItems]);
+          if (currentLength + newItems.length >= totalRecommendedCount) {
+            setHasMoreRecommended(false);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error loading more recommended items:", err);
+    } finally {
+      setLoadingMoreRecommended(false);
+    }
+  };
 
   const loadMorePopular = async () => {
     if (loadingMore || !hasMore) return;
@@ -368,17 +462,41 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             )}
           </div>
         ) : (
-          <div className="space-y-4">
-            {recommendedItems.map((item, index) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                isFavorite={favoriteSet.has(item.id)}
-                onToggleFavorite={toggleFavorite}
-                index={index}
-              />
-            ))}
-          </div>
+          <>
+            <div className="space-y-4">
+              {recommendedItems.map((item, index) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  isFavorite={favoriteSet.has(item.id)}
+                  onToggleFavorite={toggleFavorite}
+                  index={index}
+                />
+              ))}
+            </div>
+            
+            {hasMoreRecommended && (
+              <div className="mt-8 text-center">
+                <button
+                  onClick={loadMoreRecommended}
+                  disabled={loadingMoreRecommended}
+                  className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-primary/50 transition-all disabled:opacity-50"
+                >
+                  {loadingMoreRecommended ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+                      読み込み中...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-5 h-5" />
+                      もっと見る
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
