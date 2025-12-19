@@ -256,20 +256,23 @@ export default function ProfilePage() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    <GraduationCap className="w-4 h-4 inline mr-1" />
-                                    学部
+                                     <GraduationCap className="w-4 h-4 inline mr-1" />
+                                     学院
                                 </label>
                                 <select
-                                    value={department}
-                                    onChange={(e) => setDepartment(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    required
+                                     value={department}
+                                     onChange={(e) => setDepartment(e.target.value)}
+                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                     required
                                 >
-                                    <option value="">選択してください</option>
-                                    <option value="工学部">工学部</option>
-                                    <option value="理学部">理学部</option>
-                                    <option value="情報学部">情報学部</option>
-                                    <option value="その他">その他</option>
+                                     <option value="">選択してください</option>
+                                     <option value="理学院">理学院</option>
+                                     <option value="工学院">工学院</option>
+                                     <option value="物質理工学院">物質理工学院</option>
+                                     <option value="情報理工学院">情報理工学院</option>
+                                     <option value="生命理工学院">生命理工学院</option>
+                                     <option value="環境・社会理工学院">環境・社会理工学院</option>
+                                     <option value="その他">その他</option>
                                 </select>
                             </div>
 

@@ -83,7 +83,7 @@ export default function SignupPage() {
                     <Link href="/">
                         <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
                     </Link>
-                    <h1 className="text-3xl font-bold text-primary">
+                    <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
                         新規登録
                     </h1>
                 </div>
@@ -103,7 +103,7 @@ export default function SignupPage() {
                         )}
 
                         <form onSubmit={handleSignup} className="space-y-4">
-                            <div>
+                            <div className="animate-slide-in-left">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <Mail className="w-4 h-4 inline mr-1" />
                                     学内メールアドレス
@@ -121,7 +121,7 @@ export default function SignupPage() {
                                 </p>
                             </div>
 
-                            <div>
+                            <div className="animate-slide-in-left" style={{ animationDelay: '100ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <User className="w-4 h-4 inline mr-1" />
                                     ニックネーム
@@ -136,10 +136,10 @@ export default function SignupPage() {
                                 />
                             </div>
 
-                            <div>
+                            <div className="animate-slide-in-left" style={{ animationDelay: '200ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <GraduationCap className="w-4 h-4 inline mr-1" />
-                                    学部
+                                    学院
                                 </label>
                                 <select
                                     value={department}
@@ -148,14 +148,17 @@ export default function SignupPage() {
                                     required
                                 >
                                     <option value="">選択してください</option>
-                                    <option value="工学部">工学部</option>
-                                    <option value="理学部">理学部</option>
-                                    <option value="情報学部">情報学部</option>
+                                    <option value="理学院">理学院</option>
+                                    <option value="工学院">工学院</option>
+                                    <option value="物質理工学院">物質理工学院</option>
+                                    <option value="情報理工学院">情報理工学院</option>
+                                    <option value="生命理工学院">生命理工学院</option>
+                                    <option value="環境・社会理工学院">環境・社会理工学院</option>
                                     <option value="その他">その他</option>
                                 </select>
                             </div>
 
-                            <div>
+                            <div className="animate-slide-in-left" style={{ animationDelay: '300ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <Lock className="w-4 h-4 inline mr-1" />
                                     パスワード
@@ -170,7 +173,7 @@ export default function SignupPage() {
                                 />
                             </div>
 
-                            <div>
+                            <div className="animate-slide-in-left" style={{ animationDelay: '400ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <Lock className="w-4 h-4 inline mr-1" />
                                     パスワード（確認）

@@ -288,15 +288,17 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
 
       {/* Header */}
       <header className="bg-white px-6 pt-8 pb-6 border-b">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-4xl font-bold text-primary">
-            TextNext
-          </h1>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-primary">
-              <BookOpen className="w-5 h-5" />
-              <span className="text-sm font-medium">学内教科書フリマ</span>
+        <div className="flex items-end justify-between mb-6">
+          <div className="flex flex-col">
+            <h1 className="text-3xl font-bold text-primary leading-none tracking-tight">
+              TextNext
+            </h1>
+            <div className="flex items-center gap-1 text-primary/80 mt-1">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold tracking-tight">東工大生のための教科書フリマ</span>
             </div>
+          </div>
+          <div className="flex-shrink-0">
             {loading ? (
               <div className="w-10 h-10 bg-gray-100 rounded-full animate-pulse" />
             ) : user ? (
@@ -320,7 +322,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             ) : (
               <Link
                 href="/auth/login"
-                className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all"
+                className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-sm active:scale-95 whitespace-nowrap block"
               >
                 ログイン
               </Link>
