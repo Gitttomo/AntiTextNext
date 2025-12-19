@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import PurchaseModal, { PurchaseData, generatePurchaseMessage } from "@/components/PurchaseModal";
@@ -34,14 +34,18 @@ export default function ProductDetailPage({
   const [loading, setLoading] = useState(true);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
+    // 重複リクエスト防止
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     loadItem();
   }, [params.id]);
 
   const loadItem = async () => {
     try {
-      // First get the item
+      // アイテムとプロフィールを同時に取得（seller_idは後で使うので2段階）
       const { data: itemData, error: itemError } = await supabase
         .from("items")
         .select("*")
@@ -55,21 +59,14 @@ export default function ProductDetailPage({
       }
 
       if (itemData) {
-        // Then try to get the seller's nickname
-        let nickname = "匿名";
-        try {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("nickname")
-            .eq("user_id", (itemData as any).seller_id)
-            .single();
-          if ((profileData as any)?.nickname) {
-            nickname = (profileData as any).nickname;
-          }
-        } catch {
-          // Profile not found, use default
-        }
+        // プロフィール取得
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("nickname")
+          .eq("user_id", (itemData as any).seller_id)
+          .single();
 
+        const nickname = (profileData as any)?.nickname || "匿名";
         setItem({ ...(itemData as any), seller_nickname: nickname });
       }
     } catch (err) {
@@ -197,25 +194,36 @@ export default function ProductDetailPage({
           {/* Images */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             {item.front_image_url && (
-              <div className="relative aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden">
+              <div className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse">
                 <Image
                   src={item.front_image_url}
                   alt={`${item.title} 表紙`}
                   fill
-                  sizes="(max-width: 768px) 50vw, 400px"
+                  sizes="(max-width: 768px) 40vw, 300px"
                   className="object-cover"
-                  priority
+                  loading="eager"
+                  quality={50}
+                  onLoad={(e) => {
+                    (e.target as HTMLElement).parentElement?.classList.remove('animate-pulse', 'bg-gray-200');
+                    (e.target as HTMLElement).parentElement?.classList.add('bg-gray-100');
+                  }}
                 />
               </div>
             )}
             {item.back_image_url && (
-              <div className="relative aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden">
+              <div className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse">
                 <Image
                   src={item.back_image_url}
                   alt={`${item.title} 裏表紙`}
                   fill
-                  sizes="(max-width: 768px) 50vw, 400px"
+                  sizes="(max-width: 768px) 40vw, 300px"
                   className="object-cover"
+                  loading="lazy"
+                  quality={50}
+                  onLoad={(e) => {
+                    (e.target as HTMLElement).parentElement?.classList.remove('animate-pulse', 'bg-gray-200');
+                    (e.target as HTMLElement).parentElement?.classList.add('bg-gray-100');
+                  }}
                 />
               </div>
             )}

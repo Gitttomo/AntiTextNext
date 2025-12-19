@@ -37,6 +37,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     if (!user) {
@@ -44,6 +45,9 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       return;
     }
 
+    // 重複リクエスト防止
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     loadTransactionAndMessages();
 
     // Subscribe to real-time messages
@@ -85,17 +89,25 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     if (!user) return;
 
     try {
-      // Load transaction info with item
-      const { data: txData, error: txError } = await supabase
+      // トランザクションとメッセージを並列取得で高速化
+      const txPromise = supabase
         .from("transactions")
         .select("*, item:items(title)")
         .eq("id", params.id)
         .single();
 
-      if (txError) throw txError;
+      const messagesPromise = supabase
+        .from("messages")
+        .select("*")
+        .eq("transaction_id", params.id)
+        .order("created_at", { ascending: true });
 
-      if (txData) {
-        const tx = txData as any;
+      const [txResult, messagesResult] = await Promise.all([txPromise, messagesPromise]) as [any, any];
+
+      if (txResult.error) throw txResult.error;
+
+      if (txResult.data) {
+        const tx = txResult.data;
 
         // Check if user is part of this transaction
         if (tx.buyer_id !== user.id && tx.seller_id !== user.id) {
@@ -118,15 +130,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         setOtherUserId(other);
       }
 
-      // Load messages for this transaction
-      const { data: messagesData, error: messagesError } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("transaction_id", params.id)
-        .order("created_at", { ascending: true });
-
-      if (messagesError) throw messagesError;
-      if (messagesData) setMessages(messagesData as Message[]);
+      if (messagesResult.error) throw messagesResult.error;
+      if (messagesResult.data) setMessages(messagesResult.data as Message[]);
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {

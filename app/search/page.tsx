@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Search, History } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
@@ -40,7 +39,6 @@ const katakanaToHiragana = (str: string): string => {
 };
 
 export default function SearchPage() {
-  const router = useRouter();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Item[]>([]);
@@ -48,6 +46,16 @@ export default function SearchPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // 文字変換結果をメモ化（再計算を防止）
+  const convertedQuery = useMemo(() => {
+    const query = searchQuery.trim();
+    return {
+      original: query,
+      hiragana: katakanaToHiragana(query),
+      katakana: hiraganaToKatakana(query),
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     if (user) {
@@ -65,9 +73,7 @@ export default function SearchPage() {
       }
 
       try {
-        const query = searchQuery.trim();
-        const hiragana = katakanaToHiragana(query);
-        const katakana = hiraganaToKatakana(query);
+        const { original: query, hiragana, katakana } = convertedQuery;
 
         // 複数パターンで検索（元の入力、ひらがな変換、カタカナ変換）
         const { data, error } = await supabase
@@ -94,7 +100,7 @@ export default function SearchPage() {
       }
     };
 
-    const debounceTimer = setTimeout(fetchSuggestions, 200);
+    const debounceTimer = setTimeout(fetchSuggestions, 150);
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 

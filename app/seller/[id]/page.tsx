@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, User, GraduationCap, Heart } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
 type SellerProfile = {
@@ -34,40 +34,45 @@ export default function SellerDetailPage({
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
     const [favorites, setFavorites] = useState<string[]>([]);
+    const loadedRef = useRef(false);
 
     useEffect(() => {
+        // 重複リクエスト防止
+        if (loadedRef.current) return;
+        loadedRef.current = true;
         loadSellerData();
     }, [params.id]);
 
     const loadSellerData = async () => {
         try {
-            // Load seller profile
-            const { data: profileData, error: profileError } = await supabase
+            // プロフィールとアイテムを並列取得で高速化
+            const profilePromise = supabase
                 .from("profiles")
                 .select("user_id, nickname, department")
                 .eq("user_id", params.id)
                 .single();
 
-            if (profileError) {
-                console.error("Error loading profile:", profileError);
-                setLoading(false);
-                return;
-            }
-
-            setProfile(profileData as SellerProfile);
-
-            // Load available items from this seller
-            const { data: itemsData, error: itemsError } = await supabase
+            const itemsPromise = supabase
                 .from("items")
                 .select("id, title, selling_price, condition, front_image_url")
                 .eq("seller_id", params.id)
                 .eq("status", "available")
                 .order("created_at", { ascending: false });
 
-            if (itemsError) {
-                console.error("Error loading items:", itemsError);
+            const [profileResult, itemsResult] = await Promise.all([profilePromise, itemsPromise]) as [any, any];
+
+            if (profileResult.error) {
+                console.error("Error loading profile:", profileResult.error);
+                setLoading(false);
+                return;
+            }
+
+            setProfile(profileResult.data as SellerProfile);
+
+            if (itemsResult.error) {
+                console.error("Error loading items:", itemsResult.error);
             } else {
-                setItems((itemsData as Item[]) || []);
+                setItems((itemsResult.data as Item[]) || []);
             }
         } catch (err) {
             console.error("Error loading seller data:", err);
