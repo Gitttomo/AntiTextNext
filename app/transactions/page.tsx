@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, User, GraduationCap, MessageCircle, Package } from "lucide-react";
+import { User, GraduationCap, MessageCircle, Package } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -44,38 +44,43 @@ export default function TransactionsPage() {
         if (!user) return;
 
         try {
-            // Load user profile
-            const { data: profileData } = await supabase
-                .from("profiles")
-                .select("nickname, department")
-                .eq("user_id", user.id)
-                .single();
+            // 全てのクエリを並列実行して高速化
+            const [
+                { data: profileData },
+                { data: buyerTransactions },
+                { data: sellerItems },
+                { data: sellerTransactions }
+            ] = await Promise.all([
+                // Load user profile
+                supabase
+                    .from("profiles")
+                    .select("nickname, department")
+                    .eq("user_id", user.id)
+                    .single(),
+                // Load items where user is buyer (has transaction)
+                supabase
+                    .from("transactions")
+                    .select(`
+                        id,
+                        status,
+                        items(id, title, selling_price, status)
+                    `)
+                    .eq("buyer_id", user.id),
+                // Load items where user is seller
+                supabase
+                    .from("items")
+                    .select("id, title, selling_price, status, seller_id")
+                    .eq("seller_id", user.id),
+                // Load transactions where user is seller
+                supabase
+                    .from("transactions")
+                    .select("id, item_id, status")
+                    .eq("seller_id", user.id)
+            ]);
 
             if (profileData) {
                 setProfile(profileData as Profile);
             }
-
-            // Load items where user is buyer (has transaction)
-            const { data: buyerTransactions } = await supabase
-                .from("transactions")
-                .select(`
-          id,
-          status,
-          items(id, title, selling_price, status)
-        `)
-                .eq("buyer_id", user.id);
-
-            // Load items where user is seller
-            const { data: sellerItems } = await supabase
-                .from("items")
-                .select("id, title, selling_price, status, seller_id")
-                .eq("seller_id", user.id);
-
-            // Load transactions where user is seller
-            const { data: sellerTransactions } = await supabase
-                .from("transactions")
-                .select("id, item_id, status")
-                .eq("seller_id", user.id);
 
             // Process active items
             const active: TransactionItem[] = [];

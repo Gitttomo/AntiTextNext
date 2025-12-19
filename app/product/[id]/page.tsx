@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -196,20 +197,25 @@ export default function ProductDetailPage({
           {/* Images */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             {item.front_image_url && (
-              <div className="aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden">
-                <img
+              <div className="relative aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden">
+                <Image
                   src={item.front_image_url}
                   alt={`${item.title} 表紙`}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 50vw, 400px"
+                  className="object-cover"
+                  priority
                 />
               </div>
             )}
             {item.back_image_url && (
-              <div className="aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden">
-                <img
+              <div className="relative aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden">
+                <Image
                   src={item.back_image_url}
                   alt={`${item.title} 裏表紙`}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 768px) 50vw, 400px"
+                  className="object-cover"
                 />
               </div>
             )}

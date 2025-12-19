@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, User, GraduationCap, Heart } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 type SellerProfile = {
@@ -76,11 +76,11 @@ export default function SellerDetailPage({
         }
     };
 
-    const toggleFavorite = (id: string) => {
+    const toggleFavorite = useCallback((id: string) => {
         setFavorites((prev) =>
             prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]
         );
-    };
+    }, []);
 
     if (loading) {
         return (

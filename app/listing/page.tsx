@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Upload, Loader2 } from "lucide-react";
 import { calculateSellingPrice } from "@/lib/utils";
@@ -26,8 +26,15 @@ export default function ListingPage() {
   const [backCoverPreview, setBackCoverPreview] = useState<string>("");
   const [uploading, setUploading] = useState(false);
 
+  // useEffect内でリダイレクト（SSRでのlocationエラーを防止）
+  useEffect(() => {
+    if (!user && step === "form") {
+      router.push("/auth/login");
+    }
+  }, [user, step, router]);
+
+  // 未認証時は何も表示しない
   if (!user && step === "form") {
-    router.push("/auth/login");
     return null;
   }
 
@@ -41,17 +48,19 @@ export default function ListingPage() {
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === "front") {
-          setFrontCoverPreview(reader.result as string);
-          setFormData({ ...formData, frontCover: file });
-        } else {
-          setBackCoverPreview(reader.result as string);
-          setFormData({ ...formData, backCover: file });
-        }
-      };
-      reader.readAsDataURL(file);
+      // Blob URLを使用してメモリ効率を改善
+      const url = URL.createObjectURL(file);
+      if (type === "front") {
+        // 古いBlob URLを解放
+        if (frontCoverPreview) URL.revokeObjectURL(frontCoverPreview);
+        setFrontCoverPreview(url);
+        setFormData({ ...formData, frontCover: file });
+      } else {
+        // 古いBlob URLを解放
+        if (backCoverPreview) URL.revokeObjectURL(backCoverPreview);
+        setBackCoverPreview(url);
+        setFormData({ ...formData, backCover: file });
+      }
     }
   };
 
