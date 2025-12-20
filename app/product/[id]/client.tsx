@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, ShoppingCart, X, Search, User } from "lucide-react";
+import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
@@ -254,33 +254,66 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">出品者</h3>
-                  <Link
-                    href={`/seller/${item.seller_id}`}
-                    className="flex items-center gap-2 group p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-primary/30 hover:bg-primary/5 transition-all w-fit"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors overflow-hidden">
-                      {item.seller_avatar_url ? (
-                        <Image
-                          src={item.seller_avatar_url}
-                          alt={item.seller_nickname || "出品者"}
-                          width={32}
-                          height={32}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="w-5 h-5" />
+                  <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 space-y-3">
+                    <Link
+                      href={`/seller/${item.seller_id}`}
+                      className="flex items-center gap-3 group transition-all"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors overflow-hidden border-2 border-white shadow-sm">
+                        {item.seller_avatar_url ? (
+                          <Image
+                            src={item.seller_avatar_url}
+                            alt={item.seller_nickname || "出品者"}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-6 h-6" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors truncate">
+                            {item.seller_nickname || "匿名"}
+                          </span>
+                        </div>
+                        {(item as any).seller_rating !== undefined && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex text-yellow-500">
+                              {[...Array(5)].map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  className={`w-3.5 h-3.5 ${i < Math.round((item as any).seller_rating || 0) ? "fill-current" : "text-gray-200"}`} 
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs font-bold text-gray-500">
+                              {((item as any).seller_rating || 0).toFixed(1)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                    
+                    <div className="pt-2 border-t border-gray-200/60 space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <GraduationCap className="w-4 h-4 text-primary/60" />
+                        <span className="font-medium">{(item as any).seller_department || "不明"}</span>
+                      </div>
+                      {(item as any).seller_major && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 pl-6">
+                          <span className="text-xs bg-primary/5 text-primary px-2 py-0.5 rounded-md font-bold">{(item as any).seller_major}</span>
+                        </div>
                       )}
                     </div>
-                    <span className="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors">
-                      {item.seller_nickname || "匿名"}
-                    </span>
-                  </Link>
+                  </div>
                 </div>
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">出品日</h3>
-                  <p className="text-gray-900">
-                    {new Date(item.created_at).toLocaleDateString("ja-JP")}
+                  <p className="text-gray-900 font-medium">
+                    {new Date(item.created_at).toLocaleDateString("ja-JP", { year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
                 </div>
               </div>

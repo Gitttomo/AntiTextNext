@@ -57,9 +57,9 @@ export default async function Mypage() {
     const ratingCount = scores.length;
     const averageRating = ratingCount > 0 ? scores.reduce((a, b) => a + b, 0) / ratingCount : 0;
 
-    // Filter listing items: selling status AND no transactions
+    // Filter listing items: available status AND no transactions
     const txItemIds = new Set((sellerTransactions || []).map(tx => tx.item_id));
-    const listingItems = (sellerItems || []).filter(item => item.status === 'selling' && !txItemIds.has(item.id));
+    const listingItems = (sellerItems || []).filter(item => item.status === 'available' && !txItemIds.has(item.id));
 
     // Filter past items: sold status OR completed transaction
     const completedTxItemIds = new Set((sellerTransactions || []).filter(tx => tx.status === 'completed').map(tx => tx.item_id));
