@@ -1,21 +1,38 @@
+/**
+ * 購入リクエストモーダルコンポーネント
+ * 
+ * 商品購入時に表示されるモーダルダイアログです。
+ * 
+ * 機能:
+ * - 支払い方法の選択（現金/PayPay）
+ * - 受け渡し希望日時の選択（今日から7日間）
+ * - 受け渡し希望場所の選択
+ * 
+ * 選択後、generatePurchaseMessage関数で自動メッセージを生成し、
+ * チャットに送信されます。
+ */
+
 "use client";
 
 import { useState } from "react";
 import { X, CreditCard, Banknote, Smartphone } from "lucide-react";
 
+// モーダルのProps型定義
 type PurchaseModalProps = {
-    isOpen: boolean;
-    onClose: () => void;
-    onSubmit: (data: PurchaseData) => void;
-    itemTitle: string;
+    isOpen: boolean;         // モーダルの表示状態
+    onClose: () => void;     // 閉じるハンドラ
+    onSubmit: (data: PurchaseData) => void;  // 送信ハンドラ
+    itemTitle: string;       // 商品名
 };
 
+// 購入データの型定義
 export type PurchaseData = {
-    paymentMethod: "cash" | "paypay";
-    timeSlots: string[];
-    locations: string[];
+    paymentMethod: "cash" | "paypay";  // 支払い方法
+    timeSlots: string[];               // 希望日時
+    locations: string[];               // 希望場所
 };
 
+// 受け渡し可能な時間帯の定義
 const TIME_SLOTS = [
     { id: "12period", label: "12限終わり休み" },
     { id: "lunch", label: "お昼休み" },
@@ -23,6 +40,7 @@ const TIME_SLOTS = [
     { id: "78period", label: "78限終わり休み" },
 ];
 
+// 受け渡し可能な場所の定義
 const LOCATIONS = [
     { id: "library", label: "図書館前" },
     { id: "taki_plaza", label: "タキプラザ一階" },
@@ -214,8 +232,8 @@ export default function PurchaseModal({
                                                     <label
                                                         key={slot.id}
                                                         className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${isSelected
-                                                                ? "bg-primary/10 border-primary border"
-                                                                : "bg-gray-50 hover:bg-gray-100"
+                                                            ? "bg-primary/10 border-primary border"
+                                                            : "bg-gray-50 hover:bg-gray-100"
                                                             }`}
                                                     >
                                                         <input
@@ -253,8 +271,8 @@ export default function PurchaseModal({
                                     <label
                                         key={location.id}
                                         className={`flex items-center gap-2 p-4 rounded-xl cursor-pointer transition-colors ${isSelected
-                                                ? "bg-primary/10 border-primary border"
-                                                : "bg-gray-50 hover:bg-gray-100 border border-transparent"
+                                            ? "bg-primary/10 border-primary border"
+                                            : "bg-gray-50 hover:bg-gray-100 border border-transparent"
                                             }`}
                                     >
                                         <input

@@ -1,3 +1,17 @@
+/**
+ * 取引一覧ページ
+ * 
+ * ユーザーの全取引を一覧表示するページです。
+ * 
+ * 機能:
+ * - 取引中タブ: 現在進行中の取引を表示
+ * - 履歴タブ: 完了した取引を表示
+ * - 購入/出品の区別表示（色分け）
+ * - 取引チャットへのリンク
+ * 
+ * 未ログイン時はログインページにリダイレクトされます。
+ */
+
 "use client";
 
 import Link from "next/link";
@@ -194,8 +208,8 @@ export default function TransactionsPage() {
                 <button
                     onClick={() => setActiveTab("active")}
                     className={`flex-1 py-4 text-center font-semibold transition-colors ${activeTab === "active"
-                            ? "text-primary border-b-2 border-primary"
-                            : "text-gray-500 hover:text-gray-700"
+                        ? "text-primary border-b-2 border-primary"
+                        : "text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     取引中
@@ -203,8 +217,8 @@ export default function TransactionsPage() {
                 <button
                     onClick={() => setActiveTab("history")}
                     className={`flex-1 py-4 text-center font-semibold transition-colors ${activeTab === "history"
-                            ? "text-primary border-b-2 border-primary"
-                            : "text-gray-500 hover:text-gray-700"
+                        ? "text-primary border-b-2 border-primary"
+                        : "text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     履歴
@@ -226,8 +240,8 @@ export default function TransactionsPage() {
                             <div
                                 key={`${item.id}-${item.isBuyer ? "buyer" : "seller"}`}
                                 className={`bg-white rounded-2xl p-5 shadow-md transition-all duration-300 border-2 ${item.isBuyer
-                                        ? "border-blue-400 hover:border-blue-500"
-                                        : "border-red-400 hover:border-red-500"
+                                    ? "border-blue-400 hover:border-blue-500"
+                                    : "border-red-400 hover:border-red-500"
                                     }`}
                             >
                                 <div className="flex items-start justify-between gap-4">
@@ -236,8 +250,8 @@ export default function TransactionsPage() {
                                         <div className="flex items-center gap-2 mb-2">
                                             <span
                                                 className={`text-xs font-medium px-2 py-1 rounded-full ${item.isBuyer
-                                                        ? "bg-blue-100 text-blue-700"
-                                                        : "bg-red-100 text-red-700"
+                                                    ? "bg-blue-100 text-blue-700"
+                                                    : "bg-red-100 text-red-700"
                                                     }`}
                                             >
                                                 {item.isBuyer ? "購入" : "出品"}

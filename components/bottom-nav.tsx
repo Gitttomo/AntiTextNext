@@ -1,3 +1,16 @@
+/**
+ * ボトムナビゲーションコンポーネント
+ * 
+ * 画面下部に固定表示されるナビゲーションバーです。
+ * 
+ * ナビゲーション項目:
+ * - ホーム（/）: トップページへ
+ * - 出品（/listing）: 教科書出品ページへ
+ * - 取引一覧（/transactions）: 取引履歴ページへ
+ * 
+ * 現在のパスに応じてアクティブ状態のスタイルが適用されます。
+ */
+
 "use client";
 
 import Link from "next/link";
@@ -5,7 +18,9 @@ import { usePathname } from "next/navigation";
 import { Home, Camera, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// ボトムナビゲーションコンポーネント
 export function BottomNav() {
+  // 現在のURLパスを取得
   const pathname = usePathname();
 
   return (

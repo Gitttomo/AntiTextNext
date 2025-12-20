@@ -1,3 +1,16 @@
+/**
+ * チャット一覧ページ
+ * 
+ * ユーザーの全チャット会話を一覧表示するページです。
+ * 
+ * 機能:
+ * - 商品ごとのチャット会話一覧
+ * - 最新メッセージと日時の表示
+ * - 各チャットへのリンク
+ * 
+ * 未ログイン時はログインページにリダイレクトされます。
+ */
+
 "use client";
 
 import Link from "next/link";
@@ -7,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
+// チャット会話の型定義
 type ChatConversation = {
   item_id: string;
   item_title: string;

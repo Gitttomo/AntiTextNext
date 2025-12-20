@@ -1,3 +1,17 @@
+/**
+ * ホームページ（トップページ）
+ * 
+ * アプリのメインページです。出品されている教科書一覧を表示します。
+ * 
+ * 機能:
+ * - おすすめ教材の一覧表示（最新10件）
+ * - 検索バー（/searchへのリンク）
+ * - お気に入り機能
+ * - ログイン/プロフィールへのナビゲーション
+ * 
+ * 商品カードは状態（美品/良好/可）に応じて色分け表示されます。
+ */
+
 "use client";
 
 import Link from "next/link";
@@ -6,6 +20,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
+// 商品アイテムの型定義
 type Item = {
   id: string;
   title: string;
@@ -13,6 +28,7 @@ type Item = {
   condition: string;
 };
 
+// 商品状態ごとの色設定
 const conditionColors: Record<string, string> = {
   "美品": "bg-green-100 text-green-700",
   "良好": "bg-blue-100 text-blue-700",

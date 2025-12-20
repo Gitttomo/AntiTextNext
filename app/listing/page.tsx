@@ -1,3 +1,21 @@
+/**
+ * 教科書出品ページ
+ * 
+ * 教科書を出品するための3ステップフォームページです。
+ * 
+ * フロー:
+ * 1. form: 教科書情報の入力（名前、状態、写真、定価）
+ * 2. confirm: 入力内容の確認
+ * 3. success: 出品完了
+ * 
+ * 機能:
+ * - 画像アップロード（表紙・裏表紙）
+ * - 販売価格の自動計算（定価の30%）
+ * - Supabase Storageへの画像保存
+ * 
+ * 未ログイン時はログインページにリダイレクトされます。
+ */
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
+// 出品フローのステップ定義
 type ListingStep = "form" | "confirm" | "success";
 
 export default function ListingPage() {

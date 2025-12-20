@@ -1,3 +1,16 @@
+/**
+ * 取引完了後の評価ページ
+ * 
+ * 取引終了後に相手ユーザーを評価するためのページです。
+ * 
+ * 機能:
+ * - 5段階の星評価
+ * - コメント入力（任意）
+ * - 評価送信後ホームへ遷移
+ * 
+ * ※現在はプレースホルダー実装で、バックエンドへの保存は未実装です。
+ */
+
 "use client";
 
 import { useState } from "react";
@@ -52,11 +65,10 @@ export default function RatingPage({ params }: { params: { id: string } }) {
                 className="transition-transform hover:scale-110"
               >
                 <Star
-                  className={`w-16 h-16 transition-colors ${
-                    star <= (hoveredRating || rating)
+                  className={`w-16 h-16 transition-colors ${star <= (hoveredRating || rating)
                       ? "fill-yellow-400 text-yellow-400"
                       : "fill-gray-300 text-gray-300"
-                  }`}
+                    }`}
                 />
               </button>
             ))}

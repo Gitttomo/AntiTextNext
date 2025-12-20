@@ -1,3 +1,17 @@
+/**
+ * チャット詳細ページ（取引チャット）
+ * 
+ * 特定の取引に関するリアルタイムチャットページです。
+ * 
+ * 機能:
+ * - メッセージの送受信
+ * - リアルタイム更新（Supabase Realtime使用）
+ * - 取引ステータスの表示
+ * - 自分/相手のメッセージの区別表示
+ * 
+ * 取引の当事者（購入者または出品者）のみアクセス可能です。
+ */
+
 "use client";
 
 import Link from "next/link";
@@ -7,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
+// メッセージの型定義
 type Message = {
   id: string;
   sender_id: string;
@@ -15,6 +30,7 @@ type Message = {
   created_at: string;
 };
 
+// 取引情報の型定義
 type Transaction = {
   id: string;
   item_id: string;

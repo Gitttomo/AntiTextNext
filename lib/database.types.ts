@@ -1,3 +1,17 @@
+/**
+ * Supabaseデータベース型定義ファイル
+ * 
+ * このファイルはSupabaseデータベースのテーブル構造をTypeScript型として定義します。
+ * 
+ * テーブル構成:
+ * - profiles: ユーザープロフィール（ニックネーム、学部）
+ * - items: 出品商品（タイトル、価格、状態、画像URL）
+ * - search_histories: 検索履歴
+ * - messages: チャットメッセージ
+ * - transactions: 取引情報（購入者、出品者、支払い方法、受け渡し情報）
+ */
+
+// JSONデータの型定義
 export type Json =
     | string
     | number
@@ -6,9 +20,11 @@ export type Json =
     | { [key: string]: Json | undefined }
     | Json[]
 
+// データベース全体の型定義
 export interface Database {
     public: {
         Tables: {
+            // ユーザープロフィールテーブル
             profiles: {
                 Row: {
                     user_id: string

@@ -1,3 +1,17 @@
+/**
+ * 商品詳細ページ
+ * 
+ * 出品されている教科書の詳細情報を表示するページです。
+ * 
+ * 機能:
+ * - 商品情報（タイトル、価格、状態、出品者）の表示
+ * - 商品画像の表示
+ * - 購入リクエストモーダルの表示
+ * - 取引の作成とチャットへの遷移
+ * 
+ * 自分の出品商品の場合は購入ボタンが表示されません。
+ */
+
 "use client";
 
 import Link from "next/link";
@@ -9,6 +23,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import PurchaseModal, { PurchaseData, generatePurchaseMessage } from "@/components/PurchaseModal";
 
+// 商品情報の型定義
 type Item = {
   id: string;
   title: string;
