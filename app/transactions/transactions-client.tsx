@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { User, GraduationCap, MessageCircle, Package, BookOpen, Calendar, MapPin, Clock, RotateCcw } from "lucide-react";
+import { User, GraduationCap, MessageCircle, Package, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +47,7 @@ export default function TransactionsClient({
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
     const [historyItems, setHistoryItems] = useState<TransactionItem[]>(initialHistoryItems);
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
+    const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
     // If server didn't find a session, check client-side on mount
@@ -211,10 +212,10 @@ export default function TransactionsClient({
         return groups;
     }, {} as Record<string, TransactionItem[]>);
 
-    // Sort dates: Confirmed first (sorted by date string is tricky), then "未定"
+    // Sort dates: "未定" first, then others sorted by date string
     const sortedDates = Object.keys(groupedItemsByDate).sort((a, b) => {
-        if (a === "未定") return 1;
-        if (b === "未定") return -1;
+        if (a === "未定") return -1;
+        if (b === "未定") return 1;
         return a.localeCompare(b);
     });
 
@@ -397,24 +398,70 @@ export default function TransactionsClient({
                         </div>
                     ) : (
                         <div className="space-y-10">
-                            {sortedDates.map((date) => (
-                                <section key={date} className="space-y-4">
-                                    <div className="flex items-center gap-3 px-2">
-                                        <div className="w-10 h-10 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-gray-100">
-                                            <Calendar className={`w-5 h-5 ${date === "未定" ? "text-gray-300" : "text-primary"}`} />
+                            {sortedDates.map((date) => {
+                                const isPending = date === "未定";
+                                const itemsCount = groupedItemsByDate[date].length;
+
+                                if (isPending) {
+                                    return (
+                                        <section key={date} className="space-y-4">
+                                            <button
+                                                onClick={() => setIsPendingCollapsed(!isPendingCollapsed)}
+                                                className="w-full flex items-center justify-between p-4 bg-gray-100/50 hover:bg-gray-100 rounded-3xl transition-all group"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-gray-100">
+                                                        <Calendar className="w-5 h-5 text-gray-300" />
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <h2 className="font-black tracking-tight text-gray-400 text-lg">
+                                                            {date}
+                                                        </h2>
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                            日程調整が必要
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="bg-gray-200 text-gray-500 text-[10px] font-black px-2 py-0.5 rounded-full ring-2 ring-white">
+                                                        {itemsCount}
+                                                    </span>
+                                                    {isPendingCollapsed ? (
+                                                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                                                    ) : (
+                                                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                                                    )}
+                                                </div>
+                                            </button>
+                                            
+                                            {!isPendingCollapsed && (
+                                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                    {groupedItemsByDate[date].map((item, idx) => renderItem(item, idx))}
+                                                </div>
+                                            )}
+                                        </section>
+                                    );
+                                }
+
+                                return (
+                                    <section key={date} className="space-y-4">
+                                        <div className="flex items-center gap-3 px-2">
+                                            <div className="w-10 h-10 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-gray-100">
+                                                <Calendar className="w-5 h-5 text-primary" />
+                                            </div>
+                                            <div>
+                                                <h2 className="font-black tracking-tight text-gray-900 text-xl">
+                                                    {date}
+                                                </h2>
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">確定済み</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h2 className={`font-black tracking-tight ${date === "未定" ? "text-gray-400 text-lg" : "text-gray-900 text-xl"}`}>
-                                                {date}
-                                            </h2>
-                                            {date !== "未定" && <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">確定済み</p>}
+                                        <div className="space-y-4">
+                                            {groupedItemsByDate[date].map((item, idx) => renderItem(item, idx))}
                                         </div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {groupedItemsByDate[date].map((item, idx) => renderItem(item, idx))}
-                                    </div>
-                                </section>
-                            ))}
+                                    </section>
+                                );
+                            })}
                         </div>
                     )
                 ) : (
@@ -434,8 +481,3 @@ export default function TransactionsClient({
     );
 }
 
-const CheckCircle = ({ className }: { className?: string }) => (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-    </svg>
-);

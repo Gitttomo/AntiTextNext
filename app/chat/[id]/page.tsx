@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight } from "lucide-react";
+import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -72,6 +72,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [accessDenied, setAccessDenied] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -434,6 +435,28 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     }
   };
 
+  const handleCompleteTransaction = async () => {
+    if (!item || !transaction) return;
+    setIsFinalizing(true);
+    try {
+      const { error: txError } = await (supabase.from("transactions") as any)
+        .update({ status: 'completed' })
+        .eq("id", transaction.id);
+      if (txError) throw txError;
+
+      const { error: itemError } = await (supabase.from("items") as any)
+        .update({ status: 'sold' })
+        .eq("id", item.id);
+      if (itemError) throw itemError;
+
+      router.push(`/rating/${transaction.id}`);
+    } catch (err: any) {
+      alert("取引の完了に失敗しました: " + err.message);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
   // アバターコンポーネント
   const Avatar = ({ url, size = 40 }: { url: string | null; size?: number }) => (
     <div
@@ -504,7 +527,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   return (
     <div className="h-screen flex flex-col bg-[#B2C7D9] overflow-hidden">
       {/* Header */}
-      <header className="bg-[#B2C7D9] px-4 py-3 flex items-center gap-3 flex-shrink-0 border-b border-white/20">
+      <header className="fixed top-0 left-0 right-0 bg-[#B2C7D9]/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-white/20 h-16">
         <Link href="/transactions" className="p-1">
           <ArrowLeft className="w-6 h-6 text-white" />
         </Link>
@@ -518,11 +541,30 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         </div>
       </header>
 
-      {/* Messages Area */}
-      <div
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4"
-      >
+      {/* Action Bar (Below Header) */}
+      <div className="fixed top-16 left-0 right-0 bg-[#B2C7D9]/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-white/10">
+        <button
+          onClick={() => setIsScheduleModalOpen(true)}
+          className="flex-1 flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold py-2.5 rounded-xl transition-all border border-white/20 text-xs"
+        >
+          <Calendar className="w-4 h-4" />
+          日程調整・変更
+        </button>
+        <button
+          onClick={() => setIsCompletionModalOpen(true)}
+          className="flex-1 flex items-center justify-center gap-2 bg-primary/80 hover:bg-primary text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-black/5 text-xs"
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          取引を完了する
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-hidden pt-[116px] flex flex-col">
+        {/* Messages Area */}
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth"
+        >
         {/* Scheduling Component (Injected at the top like a pinned post) */}
         {transaction && transaction.meetup_time_slots?.length > 0 && !transaction.final_meetup_time && (
            <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -667,17 +709,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           </div>
         )}
       </div>
-
-      {/* Reschedule Button above text box */}
-      <div className="px-4 py-2 bg-white/50 backdrop-blur-sm flex justify-center">
-        <button
-          onClick={() => setIsScheduleModalOpen(true)}
-          className="flex items-center gap-2 px-6 py-2 bg-white border-2 border-primary/20 hover:border-primary/40 text-primary font-black rounded-full shadow-sm hover:shadow-md transition-all active:scale-95 text-sm"
-        >
-          <Calendar className="w-4 h-4" />
-          日程変更・登録を行う
-        </button>
-      </div>
+    </div>
 
       {/* Input Area */}
       <div className="flex-shrink-0 bg-white px-4 py-3 border-t border-gray-200 safe-area-bottom">
@@ -766,6 +798,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
             setIsScheduleModalOpen(false);
           }
         }}
+      />
+
+      {/* Transaction Completion Modal */}
+      <CompletionConfirmationModal
+        isOpen={isCompletionModalOpen}
+        onClose={() => setIsCompletionModalOpen(false)}
+        onConfirm={handleCompleteTransaction}
+        isSeller={isSeller}
       />
 
       <style jsx global>{`
@@ -1000,6 +1040,70 @@ function ScheduleAdjustmentModal({
               </>
             )}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Transaction Completion Modal ---
+function CompletionConfirmationModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  isSeller
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isSeller: boolean;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 animate-in fade-in duration-300">
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+        onClick={onClose} 
+      />
+      <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+        <div className="p-8">
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <CheckCircle2 className="w-8 h-8 text-primary" />
+          </div>
+          
+          <h2 className="text-xl font-black text-gray-900 text-center mb-2">
+            取引を完了しますか？
+          </h2>
+          <p className="text-gray-500 text-sm text-center mb-8 font-medium">
+            以下の内容を確認してください
+          </p>
+
+          <div className="space-y-4 mb-8">
+            <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <div className="w-5 h-5 mt-0.5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                <Check className="w-3 h-3 text-white" strokeWidth={4} />
+              </div>
+              <p className="text-sm font-bold text-gray-700">
+                {isSeller ? "代金を受け取りましたか？" : "商品を受け取りましたか？"}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={onConfirm}
+              className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-[0.98]"
+            >
+              はい、取引を終了する
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
+            >
+              いいえ、チャットに戻る
+            </button>
+          </div>
         </div>
       </div>
     </div>
