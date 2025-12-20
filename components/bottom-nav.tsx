@@ -36,6 +36,7 @@ export function BottomNav() {
           className="flex flex-col items-center justify-center -mt-6"
         >
           <div className={cn(
+            //出品アイコンの見た目
             "w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-lg transition-all duration-200",
             pathname === "/listing"
               ? "scale-110 shadow-primary/40 shadow-xl"
