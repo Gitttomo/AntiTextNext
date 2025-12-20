@@ -25,26 +25,37 @@ const LOCATIONS = [
     { id: "other", label: "その他（チャットで相談）" },
 ];
 
+// ▼▼▼ ここを修正しました ▼▼▼
 const getNext7Days = () => {
     const days = [];
     const today = new Date();
     const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
 
+    // 今日から7日間ループして確認
     for (let i = 0; i < 7; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
+
+        const dayOfWeek = date.getDay(); // 0:日, 1:月 ... 6:土
+
+        // 土曜日(6) または 日曜日(0) ならリストに追加せずスキップ
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            continue;
+        }
+
         const month = date.getMonth() + 1;
         const day = date.getDate();
-        const dayOfWeek = date.getDay();
         const dayName = dayNames[dayOfWeek];
+        
         days.push({
             id: date.toISOString().split("T")[0],
             label: `${month}/${day}(${dayName})`,
-            isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+            isWeekend: false, // 平日のみ表示するため常にfalseとします
         });
     }
     return days;
 };
+// ▲▲▲ 修正ここまで ▲▲▲
 
 export default function PurchaseModal({
     isOpen,
