@@ -22,7 +22,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom shadow-[0_-4px_20px_rgba(0,0,0,0.03)] [.hide-bottom-nav_&]:hidden">
       <div className="flex items-end justify-around h-20 max-w-screen-lg mx-auto px-2 pb-2">
         {navItems.map((item) => {
           const Icon = item.icon;

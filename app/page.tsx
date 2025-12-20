@@ -1,15 +1,18 @@
 import { supabase } from "@/lib/supabase";
 import HomeClient from "./home-client";
 
-// ISR (Incremental Static Regeneration) を有効化（60秒キャッシュ）
-export const revalidate = 60;
+// 常に最新の在庫・ロック状況を反映するため動的レンダリングを強制
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const now = new Date().toISOString();
+
   // おすすめの教材（最新10件）
   const { data: recommendedData, error: recommendedError } = await supabase
     .from("items")
     .select("id, title, selling_price, condition, front_image_url, favorites(count)")
     .eq("status", "available")
+    .or(`locked_until.is.null,locked_until.lt.${now}`)
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -18,6 +21,7 @@ export default async function HomePage() {
     .from("items")
     .select("id, title, selling_price, condition, front_image_url, favorites(count)")
     .eq("status", "available")
+    .or(`locked_until.is.null,locked_until.lt.${now}`)
     .order("created_at", { ascending: false })
     .range(0, 14);
 
@@ -25,7 +29,8 @@ export default async function HomePage() {
   const { count: totalCount } = await supabase
     .from("items")
     .select("*", { count: "exact", head: true })
-    .eq("status", "available");
+    .eq("status", "available")
+    .or(`locked_until.is.null,locked_until.lt.${now}`);
 
   if (recommendedError) {
     console.error("Error loading recommended items:", recommendedError);

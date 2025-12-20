@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, User, GraduationCap, Heart } from "lucide-react";
+import { ArrowLeft, User, GraduationCap, Heart, Star, Image as ImageIcon } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 type SellerProfile = {
     user_id: string;
     nickname: string;
     department: string;
+    major?: string;
+    avatar_url?: string | null;
 };
 
 type Item = {
@@ -34,6 +37,8 @@ export default function SellerDetailPage({
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
     const [favorites, setFavorites] = useState<string[]>([]);
+    const [averageRating, setAverageRating] = useState(0);
+    const [ratingCount, setRatingCount] = useState(0);
     const loadedRef = useRef(false);
 
     useEffect(() => {
@@ -45,10 +50,10 @@ export default function SellerDetailPage({
 
     const loadSellerData = async () => {
         try {
-            // プロフィールとアイテムを並列取得で高速化
+            // プロフィール、アイテム、評価を並列取得で高速化
             const profilePromise = supabase
                 .from("profiles")
-                .select("user_id, nickname, department")
+                .select("user_id, nickname, department, major, avatar_url")
                 .eq("user_id", params.id)
                 .single();
 
@@ -59,7 +64,16 @@ export default function SellerDetailPage({
                 .eq("status", "available")
                 .order("created_at", { ascending: false });
 
-            const [profileResult, itemsResult] = await Promise.all([profilePromise, itemsPromise]) as [any, any];
+            const ratingsPromise = supabase
+                .from("ratings")
+                .select("score")
+                .eq("rated_id", params.id);
+
+            const [profileResult, itemsResult, ratingsResult] = await Promise.all([
+                profilePromise, 
+                itemsPromise,
+                ratingsPromise
+            ]) as [any, any, any];
 
             if (profileResult.error) {
                 console.error("Error loading profile:", profileResult.error);
@@ -73,6 +87,14 @@ export default function SellerDetailPage({
                 console.error("Error loading items:", itemsResult.error);
             } else {
                 setItems((itemsResult.data as Item[]) || []);
+            }
+
+            if (ratingsResult.data) {
+                const scores = (ratingsResult.data as any[]).map(r => r.score);
+                const count = scores.length;
+                const avg = count > 0 ? scores.reduce((a, b) => a + b, 0) / count : 0;
+                setAverageRating(avg);
+                setRatingCount(count);
             }
         } catch (err) {
             console.error("Error loading seller data:", err);
@@ -90,7 +112,10 @@ export default function SellerDetailPage({
     if (loading) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
-                <p className="text-gray-600">読み込み中...</p>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <p className="text-gray-400 font-bold">読み込み中...</p>
+                </div>
             </div>
         );
     }
@@ -98,9 +123,9 @@ export default function SellerDetailPage({
     if (!profile) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-gray-600 mb-4">出品者が見つかりませんでした</p>
-                    <Link href="/" className="text-primary hover:underline">
+                <div className="text-center p-8">
+                    <p className="text-gray-600 mb-6 text-xl font-bold">出品者が見つかりませんでした</p>
+                    <Link href="/" className="inline-block px-8 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-95">
                         ホームに戻る
                     </Link>
                 </div>
@@ -109,38 +134,81 @@ export default function SellerDetailPage({
     }
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32">
             {/* Header */}
-            <header className="bg-white px-6 pt-8 pb-6 border-b">
-                <div className="flex items-center gap-4 mb-6">
-                    <button onClick={() => window.history.back()}>
-                        <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
+            <header className="bg-white/80 backdrop-blur-md px-6 pt-8 pb-8 border-b border-gray-100 sticky top-0 z-10 shadow-sm">
+                <div className="flex items-center gap-4 mb-8">
+                    <button onClick={() => window.history.back()} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors active:scale-90">
+                        <ArrowLeft className="w-6 h-6 text-gray-600" />
                     </button>
-                    <h1 className="text-3xl font-bold text-primary">出品者情報</h1>
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tighter">出品者情報</h1>
                 </div>
 
-                {/* Seller Profile Info */}
-                <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                        <User className="w-8 h-8 text-primary" />
+                {/* Seller Profile Info Card */}
+                <div className="flex items-center gap-5 transition-transform">
+                    <div className="w-20 h-20 rounded-full border-4 border-primary/20 overflow-hidden shadow-inner flex-shrink-0">
+                        {profile.avatar_url ? (
+                            <Image 
+                                src={profile.avatar_url} 
+                                alt="Avatar" 
+                                width={80} 
+                                height={80} 
+                                className="w-full h-full object-cover"
+                                unoptimized
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+                                <User className="w-10 h-10 text-primary/40" />
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900">
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-2xl font-black text-gray-900 truncate mb-1">
                             {profile.nickname}
                         </h2>
-                        <div className="flex items-center gap-2 text-gray-600">
-                            <GraduationCap className="w-4 h-4" />
-                            <span className="text-sm">{profile.department}</span>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <div className="flex text-yellow-500">
+                                    {[...Array(5)].map((_, i) => (
+                                        <Star 
+                                            key={i} 
+                                            className={`w-4 h-4 ${i < Math.round(averageRating) ? "fill-current" : "text-gray-200"}`} 
+                                        />
+                                    ))}
+                                </div>
+                                <span className="text-sm font-black text-gray-500">
+                                    {averageRating.toFixed(1)} ({ratingCount})
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-600">
+                                <div className="flex items-center gap-1.5">
+                                    <GraduationCap className="w-4 h-4 text-primary/60" />
+                                    <span className="text-sm font-bold">{profile.department}</span>
+                                </div>
+                                {profile.major && (
+                                    <div className="flex items-center">
+                                        <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                            {profile.major}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             </header>
 
             {/* Items Section */}
-            <div className="px-6 py-8">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                    出品中の商品（{items.length}件）
-                </h3>
+            <div className="px-6 py-10">
+                <div className="flex items-center justify-between mb-6 px-1">
+                    <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
+                        <ImageIcon className="w-5 h-5 text-primary" strokeWidth={2.5} />
+                        出品中の商品
+                    </h3>
+                    <span className="text-sm font-black text-primary bg-primary/5 px-3 py-1 rounded-full">
+                        {items.length}件
+                    </span>
+                </div>
 
                 {items.length === 0 ? (
                     <div className="text-center py-12">
