@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { User, GraduationCap, MessageCircle, Package, BookOpen } from "lucide-react";
+import { User, GraduationCap, MessageCircle, Package, BookOpen, Calendar, MapPin, Clock, RotateCcw } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +23,8 @@ type TransactionItem = {
     isBuyer: boolean;
     hasTransaction: boolean;
     unreadCount: number;
+    final_meetup_time?: string | null;
+    final_meetup_location?: string | null;
 };
 
 type TransactionsClientProps = {
@@ -53,8 +55,6 @@ export default function TransactionsClient({
             if (!user) {
                 router.push("/auth/login");
             } else {
-                // User exists on client but not on server (cookie sync issue)
-                // Load data now
                 loadData();
                 setInitialCheckDone(true);
             }
@@ -83,6 +83,8 @@ export default function TransactionsClient({
                         id,
                         status,
                         item_id,
+                        final_meetup_time,
+                        final_meetup_location,
                         items(id, title, selling_price, status, front_image_url)
                     `)
                     .eq("buyer_id", user.id),
@@ -92,7 +94,7 @@ export default function TransactionsClient({
                     .eq("seller_id", user.id),
                 supabase
                     .from("transactions")
-                    .select("id, item_id, status")
+                    .select("id, item_id, status, final_meetup_time, final_meetup_location")
                     .eq("seller_id", user.id),
                 supabase
                     .from("messages")
@@ -129,6 +131,8 @@ export default function TransactionsClient({
                     isBuyer: true,
                     hasTransaction: true,
                     unreadCount: unreadCountMap.get(item.id) || 0,
+                    final_meetup_time: tx.final_meetup_time,
+                    final_meetup_location: tx.final_meetup_location,
                 };
 
                 if (tx.status === "completed" || item.status === "sold") {
@@ -138,9 +142,14 @@ export default function TransactionsClient({
                 }
             }
 
-            const sellerTxMap = new Map<string, { txId: string; txStatus: string }>();
+            const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }>();
             for (const tx of (sellerTransactions || []) as any[]) {
-                sellerTxMap.set(tx.item_id, { txId: tx.id, txStatus: tx.status });
+                sellerTxMap.set(tx.item_id, { 
+                    txId: tx.id, 
+                    txStatus: tx.status,
+                    final_meetup_time: tx.final_meetup_time,
+                    final_meetup_location: tx.final_meetup_location
+                });
             }
 
             for (const item of (sellerItems || []) as any[]) {
@@ -154,6 +163,8 @@ export default function TransactionsClient({
                     isBuyer: false,
                     hasTransaction: !!txInfo,
                     unreadCount: unreadCountMap.get(item.id) || 0,
+                    final_meetup_time: txInfo?.final_meetup_time,
+                    final_meetup_location: txInfo?.final_meetup_location,
                 };
 
                 if (item.status === "sold" || txInfo?.txStatus === "completed") {
@@ -187,49 +198,166 @@ export default function TransactionsClient({
     const totalUnreadCount = activeItems.reduce((sum, item) => sum + item.unreadCount, 0) +
         historyItems.reduce((sum, item) => sum + item.unreadCount, 0);
 
-    const displayItems = activeTab === "active" ? activeItems : historyItems;
     const activeUnreadCount = activeItems.reduce((sum, item) => sum + item.unreadCount, 0);
     const historyUnreadCount = historyItems.reduce((sum, item) => sum + item.unreadCount, 0);
+
+    // Grouping logic for "Active" tab
+    const groupedItemsByDate = activeItems.reduce((groups, item) => {
+        const date = item.final_meetup_time || "未定";
+        if (!groups[date]) {
+            groups[date] = [];
+        }
+        groups[date].push(item);
+        return groups;
+    }, {} as Record<string, TransactionItem[]>);
+
+    // Sort dates: Confirmed first (sorted by date string is tricky), then "未定"
+    const sortedDates = Object.keys(groupedItemsByDate).sort((a, b) => {
+        if (a === "未定") return 1;
+        if (b === "未定") return -1;
+        return a.localeCompare(b);
+    });
 
     if (!initialCheckDone || authLoading) {
         return <TransactionsSkeleton />;
     }
 
-    return (
-        <div className="min-h-screen bg-white pb-24">
-            <header className="bg-white px-6 pt-8 pb-6 border-b">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-3xl font-bold text-primary">取引一覧</h1>
-                    {totalUnreadCount > 0 && (
-                        <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center">
-                            {totalUnreadCount}
-                        </span>
+    const renderItem = (item: TransactionItem, index: number) => (
+        <div
+            key={`${item.id}-${item.isBuyer ? "buyer" : "seller"}`}
+            onClick={() => router.push(`/product/${item.id}`)}
+            className={`bg-white rounded-3xl p-5 shadow-sm transition-all duration-300 border-2 cursor-pointer group active:scale-[0.98] animate-in fade-in slide-in-from-bottom-4 ${item.isBuyer
+                ? "border-blue-100 hover:border-blue-400 hover:shadow-xl"
+                : "border-red-100 hover:border-red-400 hover:shadow-xl"
+                }`}
+            style={{ animationDelay: `${index * 50}ms` }}
+        >
+            <div className="flex items-start gap-4">
+                <div className="w-20 h-20 flex-shrink-0 bg-gray-50 rounded-2xl overflow-hidden group-hover:scale-105 transition-transform">
+                    {item.front_image_url ? (
+                        <Image
+                            src={item.front_image_url}
+                            alt={item.title}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <BookOpen className="w-8 h-8" />
+                        </div>
                     )}
                 </div>
 
+                <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span
+                            className={`text-[10px] uppercase font-black px-2.5 py-1 rounded-full ${item.isBuyer
+                                ? "bg-blue-50 text-blue-600 border border-blue-100"
+                                : "bg-red-50 text-red-600 border border-red-100"
+                                }`}
+                        >
+                            {item.isBuyer ? "購入" : "出品"}
+                        </span>
+                        {item.final_meetup_time && (
+                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-green-50 text-green-600 border border-green-100 rounded-full flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                確定
+                             </span>
+                        )}
+                        {activeTab === "active" && !item.final_meetup_time && (
+                            <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-yellow-50 text-yellow-600 border border-yellow-100 rounded-full">
+                                調整中
+                            </span>
+                        )}
+                    </div>
+
+                    <h3 className="font-black text-gray-900 truncate text-lg group-hover:text-primary transition-colors">
+                        {item.title}
+                    </h3>
+
+                    <div className="flex items-center justify-between mt-1">
+                        <p className="text-xl font-black text-primary">
+                            ¥{item.selling_price.toLocaleString()}
+                        </p>
+                        
+                        {item.hasTransaction && (
+                            <div className="relative">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        router.push(`/chat/${item.id}`);
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-2xl font-black hover:bg-primary/90 transition-all text-xs shadow-lg shadow-primary/20"
+                                >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    チャット
+                                </button>
+                                {item.unreadCount > 0 && (
+                                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-md animate-pulse">
+                                        {item.unreadCount > 99 ? "99+" : item.unreadCount}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {item.final_meetup_time && (
+                        <div className="mt-3 pt-3 border-t border-gray-50 flex flex-col gap-1">
+                             <div className="flex items-center gap-2 text-gray-500 font-bold text-[11px]">
+                                <Clock className="w-3 h-3 text-primary/40" />
+                                <span>{item.final_meetup_time}</span>
+                             </div>
+                             {item.final_meetup_location && (
+                                <div className="flex items-center gap-2 text-gray-400 font-medium text-[11px]">
+                                    <MapPin className="w-3 h-3 text-primary/40" />
+                                    <span>{item.final_meetup_location}</span>
+                                </div>
+                             )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="min-h-screen bg-gray-50 pb-24">
+            <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-4xl font-black text-gray-900 tracking-tight">予定管理</h1>
+                        {totalUnreadCount > 0 && (
+                            <span className="bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-lg shadow-red-500/20">
+                                {totalUnreadCount}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
                 {profile && (
-                    <Link href="/profile" className="mt-4 block">
-                        <div className="flex items-center gap-3 hover:bg-gray-50 rounded-xl p-2 -m-2 transition-colors cursor-pointer">
-                            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary/20">
+                    <Link href="/profile" className="mt-6 block group">
+                        <div className="flex items-center gap-4 bg-gray-50 rounded-[28px] p-4 transition-all hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98]">
+                            <div className="w-14 h-14 rounded-full overflow-hidden border-4 border-white shadow-md">
                                 {avatarUrl ? (
                                     <Image
                                         src={avatarUrl}
                                         alt="プロフィール"
-                                        width={48}
-                                        height={48}
+                                        width={56}
+                                        height={56}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
                                     <div className="w-full h-full bg-primary/10 flex items-center justify-center">
-                                        <User className="w-6 h-6 text-primary" />
+                                        <User className="w-7 h-7 text-primary" />
                                     </div>
                                 )}
                             </div>
-                            <div>
-                                <p className="font-bold text-gray-900">{profile.nickname}</p>
-                                <div className="flex items-center gap-1 text-gray-600">
-                                    <GraduationCap className="w-4 h-4" />
-                                    <span className="text-sm">{profile.department}</span>
+                            <div className="flex-1">
+                                <p className="font-black text-gray-900 text-lg">{profile.nickname}</p>
+                                <div className="flex items-center gap-1.5 text-gray-500">
+                                    <GraduationCap className="w-4 h-4 text-primary/40" />
+                                    <span className="text-xs font-bold uppercase tracking-wider">{profile.department}</span>
                                 </div>
                             </div>
                         </div>
@@ -237,131 +365,77 @@ export default function TransactionsClient({
                 )}
             </header>
 
-            <div className="flex border-b">
-                <button
-                    onClick={() => setActiveTab("active")}
-                    className={`flex-1 py-4 text-center font-semibold transition-colors relative ${activeTab === "active"
-                        ? "text-primary border-b-2 border-primary"
-                        : "text-gray-500"
-                        }`}
-                >
-                    <span className="flex items-center justify-center gap-2">
+            <div className="px-6 -mt-6">
+                <div className="bg-white/80 backdrop-blur-md rounded-[32px] p-1.5 flex shadow-xl border border-white/50">
+                    <button
+                        onClick={() => setActiveTab("active")}
+                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] relative ${activeTab === "active"
+                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            : "text-gray-400 hover:text-gray-600"
+                            }`}
+                    >
                         取引中 ({activeItems.length})
-                        {activeUnreadCount > 0 && (
-                            <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                                {activeUnreadCount}
-                            </span>
-                        )}
-                    </span>
-                </button>
-                <button
-                    onClick={() => setActiveTab("history")}
-                    className={`flex-1 py-4 text-center font-semibold transition-colors ${activeTab === "history"
-                        ? "text-primary border-b-2 border-primary"
-                        : "text-gray-500"
-                        }`}
-                >
-                    <span className="flex items-center justify-center gap-2">
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("history")}
+                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "history"
+                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            : "text-gray-400 hover:text-gray-600"
+                            }`}
+                    >
                         履歴 ({historyItems.length})
-                        {historyUnreadCount > 0 && (
-                            <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                                {historyUnreadCount}
-                            </span>
-                        )}
-                    </span>
-                </button>
+                    </button>
+                </div>
             </div>
 
-            <div className="px-6 py-6">
-                {displayItems.length === 0 ? (
-                    <div className="text-center py-12">
-                        <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                        <p className="text-gray-500">
-                            {activeTab === "active"
-                                ? "取引中の商品はありません"
-                                : "取引履歴はありません"}
-                        </p>
-                    </div>
+            <div className="px-6 py-8">
+                {activeTab === "active" ? (
+                    sortedDates.length === 0 ? (
+                        <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
+                            <Package className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+                            <p className="text-gray-400 font-black">取引中の商品はありません</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-10">
+                            {sortedDates.map((date) => (
+                                <section key={date} className="space-y-4">
+                                    <div className="flex items-center gap-3 px-2">
+                                        <div className="w-10 h-10 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-gray-100">
+                                            <Calendar className={`w-5 h-5 ${date === "未定" ? "text-gray-300" : "text-primary"}`} />
+                                        </div>
+                                        <div>
+                                            <h2 className={`font-black tracking-tight ${date === "未定" ? "text-gray-400 text-lg" : "text-gray-900 text-xl"}`}>
+                                                {date}
+                                            </h2>
+                                            {date !== "未定" && <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">確定済み</p>}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {groupedItemsByDate[date].map((item, idx) => renderItem(item, idx))}
+                                    </div>
+                                </section>
+                            ))}
+                        </div>
+                    )
                 ) : (
                     <div className="space-y-4">
-                        {displayItems.map((item, index) => (
-                            <div
-                                key={`${item.id}-${item.isBuyer ? "buyer" : "seller"}`}
-                                onClick={() => router.push(`/product/${item.id}`)}
-                                className={`bg-white rounded-2xl p-5 shadow-md transition-all duration-300 border-2 cursor-pointer group active:scale-[0.98] animate-slide-in-top ${item.isBuyer
-                                    ? "border-blue-400 hover:border-blue-500 hover:shadow-lg"
-                                    : "border-red-400 hover:border-red-500 hover:shadow-lg"
-                                    }`}
-                                style={{ animationDelay: `${index * 80}ms` }}
-                            >
-                                <div className="flex items-start gap-4">
-                                    <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden group-hover:scale-105 transition-transform">
-                                        {item.front_image_url ? (
-                                            <Image
-                                                src={item.front_image_url}
-                                                alt={item.title}
-                                                width={64}
-                                                height={64}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                                <BookOpen className="w-6 h-6" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span
-                                                className={`text-xs font-medium px-2 py-1 rounded-full ${item.isBuyer
-                                                    ? "bg-blue-100 text-blue-700"
-                                                    : "bg-red-100 text-red-700"
-                                                    }`}
-                                            >
-                                                {item.isBuyer ? "購入" : "出品"}
-                                            </span>
-                                            {activeTab === "active" && (
-                                                <span className="text-xs font-medium px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">
-                                                    取引中
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <h3 className="font-bold text-gray-900 truncate group-hover:text-primary transition-colors">
-                                            {item.title}
-                                        </h3>
-
-                                        <p className="text-lg font-bold text-primary">
-                                            ¥{item.selling_price.toLocaleString()}
-                                        </p>
-                                    </div>
-
-                                    {item.hasTransaction && (
-                                        <div className="relative">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    router.push(`/chat/${item.id}`);
-                                                }}
-                                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all text-sm z-10"
-                                            >
-                                                <MessageCircle className="w-4 h-4" />
-                                                チャット
-                                            </button>
-                                            {item.unreadCount > 0 && (
-                                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-md animate-pulse">
-                                                    {item.unreadCount > 99 ? "99+" : item.unreadCount}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                        {historyItems.length === 0 ? (
+                            <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
+                                <RotateCcw className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+                                <p className="text-gray-400 font-black">取引履歴はありません</p>
                             </div>
-                        ))}
+                        ) : (
+                            historyItems.map((item, idx) => renderItem(item, idx))
+                        )}
                     </div>
                 )}
             </div>
         </div>
     );
 }
+
+const CheckCircle = ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+    </svg>
+);

@@ -14,6 +14,8 @@ type TransactionItem = {
     isBuyer: boolean;
     hasTransaction: boolean;
     unreadCount: number;
+    final_meetup_time?: string | null;
+    final_meetup_location?: string | null;
 };
 
 export default async function TransactionsPage() {
@@ -81,6 +83,8 @@ export default async function TransactionsPage() {
                 id,
                 status,
                 item_id,
+                final_meetup_time,
+                final_meetup_location,
                 items(id, title, selling_price, status, front_image_url)
             `)
             .eq("buyer_id", userId),
@@ -90,7 +94,7 @@ export default async function TransactionsPage() {
             .eq("seller_id", userId),
         supabase
             .from("transactions")
-            .select("id, item_id, status")
+            .select("id, item_id, status, final_meetup_time, final_meetup_location")
             .eq("seller_id", userId),
         supabase
             .from("messages")
@@ -125,6 +129,8 @@ export default async function TransactionsPage() {
             isBuyer: true,
             hasTransaction: true,
             unreadCount: unreadCountMap.get(item.id) || 0,
+            final_meetup_time: tx.final_meetup_time,
+            final_meetup_location: tx.final_meetup_location,
         };
 
         if (tx.status === "completed" || item.status === "sold") {
@@ -135,9 +141,14 @@ export default async function TransactionsPage() {
     }
 
     // Process Seller Items & Transactions
-    const sellerTxMap = new Map<string, { txId: string; txStatus: string }>();
+    const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }>();
     for (const tx of (sellerTransactions || []) as any[]) {
-        sellerTxMap.set(tx.item_id, { txId: tx.id, txStatus: tx.status });
+        sellerTxMap.set(tx.item_id, { 
+            txId: tx.id, 
+            txStatus: tx.status,
+            final_meetup_time: tx.final_meetup_time,
+            final_meetup_location: tx.final_meetup_location
+        });
     }
 
     for (const item of (sellerItems || []) as any[]) {
@@ -151,6 +162,8 @@ export default async function TransactionsPage() {
             isBuyer: false,
             hasTransaction: !!txInfo,
             unreadCount: unreadCountMap.get(item.id) || 0,
+            final_meetup_time: txInfo?.final_meetup_time,
+            final_meetup_location: txInfo?.final_meetup_location,
         };
 
         if (item.status === "sold" || txInfo?.txStatus === "completed") {

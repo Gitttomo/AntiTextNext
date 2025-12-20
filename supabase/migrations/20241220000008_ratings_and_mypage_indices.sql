@@ -1,6 +1,6 @@
 -- Create ratings table
 CREATE TABLE IF NOT EXISTS public.ratings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     transaction_id UUID NOT NULL REFERENCES public.transactions(id),
     rater_id UUID NOT NULL REFERENCES auth.users(id),
     rated_id UUID NOT NULL REFERENCES auth.users(id),

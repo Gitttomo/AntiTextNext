@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from 'next/dynamic';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -36,14 +36,50 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const [isClosing, setIsClosing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
+  const isLockedRef = useRef(false);
+
+  useEffect(() => {
+    isLockedRef.current = !!lockedUntil;
+  }, [lockedUntil]);
+
+  const handleReleaseLock = async () => {
+    if (!user || !item) return;
+    try {
+      await (supabase
+        .from("items") as any)
+        .update({
+          locked_by: null,
+          locked_until: null
+        })
+        .eq("id", item.id)
+        .eq("locked_by", user.id);
+    } catch (err) {
+      console.error("Error releasing lock:", err);
+    }
+  };
+
   useEffect(() => {
     setIsVisible(true);
     // モーダル表示時に背景のスクロールを固定
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = 'unset';
+      document.body.classList.remove('hide-bottom-nav');
+      if (isLockedRef.current) {
+        handleReleaseLock();
+      }
     };
   }, []);
+
+  // モーダル状態に合わせてナビゲーションの表示を制御
+  useEffect(() => {
+    if (isPurchaseModalOpen) {
+      document.body.classList.add('hide-bottom-nav');
+    } else {
+      document.body.classList.remove('hide-bottom-nav');
+    }
+  }, [isPurchaseModalOpen]);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -58,12 +94,46 @@ export default function ProductDetailClient({ item }: { item: Item }) {
     }
   };
 
-  const handleOpenPurchaseModal = () => {
+  const handleOpenPurchaseModal = async () => {
     if (!user) {
       router.push("/auth/login");
       return;
     }
-    setIsPurchaseModalOpen(true);
+
+    const now = new Date().toISOString();
+    const tenMinutesLater = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    
+    try {
+      // Attempt to acquire lock via RPC (more secure & bypasses RLS issues)
+      const { data: success, error } = await (supabase as any).rpc("acquire_item_lock", {
+        target_item_id: item.id,
+        locker_id: user.id,
+        lock_until: tenMinutesLater
+      });
+
+      if (error) throw error;
+
+      if (!success) {
+        alert("現在、他の方が手続き中です。1分後にもう一度お試しください。");
+        return;
+      }
+
+      setLockedUntil(tenMinutesLater);
+      setIsPurchaseModalOpen(true);
+    } catch (err: any) {
+      console.error("Error acquiring lock:", err);
+      // Detailed error for debugging
+      if (err.message?.includes('function acquire_item_lock') || err.message?.includes('column "locked_by" does not exist')) {
+        alert("システムエラー：データベースの更新（マイグレーション）が未完了です。SQL Editorで最新のSQLを実行してください。");
+      } else {
+        alert("購入手続きの開始に失敗しました。時間をおいて再度お試しください。");
+      }
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsPurchaseModalOpen(false);
+    handleReleaseLock();
   };
 
   const handlePurchaseSubmit = async (data: PurchaseData) => {
@@ -72,6 +142,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
     setIsSubmitting(true);
 
     try {
+      // Create transaction
       const { error: transactionError } = await (supabase
         .from("transactions") as any)
         .insert({
@@ -86,9 +157,14 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
       if (transactionError) throw transactionError;
 
+      // Update item status and release lock
       const { error: updateError } = await (supabase
         .from("items") as any)
-        .update({ status: "transaction_pending" })
+        .update({ 
+          status: "transaction_pending",
+          locked_by: null,
+          locked_until: null
+        })
         .eq("id", item.id);
 
       if (updateError) throw updateError;
@@ -373,9 +449,10 @@ export default function ProductDetailClient({ item }: { item: Item }) {
       {/* Purchase Modal */}
       <PurchaseModal
         isOpen={isPurchaseModalOpen}
-        onClose={() => setIsPurchaseModalOpen(false)}
+        onClose={handleModalClose}
         onSubmit={handlePurchaseSubmit}
         itemTitle={item.title}
+        lockedUntil={lockedUntil}
       />
     </div>
   );

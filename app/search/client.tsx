@@ -228,16 +228,17 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
       return;
     }
 
-    const fetchSuggestions = async () => {
-      try {
-        const { original: query, hiragana, katakana } = convertedQuery;
-
-        const { data, error } = await supabase
-          .from("items")
-          .select("id, title")
-          .eq("status", "available")
-          .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
-          .limit(5);
+      const fetchSuggestions = async () => {
+        try {
+          const { original: query, hiragana, katakana } = convertedQuery;
+          const now = new Date().toISOString();
+          const { data, error } = await supabase
+            .from("items")
+            .select("id, title")
+            .eq("status", "available")
+            .or(`locked_until.is.null,locked_until.lt.${now}`)
+            .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
+            .limit(5);
 
         if (error) throw error;
 

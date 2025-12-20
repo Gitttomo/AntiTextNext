@@ -13,6 +13,7 @@ export function generatePurchaseMessage(data: PurchaseData): string {
         "lunch": "お昼休み",
         "56period": "56限終わり休み",
         "78period": "78限終わり休み",
+        "other": "その他",
     };
 
     const locationLabels: Record<string, string> = {
