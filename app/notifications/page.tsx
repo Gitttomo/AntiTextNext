@@ -77,8 +77,8 @@ export default function NotificationsPage() {
     const handleNotificationClick = async (notification: Notification) => {
         // Mark as read
         if (!notification.is_read) {
-            await supabase
-                .from("notifications")
+            await (supabase
+                .from("notifications") as any)
                 .update({ is_read: true })
                 .eq("id", notification.id);
         }
