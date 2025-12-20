@@ -120,14 +120,23 @@ CREATE POLICY "Users can send messages"
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ```
 
-### Migration: Add transaction_id to existing messages table
+### Migration: Add missing fields to existing messages table
 
 ```sql
 -- 既存のテーブルがある場合、このSQLを実行
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_url TEXT;
 ```
 
 ### 5. Transactions Table (購入リクエスト用)
+
+**Transaction Status Values:**
+- `pending`: 日程調整中
+- `confirmed`: 日程確定済み
+- `awaiting_rating`: 評価待ち (少なくとも一方のユーザーが取引完了ボタンを押して評価送信済み)
+- `completed`: 取引完了 (双方が評価を送信済み)
+- `cancelled`: キャンセル済み
 
 ```sql
 CREATE TABLE transactions (
@@ -138,7 +147,12 @@ CREATE TABLE transactions (
   payment_method TEXT NOT NULL,
   meetup_time_slots TEXT[] NOT NULL,
   meetup_locations TEXT[] NOT NULL,
+  final_meetup_time TEXT,
+  final_meetup_location TEXT,
   status TEXT DEFAULT 'pending' NOT NULL,
+  buyer_completed BOOLEAN DEFAULT FALSE,
+  seller_completed BOOLEAN DEFAULT FALSE,
+  cancellation_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -202,6 +216,56 @@ USING (
 );
 ```
 
+### 6. Notifications Table (通知用)
+
+```sql
+CREATE TABLE notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  link_type TEXT,
+  link_id TEXT,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "Users can view own notifications"
+  ON notifications FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Authenticated users can create notifications"
+  ON notifications FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Users can update own notifications"
+  ON notifications FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Index for faster queries
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+```
+
+**Notification Types:**
+- `rating_received`: 評価が送信されました
+- `transaction_completed`: 取引が完了しました
+- `message`: 新しいメッセージ
+- `transaction_cancelled`: 取引がキャンセルされました
+
+**Link Types:**
+- `chat`: チャットページへのリンク (link_id = item_id)
+- `transaction`: 取引ページへのリンク
+- `profile`: プロフィールページへのリンク
+
 ## Step 3: Configure Email Authentication
 
 1. Go to **Authentication** > **Providers** in your Supabase dashboard
@@ -209,8 +273,22 @@ USING (
 3. Configure your email templates if needed
 4. For testing, you can disable email confirmation temporarily
 
+## Step 4: Migration for Existing Databases
+
+If you already have a transactions table, run this migration to add the new fields:
+
+```sql
+-- Add new fields to transactions table for buyer/seller completion tracking
+ALTER TABLE transactions
+ADD COLUMN IF NOT EXISTS final_meetup_time TEXT,
+ADD COLUMN IF NOT EXISTS final_meetup_location TEXT,
+ADD COLUMN IF NOT EXISTS buyer_completed BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS seller_completed BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+```
+
 ## You're Done!
 
-Your database is now set up and ready to use with the TextNext app. 
+Your database is now set up and ready to use with the TextNext app.
 
 Make sure your `.env.local` file has the correct Supabase URL and anon key, then start the development server with `npm run dev`.

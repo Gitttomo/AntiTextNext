@@ -36,6 +36,9 @@ type Transaction = {
   final_meetup_time: string | null;
   final_meetup_location: string | null;
   status: string;
+  buyer_completed: boolean;
+  seller_completed: boolean;
+  cancellation_reason: string | null;
 };
 
 type UserProfile = {
@@ -73,7 +76,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [isCancellationModalOpen, setIsCancellationModalOpen] = useState(false);
+  const [isCancellationReasonModalOpen, setIsCancellationReasonModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showCancellationSection, setShowCancellationSection] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -436,24 +442,78 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleCompleteTransaction = async () => {
-    if (!item || !transaction) return;
+    if (!item || !transaction || !user) return;
     setIsFinalizing(true);
     try {
-      const { error: txError } = await (supabase.from("transactions") as any)
-        .update({ status: 'completed' })
-        .eq("id", transaction.id);
+      const isBuyer = user.id === transaction.buyer_id;
+      const updateField = isBuyer ? 'buyer_completed' : 'seller_completed';
+      const otherField = isBuyer ? 'seller_completed' : 'buyer_completed';
+
+      // Update current user's completion status
+      const { data: updatedTx, error: txError } = await (supabase.from("transactions") as any)
+        .update({ [updateField]: true })
+        .eq("id", transaction.id)
+        .select()
+        .single();
+
       if (txError) throw txError;
 
-      const { error: itemError } = await (supabase.from("items") as any)
-        .update({ status: 'sold' })
-        .eq("id", item.id);
-      if (itemError) throw itemError;
+      // Check if both parties have completed
+      const bothCompleted = updatedTx[otherField] === true;
 
+      if (bothCompleted) {
+        // Both completed - mark transaction as awaiting_rating (will be completed after both rate)
+        const { error: statusError } = await (supabase.from("transactions") as any)
+          .update({ status: 'awaiting_rating' })
+          .eq("id", transaction.id);
+        if (statusError) throw statusError;
+      } else {
+        // Only current user completed - mark as awaiting_rating
+        const { error: statusError } = await (supabase.from("transactions") as any)
+          .update({ status: 'awaiting_rating' })
+          .eq("id", transaction.id);
+        if (statusError) throw statusError;
+      }
+
+      // Always redirect to rating page
       router.push(`/rating/${transaction.id}`);
     } catch (err: any) {
       alert("取引の完了に失敗しました: " + err.message);
     } finally {
       setIsFinalizing(false);
+    }
+  };
+
+  const handleCancelTransaction = async (reason: string) => {
+    if (!item || !transaction) return;
+    setIsFinalizing(true);
+    try {
+      // Update transaction status to cancelled with reason
+      const { error: txError } = await (supabase.from("transactions") as any)
+        .update({
+          status: 'cancelled',
+          cancellation_reason: reason
+        })
+        .eq("id", transaction.id);
+      if (txError) throw txError;
+
+      // Reset item status to available
+      const { error: itemError } = await (supabase.from("items") as any)
+        .update({ status: 'available' })
+        .eq("id", item.id);
+      if (itemError) throw itemError;
+
+      // Send notification message to other user
+      await handleSend(`【取引がキャンセルされました】\n\n理由: ${reason}`);
+
+      // Redirect to home
+      router.push('/');
+    } catch (err: any) {
+      alert("取引のキャンセルに失敗しました: " + err.message);
+    } finally {
+      setIsFinalizing(false);
+      setIsCancellationReasonModalOpen(false);
+      setIsCancellationModalOpen(false);
     }
   };
 
@@ -519,6 +579,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const statusLabel = {
     available: "出品中",
     transaction_pending: "取引調整中",
+    awaiting_rating: "評価待ち",
     sold: "取引完了",
   }[item.status] || item.status;
 
@@ -545,14 +606,20 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       <div className="fixed top-16 left-0 right-0 bg-[#B2C7D9]/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-white/10">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
-          className="flex-1 flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold py-2.5 rounded-xl transition-all border border-white/20 text-xs"
+          disabled={transaction?.status === 'awaiting_rating' || transaction?.status === 'completed'}
+          className="flex-1 flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold py-2.5 rounded-xl transition-all border border-white/20 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Calendar className="w-4 h-4" />
           日程調整・変更
         </button>
         <button
           onClick={() => setIsCompletionModalOpen(true)}
-          className="flex-1 flex items-center justify-center gap-2 bg-primary/80 hover:bg-primary text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-black/5 text-xs"
+          disabled={
+            transaction?.status === 'completed' ||
+            (user?.id === transaction?.buyer_id && transaction?.buyer_completed) ||
+            (user?.id === transaction?.seller_id && transaction?.seller_completed)
+          }
+          className="flex-1 flex items-center justify-center gap-2 bg-primary/80 hover:bg-primary text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-black/5 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <CheckCircle2 className="w-4 h-4" />
           取引を完了する
@@ -711,6 +778,40 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       </div>
     </div>
 
+      {/* Cancellation Section */}
+      {transaction && transaction.status !== 'completed' && transaction.status !== 'cancelled' &&
+       !((user?.id === transaction.buyer_id && transaction.buyer_completed) || (user?.id === transaction.seller_id && transaction.seller_completed)) && (
+        <div className="flex-shrink-0 bg-white border-t border-gray-100">
+          <div className="px-4 py-2">
+            <button
+              onClick={() => setShowCancellationSection(!showCancellationSection)}
+              className="w-full text-center py-2 text-gray-500 hover:text-gray-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+            >
+              <AlertCircle className="w-4 h-4" />
+              取引キャンセルを行う場合
+              <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${showCancellationSection ? "rotate-90" : ""}`} />
+            </button>
+
+            {showCancellationSection && (
+              <div className="mt-2 pb-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4">
+                  <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                    取引をキャンセルする場合は、取引相手への配慮が必要です。キャンセル理由を記入してお送りください。
+                  </p>
+                  <button
+                    onClick={() => setIsCancellationModalOpen(true)}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <XIcon className="w-4 h-4" />
+                    取引をキャンセルする
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="flex-shrink-0 bg-white px-4 py-3 border-t border-gray-200 safe-area-bottom">
         <form
@@ -806,6 +907,24 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         onClose={() => setIsCompletionModalOpen(false)}
         onConfirm={handleCompleteTransaction}
         isSeller={isSeller}
+      />
+
+      {/* Transaction Cancellation Confirmation Modal */}
+      <CancellationConfirmationModal
+        isOpen={isCancellationModalOpen}
+        onClose={() => setIsCancellationModalOpen(false)}
+        onConfirm={() => {
+          setIsCancellationModalOpen(false);
+          setIsCancellationReasonModalOpen(true);
+        }}
+      />
+
+      {/* Cancellation Reason Input Modal */}
+      <CancellationReasonModal
+        isOpen={isCancellationReasonModalOpen}
+        onClose={() => setIsCancellationReasonModalOpen(false)}
+        onConfirm={handleCancelTransaction}
+        isSubmitting={isFinalizing}
       />
 
       <style jsx global>{`
@@ -1102,6 +1221,146 @@ function CompletionConfirmationModal({
               className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
             >
               いいえ、チャットに戻る
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Transaction Cancellation Confirmation Modal ---
+function CancellationConfirmationModal({
+  isOpen,
+  onClose,
+  onConfirm
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 animate-in fade-in duration-300">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+        <div className="p-8">
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+
+          <h2 className="text-xl font-black text-gray-900 text-center mb-2">
+            取引をキャンセルしますか?
+          </h2>
+          <p className="text-gray-500 text-sm text-center mb-8 font-medium">
+            以下の内容を確認してください
+          </p>
+
+          <div className="space-y-4 mb-8">
+            <div className="flex items-start gap-3 bg-red-50 p-4 rounded-2xl border border-red-100">
+              <div className="w-5 h-5 mt-0.5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
+                <XIcon className="w-3 h-3 text-white" strokeWidth={4} />
+              </div>
+              <p className="text-sm font-bold text-gray-700">
+                取引をキャンセルすると、取引相手へ通知が送信され、この取引は終了します。
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={onConfirm}
+              className="w-full bg-red-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-[0.98]"
+            >
+              取引をキャンセルして申請する
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
+            >
+              チャットに戻る
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Cancellation Reason Modal ---
+function CancellationReasonModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  isSubmitting
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  isSubmitting: boolean;
+}) {
+  const [reason, setReason] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleSubmit = () => {
+    if (!reason.trim()) {
+      alert("キャンセル理由を入力してください");
+      return;
+    }
+    onConfirm(reason.trim());
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 animate-in fade-in duration-300">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+        <div className="p-8">
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+
+          <h2 className="text-xl font-black text-gray-900 text-center mb-2">
+            キャンセル理由を入力
+          </h2>
+          <p className="text-gray-500 text-sm text-center mb-6 font-medium">
+            取引相手への配慮のため、キャンセル理由を記入してください
+          </p>
+
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="ここに入力"
+            disabled={isSubmitting}
+            className="w-full h-40 px-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-red-500 focus:bg-white transition-all resize-none text-gray-700 placeholder:text-gray-400 font-medium mb-6"
+            maxLength={500}
+          />
+
+          <div className="space-y-3">
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !reason.trim()}
+              className="w-full bg-red-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                "送信する"
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              戻る
             </button>
           </div>
         </div>
