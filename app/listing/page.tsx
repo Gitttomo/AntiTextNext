@@ -130,6 +130,54 @@ export default function ListingPage() {
     }
   };
 
+  const captureAndScan = async () => {
+    if (!scannerRef.current) return;
+    const video = scannerRef.current.querySelector("video");
+    if (!video) return;
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Image enhancement: High contrast & Grayscale
+      ctx.filter = "grayscale(1) contrast(1.5) brightness(1.2)";
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL("image/jpeg");
+
+      Quagga.decodeSingle({
+        src: dataUrl,
+        numOfWorkers: 0,
+        inputStream: {
+          size: 800
+        },
+        decoder: {
+          readers: ["ean_reader"]
+        },
+      }, (result) => {
+        if (result?.codeResult) {
+          const code = result.codeResult.code;
+          if (code && (code.startsWith("978") || code.startsWith("979"))) {
+            Quagga.stop();
+            setIsScanning(false);
+            setFormData(prev => ({ ...prev, barcode: code }));
+            setTimeout(() => {
+              searchBookByIsbn(code);
+            }, 100);
+            return;
+          }
+        }
+        alert("バーコードを検出できませんでした。もう一度試してください。");
+      });
+    } catch (e) {
+      console.error("Snapshot scan error:", e);
+      alert("撮影に失敗しました。");
+    }
+  };
+
   const handleBarcodeSearch = () => {
     searchBookByIsbn(formData.barcode);
   };
@@ -572,7 +620,7 @@ export default function ListingPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="relative aspect-[4/3] bg-black">
+            <div className="absolute inset-0 aspect-[4/3] bg-black">
               <div ref={scannerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
               {/* Overlay guides */}
               <div className="absolute inset-0 border-2 border-primary/50 m-8 rounded-lg pointer-events-none">
@@ -580,9 +628,19 @@ export default function ListingPage() {
                   <div className="w-full h-0.5 bg-red-500/50" />
                 </div>
               </div>
+              
+              {/* Snapshot Button */}
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center z-20">
+                <button
+                  onClick={captureAndScan}
+                  className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                >
+                  <div className="w-14 h-14 border-2 border-black rounded-full" />
+                </button>
+              </div>
             </div>
             <div className="p-4 text-center text-sm text-gray-500 bg-gray-50">
-              裏表紙のバーコード（ISBN）を枠内に合わせてください
+              裏表紙のバーコードを枠に入れ、<br/>ボタンを押して撮影すると高速に読み取れます
             </div>
           </div>
         </div>
