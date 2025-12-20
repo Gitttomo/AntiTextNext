@@ -23,7 +23,7 @@ export function generatePurchaseMessage(data: PurchaseData): string {
         other: "その他（チャットで相談）",
     };
 
-    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+    const dayNames = ["月", "火", "水", "木", "金"];
 
     const formattedTimeSlots = data.timeSlots.map((slot) => {
         const [dateStr, slotId] = slot.split("_");

@@ -28,7 +28,7 @@ const LOCATIONS = [
 const getNext7Days = () => {
     const days = [];
     const today = new Date();
-    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+    const dayNames = ["月", "火", "水", "木", "金"];
 
     for (let i = 0; i < 7; i++) {
         const date = new Date(today);
