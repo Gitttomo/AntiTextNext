@@ -264,24 +264,15 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     if (!user) return;
 
     try {
-      // 多めに取得して重複を排除
       const { data } = await supabase
         .from("search_histories")
         .select("id, keyword, searched_at")
         .eq("user_id", user.id)
         .order("searched_at", { ascending: false })
-        .limit(50);
+        .limit(5);
 
       if (data) {
-        // キーワードの重複を排除（最新のものを優先）
-        const seenKeywords = new Set<string>();
-        const uniqueHistory = data.filter((item: any) => {
-          if (seenKeywords.has(item.keyword)) return false;
-          seenKeywords.add(item.keyword);
-          return true;
-        }).slice(0, 7); // 7件まで表示
-
-        setSearchHistory(uniqueHistory as SearchHistory[]);
+        setSearchHistory(data as SearchHistory[]);
       }
     } catch (err) {
       // 履歴読み込みエラーは無視
