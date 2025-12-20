@@ -20,11 +20,44 @@ export default function ListingPage() {
     condition: "良好",
     frontCover: null as File | null,
     backCover: null as File | null,
+    barcode: "",
   });
 
   const [frontCoverPreview, setFrontCoverPreview] = useState<string>("");
   const [backCoverPreview, setBackCoverPreview] = useState<string>("");
   const [uploading, setUploading] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  const handleBarcodeSearch = async () => {
+    const isbn = formData.barcode.replace(/-/g, "").trim();
+    if (!isbn) return;
+
+    setSearching(true);
+    try {
+      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const data = await response.json();
+
+      if (data.totalItems > 0) {
+        const book = data.items[0].volumeInfo;
+        const saleInfo = data.items[0].saleInfo;
+        
+        setFormData(prev => ({
+          ...prev,
+          bookName: book.title || prev.bookName,
+          originalPrice: saleInfo?.listPrice?.amount 
+            ? String(saleInfo.listPrice.amount) 
+            : prev.originalPrice
+        }));
+      } else {
+        alert("書籍が見つかりませんでした。ISBNを確認するか、手動で入力してください。");
+      }
+    } catch (error) {
+      console.error("Barcode search error:", error);
+      alert("検索中にエラーが発生しました。");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   // useEffect内でリダイレクト（SSRでのlocationエラーを防止）
   useEffect(() => {
@@ -275,6 +308,37 @@ export default function ListingPage() {
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-2xl border shadow-lg p-8">
             <div className="space-y-6">
+              <div className="animate-slide-in-bottom">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  バーコード (ISBN) <span className="text-gray-400 text-xs ml-1">※任意</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="978から始まる13桁の数字"
+                    value={formData.barcode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, barcode: e.target.value })
+                    }
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  />
+                  <button
+                    onClick={handleBarcodeSearch}
+                    disabled={searching || !formData.barcode}
+                    className="px-3 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap"
+                  >
+                    {searching ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      "検索"
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  入力するとタイトルを自動で取得します
+                </p>
+              </div>
+
               <div className="animate-slide-in-bottom">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   教科書名 <span className="text-red-500">*</span>
