@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { User, GraduationCap, MessageCircle, Package, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle } from "lucide-react";
+import { User, GraduationCap, MessageCircle, Package, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +25,7 @@ type TransactionItem = {
     unreadCount: number;
     final_meetup_time?: string | null;
     final_meetup_location?: string | null;
+    transactionStatus?: string;
 };
 
 type TransactionsClientProps = {
@@ -134,11 +135,13 @@ export default function TransactionsClient({
                     unreadCount: unreadCountMap.get(item.id) || 0,
                     final_meetup_time: tx.final_meetup_time,
                     final_meetup_location: tx.final_meetup_location,
+                    transactionStatus: tx.status,
                 };
 
                 if (tx.status === "completed" || item.status === "sold") {
                     history.push(txItem);
                 } else {
+                    // Include pending, confirmed, and awaiting_rating in active
                     active.push(txItem);
                 }
             }
@@ -166,11 +169,13 @@ export default function TransactionsClient({
                     unreadCount: unreadCountMap.get(item.id) || 0,
                     final_meetup_time: txInfo?.final_meetup_time,
                     final_meetup_location: txInfo?.final_meetup_location,
+                    transactionStatus: txInfo?.txStatus,
                 };
 
                 if (item.status === "sold" || txInfo?.txStatus === "completed") {
                     history.push(txItem);
                 } else if (item.status === "transaction_pending" || txInfo) {
+                    // Include pending, confirmed, and awaiting_rating in active
                     active.push(txItem);
                 }
             }
@@ -260,17 +265,21 @@ export default function TransactionsClient({
                         >
                             {item.isBuyer ? "購入" : "出品"}
                         </span>
-                        {item.final_meetup_time && (
+                        {item.transactionStatus === "awaiting_rating" ? (
+                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full flex items-center gap-1">
+                                <Star className="w-3 h-3" />
+                                評価待ち
+                             </span>
+                        ) : item.final_meetup_time ? (
                              <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-green-50 text-green-600 border border-green-100 rounded-full flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" />
                                 確定
                              </span>
-                        )}
-                        {activeTab === "active" && !item.final_meetup_time && (
+                        ) : activeTab === "active" ? (
                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-yellow-50 text-yellow-600 border border-yellow-100 rounded-full">
                                 調整中
                             </span>
-                        )}
+                        ) : null}
                     </div>
 
                     <h3 className="font-black text-gray-900 truncate text-lg group-hover:text-primary transition-colors">

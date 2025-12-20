@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Star, Loader2 } from "lucide-react";
+import { Star, Loader2, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -17,6 +17,7 @@ export default function RatingPage({ params }: { params: { id: string } }) {
   const [submitting, setSubmitting] = useState(false);
   const [transaction, setTransaction] = useState<any | null>(null);
   const [ratedUser, setRatedUser] = useState<any | null>(null);
+  const [alreadyRated, setAlreadyRated] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -43,6 +44,18 @@ export default function RatingPage({ params }: { params: { id: string } }) {
         
         if (pError) throw pError;
         setRatedUser(profile);
+
+        // Check if user has already rated
+        const { data: existingRating } = await supabase
+          .from("ratings")
+          .select("*")
+          .eq("transaction_id", params.id)
+          .eq("rater_id", user.id)
+          .single();
+
+        if (existingRating) {
+          setAlreadyRated(true);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -57,6 +70,7 @@ export default function RatingPage({ params }: { params: { id: string } }) {
 
     setSubmitting(true);
     try {
+      // Insert rating
       const { error } = await (supabase
         .from("ratings") as any)
         .insert({
@@ -68,6 +82,72 @@ export default function RatingPage({ params }: { params: { id: string } }) {
         });
 
       if (error) throw error;
+
+      // Check if the other party has already rated
+      const { data: otherRating, error: otherRatingError } = await supabase
+        .from("ratings")
+        .select("*")
+        .eq("transaction_id", transaction.id)
+        .eq("rater_id", ratedUser.user_id)
+        .single();
+
+      // If both parties have now rated, ensure transaction is marked as completed
+      if (otherRating && !otherRatingError) {
+        const { error: statusError } = await (supabase.from("transactions") as any)
+          .update({ status: 'completed' })
+          .eq("id", transaction.id);
+
+        if (!statusError) {
+          const { error: itemError } = await (supabase.from("items") as any)
+            .update({ status: 'sold' })
+            .eq("id", transaction.item_id);
+
+          if (itemError) console.error("Failed to update item status:", itemError);
+        } else {
+          console.error("Failed to update transaction status:", statusError);
+        }
+
+        // Send notification message to chat that rating is complete
+        await (supabase.from("messages") as any).insert({
+          item_id: transaction.item_id,
+          sender_id: user.id,
+          receiver_id: ratedUser.user_id,
+          message: "【評価が送信されました】\n\n双方の評価が完了したため、取引が正式に完了しました。ご利用ありがとうございました!",
+          is_read: false,
+        });
+
+        // Create notification for transaction completion
+        await (supabase.from("notifications") as any).insert({
+          user_id: ratedUser.user_id,
+          type: "transaction_completed",
+          title: "取引が完了しました",
+          message: "双方の評価が完了したため、取引が正式に完了しました。",
+          link_type: "chat",
+          link_id: transaction.item_id,
+          is_read: false,
+        });
+      } else {
+        // Only current user rated - send message to other party
+        await (supabase.from("messages") as any).insert({
+          item_id: transaction.item_id,
+          sender_id: user.id,
+          receiver_id: ratedUser.user_id,
+          message: "【評価が送信されました】\n\n取引完了ボタンより、取引完了及び評価を行ってください。",
+          is_read: false,
+        });
+
+        // Create notification for rating request
+        await (supabase.from("notifications") as any).insert({
+          user_id: ratedUser.user_id,
+          type: "rating_received",
+          title: "評価をしてください",
+          message: "取引相手から評価が送信されました。取引完了ボタンより、取引完了及び評価を行ってください。",
+          link_type: "chat",
+          link_id: transaction.item_id,
+          is_read: false,
+        });
+      }
+
       router.push("/profile");
     } catch (err) {
       console.error(err);
@@ -80,6 +160,36 @@ export default function RatingPage({ params }: { params: { id: string } }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-blue-50">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (alreadyRated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100">
+        <header className="px-6 pt-12 pb-6">
+          <h1 className="text-4xl font-black text-primary tracking-tighter">
+            TextNext
+          </h1>
+        </header>
+
+        <div className="px-6 py-8 flex flex-col items-center">
+          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6">
+            <CheckCircle2 className="w-12 h-12 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            評価が完了しました
+          </h2>
+          <p className="text-gray-600 text-center mb-8 max-w-md">
+            取引相手の評価を待っています。双方が評価を完了すると、取引が完全に終了します。
+          </p>
+          <button
+            onClick={() => router.push("/profile")}
+            className="bg-primary text-white py-4 px-8 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all"
+          >
+            マイページに戻る
+          </button>
+        </div>
       </div>
     );
   }

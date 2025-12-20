@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Search, History, Heart } from "lucide-react";
@@ -42,7 +42,7 @@ const katakanaToHiragana = (str: string): string => {
   );
 };
 
-export default function SearchPage() {
+function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
@@ -413,5 +413,17 @@ export default function SearchPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+      </div>
+    }>
+      <SearchContent />
+    </Suspense>
   );
 }

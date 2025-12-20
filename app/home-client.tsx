@@ -192,7 +192,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       }
 
       // お気に入り状態の反映
-      if (user && favRes?.data) {
+      if (user && favRes?.data && Array.isArray(favRes.data)) {
         setFavorites(favRes.data.map((f: any) => f.item_id));
       } else if (!user) {
         setFavorites([]);
