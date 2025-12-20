@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, Upload, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Camera, X } from "lucide-react";
 import { calculateSellingPrice } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import Quagga from "@ericblade/quagga2";
 
 type ListingStep = "form" | "confirm" | "success";
 
@@ -27,14 +28,83 @@ export default function ListingPage() {
   const [backCoverPreview, setBackCoverPreview] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const scannerRef = useRef<HTMLDivElement>(null);
 
-  const handleBarcodeSearch = async () => {
-    const isbn = formData.barcode.replace(/-/g, "").trim();
-    if (!isbn) return;
+  // Stop scanner when component unmounts
+  useEffect(() => {
+    return () => {
+      if (isScanning) {
+        Quagga.stop();
+      }
+    };
+  }, [isScanning]);
+
+  const startScanner = async () => {
+    setIsScanning(true);
+    await new Promise(resolve => setTimeout(resolve, 100)); // Wait for Modal DOM
+    
+    if (scannerRef.current) {
+      Quagga.init({
+        inputStream: {
+          type: "LiveStream",
+          target: scannerRef.current,
+          constraints: {
+            facingMode: "environment",
+            width: 640,
+            height: 480,
+          },
+        },
+        locator: {
+          patchSize: "medium",
+          halfSample: true,
+        },
+        numOfWorkers: 2,
+        decoder: {
+          readers: ["ean_reader"], // ISBN is EAN-13
+        },
+        locate: true,
+      }, (err) => {
+        if (err) {
+          console.error("Quagga init error:", err);
+          setIsScanning(false);
+          alert("カメラの起動に失敗しました。");
+          return;
+        }
+        Quagga.start();
+      });
+
+      Quagga.onDetected((result) => {
+        const code = result.codeResult.code;
+        if (code && (code.startsWith("978") || code.startsWith("979"))) {
+          Quagga.stop();
+          setIsScanning(false);
+          setFormData(prev => ({ ...prev, barcode: code }));
+          // Auto search after a short delay to allow state update
+          setTimeout(() => {
+            // Trigger search manually or reuse logic
+            // We can't easily call handleBarcodeSearch here because it depends on state that might be stale in closure
+            // So we'll just set the barcode and let the user click search, OR calling a separate function
+            // Refactoring handleBarcodeSearch to accept an argument would be cleaner
+            searchBookByIsbn(code);
+          }, 100);
+        }
+      });
+    }
+  };
+
+  const stopScanner = () => {
+    Quagga.stop();
+    setIsScanning(false);
+  };
+
+  const searchBookByIsbn = async (isbn: string) => {
+    const cleanIsbn = isbn.replace(/-/g, "").trim();
+    if (!cleanIsbn) return;
 
     setSearching(true);
     try {
-      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}`);
       const data = await response.json();
 
       if (data.totalItems > 0) {
@@ -43,6 +113,7 @@ export default function ListingPage() {
         
         setFormData(prev => ({
           ...prev,
+          barcode: isbn,
           bookName: book.title || prev.bookName,
           originalPrice: saleInfo?.listPrice?.amount 
             ? String(saleInfo.listPrice.amount) 
@@ -57,6 +128,10 @@ export default function ListingPage() {
     } finally {
       setSearching(false);
     }
+  };
+
+  const handleBarcodeSearch = () => {
+    searchBookByIsbn(formData.barcode);
   };
 
   // useEffect内でリダイレクト（SSRでのlocationエラーを防止）
@@ -323,6 +398,13 @@ export default function ListingPage() {
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                   />
                   <button
+                    onClick={startScanner}
+                    className="p-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all active:scale-95"
+                    title="カメラで読み取る"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={handleBarcodeSearch}
                     disabled={searching || !formData.barcode}
                     className="px-3 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap"
@@ -476,6 +558,35 @@ export default function ListingPage() {
           </div>
         </div>
       </div>
+
+      {/* Barcode Scanner Modal */}
+      {isScanning && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl overflow-hidden w-full max-w-md relative">
+            <div className="p-4 border-b flex items-center justify-between bg-white z-10 relative">
+              <h3 className="font-bold text-lg">バーコードを読み取り中</h3>
+              <button
+                onClick={stopScanner}
+                className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="relative aspect-[4/3] bg-black">
+              <div ref={scannerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
+              {/* Overlay guides */}
+              <div className="absolute inset-0 border-2 border-primary/50 m-8 rounded-lg pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-full h-0.5 bg-red-500/50" />
+                </div>
+              </div>
+            </div>
+            <div className="p-4 text-center text-sm text-gray-500 bg-gray-50">
+              裏表紙のバーコード（ISBN）を枠内に合わせてください
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
