@@ -46,12 +46,12 @@ type SearchClientProps = {
 };
 
 // 検索結果アイテムをメモ化
-const SearchResultItem = memo(function SearchResultItem({ 
-  item, 
-  isFavorite, 
-  onToggleFavorite 
-}: { 
-  item: Item; 
+const SearchResultItem = memo(function SearchResultItem({
+  item,
+  isFavorite,
+  onToggleFavorite
+}: {
+  item: Item;
   isFavorite: boolean;
   onToggleFavorite: (id: string, e: React.MouseEvent) => void;
 }) {
@@ -70,7 +70,7 @@ const SearchResultItem = memo(function SearchResultItem({
               ¥{item.selling_price.toLocaleString()}
             </p>
           </div>
-          
+
           <div className="flex items-center gap-1">
             <button
               onClick={(e) => onToggleFavorite(item.id, e)}
@@ -79,7 +79,7 @@ const SearchResultItem = memo(function SearchResultItem({
             >
               {/* Expanding Ring */}
               <div className={`heart-ring ${isFavorite ? 'active' : ''}`} />
-              
+
               {/* Particles */}
               <div className={`heart-particle-container ${isFavorite ? 'active' : ''}`}>
                 {[...Array(7)].map((_, i) => (
@@ -91,7 +91,7 @@ const SearchResultItem = memo(function SearchResultItem({
                 className={`w-6 h-6 transition-all duration-300 relative heart-main ${isFavorite
                   ? "fill-red-500 text-red-500 heart-pop"
                   : "text-gray-300 group-hover/heart:text-red-300"
-                }`}
+                  }`}
               />
             </button>
             {item.favorite_count !== undefined && item.favorite_count > 0 && (
@@ -178,13 +178,13 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
   const toggleFavorite = useCallback(async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!user) return;
 
     const isFav = favoriteSet.has(id);
-    
+
     // 楽観的UI更新
-    setFavorites(prev => 
+    setFavorites(prev =>
       isFav ? prev.filter(favId => favId !== id) : [...prev, id]
     );
 
@@ -214,7 +214,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     } catch (err) {
       console.error("Favorite sync failed:", err);
       // Rollback
-      setFavorites(prev => 
+      setFavorites(prev =>
         isFav ? [...prev, id] : prev.filter(favId => favId !== id)
       );
     }
@@ -228,17 +228,17 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
       return;
     }
 
-      const fetchSuggestions = async () => {
-        try {
-          const { original: query, hiragana, katakana } = convertedQuery;
-          const now = new Date().toISOString();
-          const { data, error } = await supabase
-            .from("items")
-            .select("id, title")
-            .eq("status", "available")
-            .or(`locked_until.is.null,locked_until.lt.${now}`)
-            .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
-            .limit(5);
+    const fetchSuggestions = async () => {
+      try {
+        const { original: query, hiragana, katakana } = convertedQuery;
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+          .from("items")
+          .select("id, title")
+          .eq("status", "available")
+          .or(`locked_until.is.null,locked_until.lt.${now}`)
+          .or(`title.ilike.%${query}%,title.ilike.%${hiragana}%,title.ilike.%${katakana}%`)
+          .limit(5);
 
         if (error) throw error;
 
@@ -264,15 +264,24 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     if (!user) return;
 
     try {
+      // 多めに取得して重複を排除
       const { data } = await supabase
         .from("search_histories")
         .select("id, keyword, searched_at")
         .eq("user_id", user.id)
         .order("searched_at", { ascending: false })
-        .limit(5);
+        .limit(50);
 
       if (data) {
-        setSearchHistory(data as SearchHistory[]);
+        // キーワードの重複を排除（最新のものを優先）
+        const seenKeywords = new Set<string>();
+        const uniqueHistory = data.filter((item: any) => {
+          if (seenKeywords.has(item.keyword)) return false;
+          seenKeywords.add(item.keyword);
+          return true;
+        }).slice(0, 7); // 7件まで表示
+
+        setSearchHistory(uniqueHistory as SearchHistory[]);
       }
     } catch (err) {
       // 履歴読み込みエラーは無視
@@ -293,7 +302,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         keyword: keyword,
       }).then(() => {
         // 履歴更新は次回表示時に行う（即時更新しない）
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [router, user]);
 
@@ -399,9 +408,9 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
             </h3>
             <div className="space-y-4">
               {results.map((item) => (
-                <SearchResultItem 
-                  key={item.id} 
-                  item={item} 
+                <SearchResultItem
+                  key={item.id}
+                  item={item}
                   isFavorite={favoriteSet.has(item.id)}
                   onToggleFavorite={toggleFavorite}
                 />
@@ -414,12 +423,12 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
           </div>
         ) : null}
       </div>
-      
-      <SearchHistoryEffect 
-        user={user} 
-        authLoading={authLoading} 
-        historyLoadedRef={historyLoadedRef} 
-        loadSearchHistory={loadSearchHistory} 
+
+      <SearchHistoryEffect
+        user={user}
+        authLoading={authLoading}
+        historyLoadedRef={historyLoadedRef}
+        loadSearchHistory={loadSearchHistory}
       />
     </div>
   );
