@@ -85,6 +85,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const userScrolledUpRef = useRef(false);
+  const previousMessagesLengthRef = useRef(0);
 
   // 未読メッセージを既読にする
   const markMessagesAsRead = useCallback(async () => {
@@ -212,12 +214,33 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   }, [params.id, user, authLoading, router, fetchMessages, markMessagesAsRead]);
 
   useEffect(() => {
-    scrollToBottom();
+    // 新しいメッセージが追加された場合のみスクロール
+    const hasNewMessages = messages.length > previousMessagesLengthRef.current;
+    previousMessagesLengthRef.current = messages.length;
+
+    // ユーザーが上にスクロールしていない場合、または新しいメッセージがある場合のみスクロール
+    if (hasNewMessages && !userScrolledUpRef.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (force?: boolean) => {
+    if (force) {
+      userScrolledUpRef.current = false;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // スクロール位置を監視してユーザーが上にスクロールしたかを追跡
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    // 下から100px以内にいる場合はボトムにいると判定
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    userScrolledUpRef.current = !isNearBottom;
+  }, []);
 
   const loadItemAndMessages = async () => {
     if (!user) return;
@@ -410,7 +433,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       // 自動メッセージを送信
       await handleSend(`【日程が確定しました】\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\n当日はよろしくお願いいたします！`);
-      
+
     } catch (err: any) {
       alert("日程の確定に失敗しました: " + err.message);
     } finally {
@@ -541,7 +564,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   if (authLoading || loading) {
     return (
-      <div className="h-screen bg-[#B2C7D9] flex items-center justify-center">
+      <div className="h-screen bg-gray-100 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-white animate-spin" />
           <p className="text-white">読み込み中...</p>
@@ -586,28 +609,28 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const isSeller = user?.id === item.seller_id;
 
   return (
-    <div className="h-screen flex flex-col bg-[#B2C7D9] overflow-hidden">
+    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 bg-[#B2C7D9]/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-white/20 h-16">
+      <header className="fixed top-0 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-white/20 h-16">
         <Link href="/transactions" className="p-1">
-          <ArrowLeft className="w-6 h-6 text-white" />
+          <ArrowLeft className="w-6 h-6 text-black" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-white font-bold truncate">
+          <h1 className="text-black font-bold truncate">
             {item.title}
           </h1>
-          <p className="text-white/70 text-xs">
+          <p className="text-gray-500 text-xs">
             {statusLabel}
           </p>
         </div>
       </header>
 
       {/* Action Bar (Below Header) */}
-      <div className="fixed top-16 left-0 right-0 bg-[#B2C7D9]/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-white/10">
+      <div className="fixed top-16 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-white/10">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
           disabled={transaction?.status === 'awaiting_rating' || transaction?.status === 'completed'}
-          className="flex-1 flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold py-2.5 rounded-xl transition-all border border-white/20 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-xl transition-all border border-slate-600 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Calendar className="w-4 h-4" />
           日程調整・変更
@@ -630,48 +653,48 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         {/* Messages Area */}
         <div
           ref={messagesContainerRef}
+          onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth"
         >
-        {/* Scheduling Component (Injected at the top like a pinned post) */}
-        {transaction && transaction.meetup_time_slots?.length > 0 && !transaction.final_meetup_time && (
-           <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
-             <div className="bg-white/90 backdrop-blur-md rounded-3xl p-5 shadow-xl border border-white/20">
-               <div className="flex items-center gap-2 mb-4 text-primary font-black">
-                 <Calendar className="w-5 h-5" />
-                 <span className="text-sm uppercase tracking-wider">受け渡し日程調整</span>
-               </div>
-               
-               <p className="text-xs text-gray-500 font-bold mb-4 px-1">募集された候補から都合の良い日時を選択してください：</p>
-               
-               <div className="space-y-2.5">
-                 {transaction.meetup_time_slots.map((slot) => {
-                   const [datePart, slotPart] = slot.split("_");
-                   const date = new Date(datePart);
-                   const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-                   const label = `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
-                   
-                   return (
-                     <button
-                       key={slot}
-                       onClick={() => {
-                         if (isSeller) {
-                           handleFinalizeSchedule(slot, transaction.meetup_locations[0]);
-                         }
-                       }}
-                       disabled={isFinalizing || !isSeller}
-                       className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${
-                         isSeller 
-                           ? "hover:bg-primary/10 border-primary/20 hover:border-primary/40 cursor-pointer" 
-                           : "border-primary/10 cursor-default"
-                       }`}
-                     >
-                       <span className={`text-primary font-black ${isSeller ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
-                       <Clock className={`w-4 h-4 transition-colors ${isSeller ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
-                     </button>
-                   );
-                 })}
-                 
-                 <button
+          {/* Scheduling Component (Injected at the top like a pinned post) */}
+          {transaction && transaction.meetup_time_slots?.length > 0 && !transaction.final_meetup_time && (
+            <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="bg-white/90 backdrop-blur-md rounded-3xl p-5 shadow-xl border border-white/20">
+                <div className="flex items-center gap-2 mb-4 text-primary font-black">
+                  <Calendar className="w-5 h-5" />
+                  <span className="text-sm uppercase tracking-wider">受け渡し日程調整</span>
+                </div>
+
+                <p className="text-xs text-gray-500 font-bold mb-4 px-1">募集された候補から都合の良い日時を選択してください：</p>
+
+                <div className="space-y-2.5">
+                  {transaction.meetup_time_slots.map((slot) => {
+                    const [datePart, slotPart] = slot.split("_");
+                    const date = new Date(datePart);
+                    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+                    const label = `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
+
+                    return (
+                      <button
+                        key={slot}
+                        onClick={() => {
+                          if (isSeller) {
+                            handleFinalizeSchedule(slot, transaction.meetup_locations[0]);
+                          }
+                        }}
+                        disabled={isFinalizing || !isSeller}
+                        className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${isSeller
+                          ? "hover:bg-primary/10 border-primary/20 hover:border-primary/40 cursor-pointer"
+                          : "border-primary/10 cursor-default"
+                          }`}
+                      >
+                        <span className={`text-primary font-black ${isSeller ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
+                        <Clock className={`w-4 h-4 transition-colors ${isSeller ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
+                      </button>
+                    );
+                  })}
+
+                  <button
                     onClick={() => {
                       if (isSeller) {
                         handleReschedule();
@@ -680,137 +703,136 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                     disabled={isFinalizing || !isSeller}
                     className="w-full text-center py-3 text-gray-400 hover:text-gray-600 font-bold text-xs flex items-center justify-center gap-2 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
                   >
-                   <RotateCcw className="w-3.5 h-3.5" />
-                   再度日程調整をお願いする
-                 </button>
-               </div>
-             </div>
-           </div>
-        )}
-
-        {/* Finalized Schedule Banner */}
-        {transaction?.final_meetup_time && (
-          <div className="mb-6 bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
-               <CheckCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">日程確定済み</p>
-              <p className="text-sm font-black text-green-900">{transaction.final_meetup_time}</p>
-              <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Messages List */}
-        {messages.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-white/80 text-sm">
-              メッセージを送信して取引を開始しましょう
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((msg, index) => {
-              const isOwnMessage = msg.sender_id === user?.id;
-              const prevMsg = messages[index - 1];
-              const showAvatar = !prevMsg || prevMsg.sender_id !== msg.sender_id;
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex items-end gap-2 ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`}
-                >
-                  {/* アバター */}
-                  <div className="flex-shrink-0" style={{ width: 40 }}>
-                    {showAvatar && (
-                      <Avatar url={isOwnMessage ? avatarUrl : otherUserProfile?.avatar_url || null} />
-                    )}
-                  </div>
-
-                  {/* メッセージバブル */}
-                  <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%]`}>
-                    <div
-                      className={`w-fit min-w-[50px] px-4 py-2.5 rounded-2xl shadow-sm bg-white ${
-                        isOwnMessage ? "rounded-br-sm" : "rounded-bl-sm"
-                      }`}
-                      style={{ border: "2px solid #3B5998" }}
-                    >
-                      {msg.image_url && (
-                        <div className="mb-2 -mx-2 -mt-1 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-                          <Image
-                            src={msg.image_url}
-                            alt="添付画像"
-                            width={300}
-                            height={300}
-                            className="w-full h-auto object-cover max-h-[300px] hover:scale-105 transition-transform duration-500 cursor-pointer"
-                            onClick={() => window.open(msg.image_url!, '_blank')}
-                          />
-                        </div>
-                      )}
-                      <p className="whitespace-pre-wrap break-all text-[15px] leading-relaxed text-[#3B5998] font-medium">
-                        {msg.message}
-                      </p>
-                    </div>
-                    {/* 既読表示（自分のメッセージのみ） */}
-                    {isOwnMessage && (
-                      <div className="flex items-center gap-1 mt-1 mr-1">
-                        {msg.is_read ? (
-                          <span className="text-[10px] text-blue-200 flex items-center gap-0.5">
-                            <CheckCheck className="w-3 h-3" />
-                            既読
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-white/50 flex items-center gap-0.5">
-                            <Check className="w-3 h-3" />
-                            送信済み
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </div>
-    </div>
-
-      {/* Cancellation Section */}
-      {transaction && transaction.status !== 'completed' && transaction.status !== 'cancelled' &&
-       !((user?.id === transaction.buyer_id && transaction.buyer_completed) || (user?.id === transaction.seller_id && transaction.seller_completed)) && (
-        <div className="flex-shrink-0 bg-white border-t border-gray-100">
-          <div className="px-4 py-2">
-            <button
-              onClick={() => setShowCancellationSection(!showCancellationSection)}
-              className="w-full text-center py-2 text-gray-500 hover:text-gray-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
-            >
-              <AlertCircle className="w-4 h-4" />
-              取引キャンセルを行う場合
-              <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${showCancellationSection ? "rotate-90" : ""}`} />
-            </button>
-
-            {showCancellationSection && (
-              <div className="mt-2 pb-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4">
-                  <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                    取引をキャンセルする場合は、取引相手への配慮が必要です。キャンセル理由を記入してお送りください。
-                  </p>
-                  <button
-                    onClick={() => setIsCancellationModalOpen(true)}
-                    className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    <XIcon className="w-4 h-4" />
-                    取引をキャンセルする
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    再度日程調整をお願いする
                   </button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Finalized Schedule Banner */}
+          {transaction?.final_meetup_time && (
+            <div className="mb-6 bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
+                <CheckCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">日程確定済み</p>
+                <p className="text-sm font-black text-green-900">{transaction.final_meetup_time}</p>
+                <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Messages List */}
+          {messages.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-white/80 text-sm">
+                メッセージを送信して取引を開始しましょう
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((msg, index) => {
+                const isOwnMessage = msg.sender_id === user?.id;
+                const prevMsg = messages[index - 1];
+                const showAvatar = !prevMsg || prevMsg.sender_id !== msg.sender_id;
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex items-end gap-2 ${isOwnMessage ? "flex-row-reverse" : "flex-row"}`}
+                  >
+                    {/* アバター */}
+                    <div className="flex-shrink-0" style={{ width: 40 }}>
+                      {showAvatar && (
+                        <Avatar url={isOwnMessage ? avatarUrl : otherUserProfile?.avatar_url || null} />
+                      )}
+                    </div>
+
+                    {/* メッセージバブル */}
+                    <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%]`}>
+                      <div
+                        className={`w-fit min-w-[50px] px-4 py-2.5 rounded-2xl shadow-sm bg-white ${isOwnMessage ? "rounded-br-sm" : "rounded-bl-sm"
+                          }`}
+                        style={{ border: "2px solid #3B5998" }}
+                      >
+                        {msg.image_url && (
+                          <div className="mb-2 -mx-2 -mt-1 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+                            <Image
+                              src={msg.image_url}
+                              alt="添付画像"
+                              width={300}
+                              height={300}
+                              className="w-full h-auto object-cover max-h-[300px] hover:scale-105 transition-transform duration-500 cursor-pointer"
+                              onClick={() => window.open(msg.image_url!, '_blank')}
+                            />
+                          </div>
+                        )}
+                        <p className="whitespace-pre-wrap break-all text-[15px] leading-relaxed text-[#3B5998] font-medium">
+                          {msg.message}
+                        </p>
+                      </div>
+                      {/* 既読表示（自分のメッセージのみ） */}
+                      {isOwnMessage && (
+                        <div className="flex items-center gap-1 mt-1 mr-1">
+                          {msg.is_read ? (
+                            <span className="text-[10px] text-blue-200 flex items-center gap-0.5">
+                              <CheckCheck className="w-3 h-3" />
+                              既読
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-white/50 flex items-center gap-0.5">
+                              <Check className="w-3 h-3" />
+                              送信済み
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* Cancellation Section */}
+      {transaction && transaction.status !== 'completed' && transaction.status !== 'cancelled' &&
+        !((user?.id === transaction.buyer_id && transaction.buyer_completed) || (user?.id === transaction.seller_id && transaction.seller_completed)) && (
+          <div className="flex-shrink-0 bg-white border-t border-gray-100">
+            <div className="px-4 py-2">
+              <button
+                onClick={() => setShowCancellationSection(!showCancellationSection)}
+                className="w-full text-center py-2 text-gray-500 hover:text-gray-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+              >
+                <AlertCircle className="w-4 h-4" />
+                取引キャンセルを行う場合
+                <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${showCancellationSection ? "rotate-90" : ""}`} />
+              </button>
+
+              {showCancellationSection && (
+                <div className="mt-2 pb-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="bg-red-50 border-2 border-red-100 rounded-2xl p-4">
+                    <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                      取引をキャンセルする場合は、取引相手への配慮が必要です。キャンセル理由を記入してお送りください。
+                    </p>
+                    <button
+                      onClick={() => setIsCancellationModalOpen(true)}
+                      className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <XIcon className="w-4 h-4" />
+                      取引をキャンセルする
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* Input Area */}
       <div className="flex-shrink-0 bg-white px-4 py-3 border-t border-gray-200 safe-area-bottom">
@@ -856,11 +878,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           <button
             type="submit"
             disabled={(!newMessage.trim() && !isUploadingImage) || sending}
-            className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-              (newMessage.trim() || isUploadingImage) && !sending
-                ? "bg-primary text-white shadow-md active:scale-95"
-                : "bg-gray-200 text-gray-400"
-            }`}
+            className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${(newMessage.trim() || isUploadingImage) && !sending
+              ? "bg-primary text-white shadow-md active:scale-95"
+              : "bg-gray-200 text-gray-400"
+              }`}
           >
             {sending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -889,7 +910,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               })
               .eq("id", transaction.id);
             if (error) throw error;
-            
+
             // Send notification message
             await handleSend("日程候補が変更されました。ご確認ください。");
           } catch (err: any) {
@@ -1088,11 +1109,10 @@ function ScheduleAdjustmentModal({
                             <button
                               key={slot.id}
                               onClick={() => toggleTimeSlot(day.id, slot.id)}
-                              className={`px-3 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border-2 ${
-                                isSelected
-                                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[0.98]"
-                                  : "bg-white text-gray-500 border-gray-100 hover:border-primary/20 hover:text-primary"
-                              }`}
+                              className={`px-3 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border-2 ${isSelected
+                                ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[0.98]"
+                                : "bg-white text-gray-500 border-gray-100 hover:border-primary/20 hover:text-primary"
+                                }`}
                             >
                               {slot.label}
                             </button>
@@ -1121,11 +1141,10 @@ function ScheduleAdjustmentModal({
                   <button
                     key={location.id}
                     onClick={() => toggleLocation(location.id)}
-                    className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all text-left flex items-center justify-between border-2 ${
-                      isSelected
-                        ? "bg-primary/5 text-primary border-primary shadow-sm"
-                        : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
-                    }`}
+                    className={`px-5 py-4 rounded-2xl text-sm font-bold transition-all text-left flex items-center justify-between border-2 ${isSelected
+                      ? "bg-primary/5 text-primary border-primary shadow-sm"
+                      : "bg-white text-gray-500 border-gray-100 hover:border-primary/20"
+                      }`}
                   >
                     {location.label}
                     {isSelected && <Check className="w-5 h-5" />}
@@ -1144,11 +1163,10 @@ function ScheduleAdjustmentModal({
               onConfirm(selectedTimeSlots, selectedLocations).finally(() => setIsSubmitting(false));
             }}
             disabled={!isValid || isSubmitting}
-            className={`w-full py-4 rounded-2xl font-black text-white shadow-xl transition-all flex items-center justify-center gap-2 ${
-              isValid && !isSubmitting
-                ? "bg-primary hover:bg-primary/90 active:scale-[0.98] shadow-primary/30"
-                : "bg-gray-300 shadow-none cursor-not-allowed"
-            }`}
+            className={`w-full py-4 rounded-2xl font-black text-white shadow-xl transition-all flex items-center justify-center gap-2 ${isValid && !isSubmitting
+              ? "bg-primary hover:bg-primary/90 active:scale-[0.98] shadow-primary/30"
+              : "bg-gray-300 shadow-none cursor-not-allowed"
+              }`}
           >
             {isSubmitting ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -1181,16 +1199,16 @@ function CompletionConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 animate-in fade-in duration-300">
-      <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
-        onClick={onClose} 
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
       />
       <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
         <div className="p-8">
           <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
             <CheckCircle2 className="w-8 h-8 text-primary" />
           </div>
-          
+
           <h2 className="text-xl font-black text-gray-900 text-center mb-2">
             取引を完了しますか？
           </h2>
