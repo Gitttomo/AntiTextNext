@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Upload, Loader2, Camera, X } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Camera, X, Scan } from "lucide-react";
 import { calculateSellingPrice } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -29,30 +29,66 @@ export default function ListingPage() {
   const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState<"scanning" | "detected" | "idle">("idle");
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [maxZoom, setMaxZoom] = useState(1);
   const scannerRef = useRef<HTMLDivElement>(null);
+  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
+  const autoScanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const detectedRef = useRef(false);
 
-  // Stop scanner when component unmounts
-  useEffect(() => {
-    return () => {
-      if (isScanning) {
-        Quagga.stop();
+  // ズームレベルを変更する関数
+  const changeZoom = useCallback(async (newZoom: number) => {
+    if (!videoTrackRef.current) return;
+    try {
+      const capabilities = videoTrackRef.current.getCapabilities?.() as any;
+      if (capabilities?.zoom) {
+        const clampedZoom = Math.min(Math.max(newZoom, capabilities.zoom.min), capabilities.zoom.max);
+        await (videoTrackRef.current as any).applyConstraints({
+          advanced: [{ zoom: clampedZoom }]
+        });
+        setZoomLevel(clampedZoom);
       }
-    };
-  }, [isScanning]);
+    } catch (e) {
+      console.log("Zoom not supported:", e);
+    }
+  }, []);
 
-  const startScanner = async () => {
-    setIsScanning(true);
-    await new Promise(resolve => setTimeout(resolve, 100)); // Wait for Modal DOM
-    
-    if (scannerRef.current) {
+  // Stop scanner when component unmounts or isScanning becomes false
+  useEffect(() => {
+    let active = true;
+
+    if (!isScanning) {
+      if (videoTrackRef.current) {
+        videoTrackRef.current.stop();
+        videoTrackRef.current = null;
+      }
+      Quagga.stop();
+      return;
+    }
+
+    // Initialize scanner
+    const initScanner = async () => {
+      // Wait for the modal DOM to be ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!active) return; // Stop if effect was cleaned up
+
+      if (!scannerRef.current) {
+        console.error("Scanner ref not found");
+        setIsScanning(false);
+        return;
+      }
+
       Quagga.init({
         inputStream: {
           type: "LiveStream",
           target: scannerRef.current,
           constraints: {
             facingMode: "environment",
-            width: 640,
-            height: 480,
+            width: { min: 640 },
+            height: { min: 480 },
+            aspectRatio: { min: 4/3, max: 16/9 }
           },
         },
         locator: {
@@ -64,38 +100,86 @@ export default function ListingPage() {
           readers: ["ean_reader"], // ISBN is EAN-13
         },
         locate: true,
-      }, (err) => {
+      }, async (err) => {
         if (err) {
           console.error("Quagga init error:", err);
-          setIsScanning(false);
-          alert("カメラの起動に失敗しました。");
+          if (active) setIsScanning(false);
           return;
         }
+        
+        if (!active) {
+          Quagga.stop();
+          return;
+        }
+
         Quagga.start();
+        
+        // Get video track for zoom control
+        const video = scannerRef.current?.querySelector("video");
+        if (video && video.srcObject) {
+          const stream = video.srcObject as MediaStream;
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            videoTrackRef.current = track;
+            
+            // Check for zoom capabilities
+            const capabilities = track.getCapabilities?.() as any;
+            if (capabilities?.zoom) {
+              setMaxZoom(capabilities.zoom.max);
+              setZoomLevel(capabilities.zoom.min); // Reset to min
+            }
+          }
+        }
       });
 
       Quagga.onDetected((result) => {
+        if (!active || detectedRef.current) return; // Prevent double detection
+        
         const code = result.codeResult.code;
         if (code && (code.startsWith("978") || code.startsWith("979"))) {
-          Quagga.stop();
-          setIsScanning(false);
-          setFormData(prev => ({ ...prev, barcode: code }));
-          // Auto search after a short delay to allow state update
+          detectedRef.current = true;
+          setScanStatus("detected");
+          
+          // Play a sound or vibrate here if possible
+          if (navigator.vibrate) navigator.vibrate(200);
+
           setTimeout(() => {
-            // Trigger search manually or reuse logic
-            // We can't easily call handleBarcodeSearch here because it depends on state that might be stale in closure
-            // So we'll just set the barcode and let the user click search, OR calling a separate function
-            // Refactoring handleBarcodeSearch to accept an argument would be cleaner
-            searchBookByIsbn(code);
-          }, 100);
+            if (!active) return;
+            Quagga.stop();
+            setIsScanning(false);
+            setFormData(prev => ({ ...prev, barcode: code }));
+            detectedRef.current = false; // Reset for next time
+            setScanStatus("idle");
+            
+            setTimeout(() => {
+              searchBookByIsbn(code);
+            }, 100);
+          }, 500); // Give user a moment to see "Detected" status
         }
       });
-    }
+    };
+
+    initScanner();
+
+    return () => {
+      active = false;
+      if (videoTrackRef.current) {
+        videoTrackRef.current.stop();
+        videoTrackRef.current = null;
+      }
+      Quagga.stop();
+      detectedRef.current = false;
+    };
+  }, [isScanning]);
+
+  const startScanner = () => {
+    setIsScanning(true);
+    setScanStatus("scanning");
   };
 
   const stopScanner = () => {
-    Quagga.stop();
     setIsScanning(false);
+    setScanStatus("idle");
   };
 
   const searchBookByIsbn = async (isbn: string) => {
@@ -127,6 +211,7 @@ export default function ListingPage() {
       alert("検索中にエラーが発生しました。");
     } finally {
       setSearching(false);
+      // Ensure scanner is effectively off if it wasn't already (though logic handles this)
     }
   };
 
@@ -161,12 +246,19 @@ export default function ListingPage() {
         if (result?.codeResult) {
           const code = result.codeResult.code;
           if (code && (code.startsWith("978") || code.startsWith("979"))) {
-            Quagga.stop();
-            setIsScanning(false);
-            setFormData(prev => ({ ...prev, barcode: code }));
+            setScanStatus("detected");
+            if (navigator.vibrate) navigator.vibrate(200);
+            
             setTimeout(() => {
-              searchBookByIsbn(code);
-            }, 100);
+              Quagga.stop();
+              setIsScanning(false);
+              setFormData(prev => ({ ...prev, barcode: code }));
+              setScanStatus("idle");
+              
+              setTimeout(() => {
+                searchBookByIsbn(code);
+              }, 100);
+            }, 500);
             return;
           }
         }
@@ -612,7 +704,14 @@ export default function ListingPage() {
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl overflow-hidden w-full max-w-md relative">
             <div className="p-4 border-b flex items-center justify-between bg-white z-10 relative">
-              <h3 className="font-bold text-lg">バーコードを読み取り中</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-lg">
+                  {scanStatus === "detected" ? "検出しました！" : "バーコードを読み取り中"}
+                </h3>
+                {scanStatus === "scanning" && (
+                  <Scan className="w-5 h-5 text-primary animate-pulse" />
+                )}
+              </div>
               <button
                 onClick={stopScanner}
                 className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
@@ -620,27 +719,84 @@ export default function ListingPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="absolute inset-0 aspect-[4/3] bg-black">
+            <div className="relative w-full aspect-[3/4] bg-black">
               <div ref={scannerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
+
               {/* Overlay guides */}
-              <div className="absolute inset-0 border-2 border-primary/50 m-8 rounded-lg pointer-events-none">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-full h-0.5 bg-red-500/50" />
-                </div>
+              <div className={`absolute inset-0 m-8 rounded-lg pointer-events-none transition-all duration-300 ${
+                scanStatus === "detected"
+                  ? "border-4 border-green-500 bg-green-500/20"
+                  : "border-2 border-primary/50"
+              }`}>
+                {scanStatus === "scanning" && (
+                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                    <div className="w-full h-1 bg-red-500 animate-scan-line" />
+                  </div>
+                )}
+                {scanStatus === "detected" && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              {/* Snapshot Button */}
+
+              {/* Auto scan indicator */}
+              {scanStatus === "scanning" && (
+                <div className="absolute top-4 left-4 right-4 flex justify-center z-20">
+                  <div className="bg-black/60 text-white px-4 py-2 rounded-full flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                    自動検出中...
+                  </div>
+                </div>
+              )}
+
+              {/* Zoom Controls - 小さいバーコード用 */}
+              {scanStatus === "scanning" && maxZoom > 1 && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
+                  <button
+                    onClick={() => changeZoom(zoomLevel + 0.5)}
+                    disabled={zoomLevel >= maxZoom}
+                    className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-30 text-lg font-bold"
+                  >
+                    +
+                  </button>
+                  <div className="bg-black/60 text-white text-xs px-2 py-1 rounded-full text-center">
+                    {zoomLevel.toFixed(1)}x
+                  </div>
+                  <button
+                    onClick={() => changeZoom(zoomLevel - 0.5)}
+                    disabled={zoomLevel <= 1}
+                    className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-30 text-lg font-bold"
+                  >
+                    −
+                  </button>
+                </div>
+              )}
+
+              {/* Manual Snapshot Button */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center z-20">
                 <button
                   onClick={captureAndScan}
-                  className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                  disabled={scanStatus === "detected"}
+                  className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
                 >
-                  <div className="w-14 h-14 border-2 border-black rounded-full" />
+                  <div className="w-14 h-14 border-2 border-black rounded-full flex items-center justify-center">
+                    <Camera className="w-6 h-6 text-gray-700" />
+                  </div>
                 </button>
               </div>
             </div>
             <div className="p-4 text-center text-sm text-gray-500 bg-gray-50">
-              裏表紙のバーコードを枠に入れ、<br/>ボタンを押して撮影すると高速に読み取れます
+              {scanStatus === "detected" ? (
+                <span className="text-green-600 font-medium">バーコードを検出しました！書籍情報を取得中...</span>
+              ) : (
+                <>バーコードを枠の中央に入れると自動で読み取ります<br/>
+                <span className="text-xs text-gray-400">小さいバーコードは右の＋ボタンでズームしてください</span></>
+              )}
             </div>
           </div>
         </div>
