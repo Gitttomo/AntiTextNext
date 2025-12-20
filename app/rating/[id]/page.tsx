@@ -1,83 +1,158 @@
 "use client";
 
-import { useState } from "react";
-import { Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Star, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/auth-provider";
 
 export default function RatingPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [transaction, setTransaction] = useState<any | null>(null);
+  const [ratedUser, setRatedUser] = useState<any | null>(null);
 
-  const handleSubmit = () => {
-    // In real app, submit rating to backend
-    router.push("/");
+  useEffect(() => {
+    async function loadData() {
+      if (!user) return;
+      try {
+        const { data: tx, error: txError } = await supabase
+          .from("transactions")
+          .select("*, items(*)")
+          .eq("id", params.id)
+          .single();
+
+        if (txError) throw txError;
+        setTransaction(tx);
+
+        // Determine who to rate (if I am buyer, rate seller. if I am seller, rate buyer)
+        const typedTx = tx as any;
+        const ratedUserId = typedTx.buyer_id === user.id ? typedTx.seller_id : typedTx.buyer_id;
+        
+        const { data: profile, error: pError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", ratedUserId)
+          .single();
+        
+        if (pError) throw pError;
+        setRatedUser(profile);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [user, params.id]);
+
+  const handleSubmit = async () => {
+    if (!user || !transaction || !ratedUser || rating === 0) return;
+
+    setSubmitting(true);
+    try {
+      const { error } = await (supabase
+        .from("ratings") as any)
+        .insert({
+          transaction_id: transaction.id,
+          rater_id: user.id,
+          rated_id: ratedUser.user_id,
+          score: rating,
+          comment: comment
+        });
+
+      if (error) throw error;
+      router.push("/profile");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-blue-50">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100">
-      <header className="bg-gradient-to-b from-blue-50 to-blue-100 px-6 pt-8 pb-6">
-        <h1 className="text-4xl font-bold text-primary underline decoration-4 underline-offset-8">
+      <header className="px-6 pt-12 pb-6">
+        <h1 className="text-4xl font-black text-primary tracking-tighter">
           TextNext
         </h1>
       </header>
 
-      <div className="px-6 py-12 flex flex-col items-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-12">
+      <div className="px-6 py-8 flex flex-col items-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-8">
           取引が完了しました
         </h2>
 
-        {/* User Avatar */}
-        <div className="mb-8 flex items-center gap-4 bg-blue-200 px-8 py-4 rounded-full">
-          <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center text-3xl">
-            🍚
+        {/* User Info Card */}
+        <div className="mb-10 w-full max-w-md bg-white/50 backdrop-blur-md rounded-3xl p-6 border border-white shadow-xl flex flex-col items-center">
+          <div className="w-24 h-24 rounded-full border-4 border-primary/20 overflow-hidden mb-4">
+             {ratedUser?.avatar_url ? (
+               <Image src={ratedUser.avatar_url} alt="User" width={96} height={96} className="w-full h-full object-cover" />
+             ) : (
+               <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+                 <span className="text-4xl">👤</span>
+               </div>
+             )}
           </div>
-          <span className="text-2xl font-bold text-primary">米太郎</span>
+          <span className="text-xl font-bold text-gray-900">{ratedUser?.nickname} さん</span>
+          <p className="text-sm text-gray-500 mt-1">評価をお願いします</p>
         </div>
 
-        <p className="text-xl font-medium text-gray-900 mb-8">
-          に対する評価をお願いします
-        </p>
-
-        {/* Star Rating */}
-        <div className="bg-white rounded-2xl p-8 mb-8 w-full max-w-md shadow-lg">
-          <div className="flex justify-center gap-2 mb-8">
+        {/* Star Rating Section */}
+        <div className="bg-white rounded-[2rem] p-10 mb-10 w-full max-w-md shadow-2xl shadow-blue-200/50 border border-gray-100">
+          <div className="flex justify-center gap-3 mb-10">
             {[1, 2, 3, 4, 5].map((star) => (
               <button
                 key={star}
                 onClick={() => setRating(star)}
                 onMouseEnter={() => setHoveredRating(star)}
                 onMouseLeave={() => setHoveredRating(0)}
-                className="transition-transform hover:scale-110"
+                className="transition-transform hover:scale-125 active:scale-90"
               >
                 <Star
-                  className={`w-16 h-16 transition-colors ${
+                  className={`w-12 h-12 transition-all duration-300 ${
                     star <= (hoveredRating || rating)
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "fill-gray-300 text-gray-300"
+                      ? "fill-yellow-400 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]"
+                      : "fill-gray-100 text-gray-200"
                   }`}
                 />
               </button>
             ))}
           </div>
 
-          {/* Comment */}
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="コメント（任意）"
-            className="w-full h-40 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary transition-colors resize-none text-gray-700 placeholder:text-gray-400"
+            placeholder="取引の感想を教えてください（任意）"
+            className="w-full h-32 px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-primary focus:bg-white transition-all resize-none text-gray-700 placeholder:text-gray-400 font-medium"
           />
         </div>
 
-        {/* Submit Button */}
+        {/* Action Button */}
         <button
           onClick={handleSubmit}
-          disabled={rating === 0}
-          className="bg-red-600 text-white px-16 py-5 rounded-lg text-2xl font-bold shadow-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={rating === 0 || submitting}
+          className="w-full max-w-md bg-primary text-white py-5 rounded-2xl text-xl font-bold shadow-xl shadow-primary/20 hover:bg-primary/90 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-3"
         >
-          送信
+          {submitting ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
+            "評価を送信する"
+          )}
         </button>
       </div>
     </div>
