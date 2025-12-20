@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 export function BottomNav() {
   const pathname = usePathname();
 
+  // チャットページでは非表示
+  if (pathname?.startsWith("/chat/")) {
+    return null;
+  }
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-blue-100 to-blue-200 border-t border-gray-300 z-50 safe-area-bottom">
       <div className="flex items-center justify-around h-20 max-w-screen-lg mx-auto">

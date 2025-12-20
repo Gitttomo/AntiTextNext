@@ -72,7 +72,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
     setIsSubmitting(true);
 
     try {
-      const { data: transactionData, error: transactionError } = await (supabase
+      const { error: transactionError } = await (supabase
         .from("transactions") as any)
         .insert({
           item_id: item.id,
@@ -82,13 +82,9 @@ export default function ProductDetailClient({ item }: { item: Item }) {
           meetup_time_slots: data.timeSlots,
           meetup_locations: data.locations,
           status: "pending",
-        })
-        .select("id")
-        .single();
+        });
 
       if (transactionError) throw transactionError;
-
-      const transactionId = transactionData.id;
 
       const { error: updateError } = await (supabase
         .from("items") as any)
@@ -102,7 +98,6 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         .from("messages") as any)
         .insert({
           item_id: item.id,
-          transaction_id: transactionId,
           sender_id: user.id,
           receiver_id: item.seller_id,
           message: autoMessage,
@@ -111,7 +106,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
       if (messageError) throw messageError;
 
       setIsPurchaseModalOpen(false);
-      router.push(`/chat/${transactionId}`);
+      // チャットはitem_idベースに変更
+      router.push(`/chat/${item.id}`);
     } catch (err: any) {
       console.error("Error submitting purchase request:", err);
       alert("購入リクエストの送信に失敗しました: " + err.message);

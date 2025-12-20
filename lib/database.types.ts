@@ -91,28 +91,28 @@ export interface Database {
                 Row: {
                     id: string
                     item_id: string
-                    transaction_id: string | null
                     sender_id: string
                     receiver_id: string
                     message: string
+                    is_read: boolean
                     created_at: string
                 }
                 Insert: {
                     id?: string
                     item_id: string
-                    transaction_id?: string | null
                     sender_id: string
                     receiver_id: string
                     message: string
+                    is_read?: boolean
                     created_at?: string
                 }
                 Update: {
                     id?: string
                     item_id?: string
-                    transaction_id?: string | null
                     sender_id?: string
                     receiver_id?: string
                     message?: string
+                    is_read?: boolean
                     created_at?: string
                 }
             }
