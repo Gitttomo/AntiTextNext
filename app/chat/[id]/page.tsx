@@ -728,6 +728,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           )}
 
           {/* Finalized Schedule Banner */}
+          {/* 日程確定済みボックス or 日程未設定ボックス */}
           {transaction && (transaction.final_meetup_time ? (
             <div className="mb-6 bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
@@ -739,7 +740,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
               </div>
             </div>
-          ) : transaction.meetup_time_slots?.length > 0 && (
+          ) : transaction.meetup_time_slots && transaction.meetup_time_slots.length > 0 && (
             <div className="mb-6 bg-gray-100/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-400/20">
                 <Calendar className="w-6 h-6" />
