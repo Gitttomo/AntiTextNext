@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { 
-    User, 
-    Settings, 
-    Star, 
-    History, 
-    Package, 
-    Heart, 
+import {
+    User,
+    Settings,
+    Star,
+    History,
+    Package,
+    Heart,
     ChevronRight,
     ArrowRight
 } from "lucide-react";
@@ -76,14 +76,14 @@ export default function MypageClient({
 
             <div className="px-6 space-y-8">
                 {/* Profile Section */}
-                <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-white/50 flex items-center gap-5 transition-transform hover:scale-[1.01]">
+                <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-md border border-white/50 flex items-center gap-5 transition-transform hover:scale-[1.01]">
                     <div className="w-20 h-20 rounded-full border-4 border-primary/20 overflow-hidden shadow-inner">
                         {initialProfile?.avatar_url ? (
-                            <Image 
-                                src={initialProfile.avatar_url} 
-                                alt="Avatar" 
-                                width={80} 
-                                height={80} 
+                            <Image
+                                src={initialProfile.avatar_url}
+                                alt="Avatar"
+                                width={80}
+                                height={80}
                                 className="w-full h-full object-cover"
                                 unoptimized
                             />
@@ -100,9 +100,9 @@ export default function MypageClient({
                         <div className="flex items-center gap-2 mt-1">
                             <div className="flex text-yellow-500">
                                 {[...Array(5)].map((_, i) => (
-                                    <Star 
-                                        key={i} 
-                                        className={`w-4 h-4 ${i < ratingStars ? "fill-current" : "text-gray-300"}`} 
+                                    <Star
+                                        key={i}
+                                        className={`w-4 h-4 ${i < ratingStars ? "fill-current" : "text-gray-300"}`}
                                     />
                                 ))}
                             </div>
@@ -114,7 +114,7 @@ export default function MypageClient({
                 </div>
 
                 {/* Profile Edit Button */}
-                <button 
+                <button
                     onClick={() => router.push("/profile/edit")}
                     className="w-full bg-white rounded-2xl p-4 shadow-md border border-gray-100 flex items-center justify-between group active:scale-[0.98] transition-all hover:border-primary/30"
                 >
@@ -134,24 +134,22 @@ export default function MypageClient({
                         履歴
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
-                        <button 
+                        <button
                             onClick={() => setActiveTab(activeTab === "past" ? null : "past")}
-                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-                                activeTab === "past" 
-                                ? "bg-primary text-white border-primary shadow-lg shadow-primary/30 scale-105" 
-                                : "bg-white text-gray-700 border-gray-100 shadow-sm hover:border-primary/20"
-                            }`}
+                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${activeTab === "past"
+                                    ? "bg-primary text-white border-primary shadow-lg shadow-primary/30 scale-105"
+                                    : "bg-white text-gray-700 border-gray-100 shadow-sm hover:border-primary/20"
+                                }`}
                         >
                             <History className={`w-6 h-6 ${activeTab === "past" ? "text-white" : "text-primary"}`} />
                             <span className="text-sm font-bold">過去の取引</span>
                         </button>
-                        <button 
+                        <button
                             onClick={() => setActiveTab(activeTab === "listing" ? null : "listing")}
-                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-                                activeTab === "listing" 
-                                ? "bg-red-500 text-white border-red-500 shadow-lg shadow-red-200 scale-105" 
-                                : "bg-white text-gray-700 border-gray-100 shadow-sm hover:border-red-500/20"
-                            }`}
+                            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${activeTab === "listing"
+                                    ? "bg-red-500 text-white border-red-500 shadow-lg shadow-red-200 scale-105"
+                                    : "bg-white text-gray-700 border-gray-100 shadow-sm hover:border-red-500/20"
+                                }`}
                         >
                             <Package className={`w-6 h-6 ${activeTab === "listing" ? "text-white" : "text-red-500"}`} />
                             <span className="text-sm font-bold">出品中</span>
@@ -171,7 +169,7 @@ export default function MypageClient({
                             </div>
                             <div className="space-y-3">
                                 {(activeTab === "past" ? initialPastItems : initialListingItems).map((item) => (
-                                    <div 
+                                    <div
                                         key={item.id}
                                         onClick={() => router.push(`/product/${item.id}`)}
                                         className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer group"
@@ -204,17 +202,17 @@ export default function MypageClient({
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
                         {initialFavoriteItems.map((item) => (
-                            <div 
+                            <div
                                 key={item.id}
                                 onClick={() => router.push(`/product/${item.id}`)}
                                 className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer group"
                             >
                                 <div className="aspect-square relative flex items-center justify-center bg-gray-50 overflow-hidden">
                                     {item.front_image_url ? (
-                                        <Image 
-                                            src={item.front_image_url} 
-                                            alt={item.title} 
-                                            fill 
+                                        <Image
+                                            src={item.front_image_url}
+                                            alt={item.title}
+                                            fill
                                             className="object-cover group-hover:scale-110 transition-transform duration-500"
                                             unoptimized
                                         />
