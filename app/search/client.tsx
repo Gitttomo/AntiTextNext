@@ -17,7 +17,7 @@ export type Item = {
   id: string;
   title: string;
   selling_price: number;
-  condition: string;
+  //condition: string;
   favorite_count?: number;
 };
 
@@ -33,7 +33,7 @@ const hiraganaToKatakana = (str: string): string => {
   );
 };
 
-// カタカナ→ひらがな変換
+// カタカナ�?��?�らがな変換
 const katakanaToHiragana = (str: string): string => {
   return str.replace(/[\u30A1-\u30F6]/g, (match) =>
     String.fromCharCode(match.charCodeAt(0) - 0x60)
@@ -45,7 +45,7 @@ type SearchClientProps = {
   initialQuery: string;
 };
 
-// 検索結果アイテムをメモ化
+// 検索結果アイ�?�?をメモ�?
 const SearchResultItem = memo(function SearchResultItem({
   item,
   isFavorite,
@@ -60,9 +60,9 @@ const SearchResultItem = memo(function SearchResultItem({
       <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium text-gray-500 mb-1">
+            {/* <div className="text-xs font-medium text-gray-500 mb-1">
               {item.condition}
-            </div>
+            </div> */}
             <h3 className="text-lg font-bold text-gray-900 mb-2 truncate">
               {item.title}
             </h3>
@@ -75,7 +75,7 @@ const SearchResultItem = memo(function SearchResultItem({
             <button
               onClick={(e) => onToggleFavorite(item.id, e)}
               className="group/heart relative p-2 -m-2 hover:bg-red-50 rounded-full transition-all active:scale-90 flex items-center justify-center heart-container"
-              aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追加"}
+              aria-label={isFavorite ? "お気に入りから削除" : "お気に入りに追�?"}
             >
               {/* Expanding Ring */}
               <div className={`heart-ring ${isFavorite ? 'active' : ''}`} />
@@ -118,7 +118,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
   const [favorites, setFavorites] = useState<string[]>([]);
   const historyLoadedRef = useRef(false);
 
-  // 文字変換結果（サジェスト用）
+  // �?字変換結果?��サジェスト用?�?
   const convertedQuery = useMemo(() => {
     const q = searchQuery.trim();
     return {
@@ -128,14 +128,14 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     };
   }, [searchQuery]);
 
-  // 初期表示時にお気に入り & 最新のカウントをロード（キャッシュ対策）
+  // 初期表示時にお気に入�? & 最新のカウントをロード（キャ�?シュ対策�?
   useEffect(() => {
     const fetchData = async () => {
       const itemIds = initialResults.map(item => item.id);
       if (itemIds.length === 0) return;
 
-      // 1. 各アイテムの最新カウントを取得 (itemsテーブルから)
-      // 2. 自分の追加済みお気に入りを取得 (userがいる場合)
+      // 1. �?アイ�?�?の最新カウントを取�? (items�?ーブルから)
+      // 2. 自�?の追�?済みお気に入りを取�? (userがいる�?��?)
       const promises: any[] = [
         supabase
           .from("items")
@@ -188,7 +188,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
       isFav ? prev.filter(favId => favId !== id) : [...prev, id]
     );
 
-    // カウントの見た目上の調整
+    // カウント�?�見た目上�?�調整
     setResults(prev => prev.map(item => {
       if (item.id === id) {
         return {
@@ -199,7 +199,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
       return item;
     }));
 
-    // バックエンド同期
+    // バックエンド同�?
     try {
       if (isFav) {
         await (supabase
@@ -220,7 +220,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     }
   }, [user, favoriteSet]);
 
-  // 入力時にサジェストを取得（デバウンス強化）
+  // 入力時にサジェストを取得（デバウンス強化�?
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSuggestions([]);
@@ -252,7 +252,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         setSuggestions(Array.from(uniqueTitles.values()));
         setShowSuggestions(true);
       } catch (err) {
-        // サジェストのエラーは無視
+        // サジェスト�?�エラーは無�?
       }
     };
 
@@ -275,7 +275,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         setSearchHistory(data as SearchHistory[]);
       }
     } catch (err) {
-      // 履歴読み込みエラーは無視
+      // 履歴読み込みエラーは無�?
     }
   }, [user]);
 
@@ -286,13 +286,13 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     setSearchQuery(keyword);
     router.push(`/search?q=${encodeURIComponent(keyword)}`);
 
-    // 検索履歴の保存（非同期・バックグラウンドで実行）
+    // 検索履歴の保存（非同期・バックグラウンドで実行�?
     if (user) {
       (supabase.from("search_histories") as any).insert({
         user_id: user.id,
         keyword: keyword,
       }).then(() => {
-        // 履歴更新は次回表示時に行う（即時更新しない）
+        // 履歴更新は次回表示時に行う?��即時更新しな�??�?
       }).catch(() => { });
     }
   }, [router, user]);
@@ -334,7 +334,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
-              placeholder="教科書名を入力...（ひらがな・カタカナ対応）"
+              placeholder="教科書名を入�?...?���?�らがな・カタカナ対応�?"
               className="w-full py-3 pl-12 pr-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
@@ -425,7 +425,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
   );
 }
 
-// 履歴読み込み用サブルーチン（メインコンポーネントをスッキリさせるため）
+// 履歴読み込み用サブルーチン?��メインコンポ�?�ネントをス�?キリさせるた�??�?
 function SearchHistoryEffect({ user, authLoading, historyLoadedRef, loadSearchHistory }: any) {
   useEffect(() => {
     if (authLoading || !user || historyLoadedRef.current) return;

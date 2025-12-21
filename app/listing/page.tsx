@@ -18,7 +18,7 @@ export default function ListingPage() {
   const [formData, setFormData] = useState({
     bookName: "",
     originalPrice: "",
-    condition: "良好",
+    //condition: "良好",
     frontCover: null as File | null,
     backCover: null as File | null,
     barcode: "",
@@ -354,7 +354,7 @@ export default function ListingPage() {
           title: formData.bookName,
           original_price: Number(formData.originalPrice),
           selling_price: sellingPrice,
-          condition: formData.condition,
+          //condition: formData.condition,
           status: "available",
           front_image_url: frontImageUrl,
           back_image_url: backImageUrl,
@@ -376,7 +376,7 @@ export default function ListingPage() {
   const canSubmit =
     formData.bookName &&
     formData.originalPrice &&
-    formData.condition &&
+    //formData.condition &&
     formData.frontCover &&
     formData.backCover;
 
@@ -423,9 +423,9 @@ export default function ListingPage() {
 
               <div>
                 <span className="text-sm font-medium text-gray-600">状態</span>
-                <p className="text-lg text-gray-900 mt-1">
+                {/* <p className="text-lg text-gray-900 mt-1">
                   {formData.condition}
-                </p>
+                </p> */}
               </div>
 
               <div>
@@ -578,7 +578,7 @@ export default function ListingPage() {
                 />
               </div>
 
-              <div className="animate-slide-in-bottom" style={{ animationDelay: '100ms' }}>
+              {/* <div className="animate-slide-in-bottom" style={{ animationDelay: '100ms' }}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   状態 <span className="text-red-500">*</span>
                 </label>
@@ -593,7 +593,7 @@ export default function ListingPage() {
                   <option value="良好">良好</option>
                   <option value="可">可</option>
                 </select>
-              </div>
+              </div> */}
 
               <div className="animate-slide-in-bottom" style={{ animationDelay: '200ms' }}>
                 <label className="block text-sm font-medium text-gray-700 mb-3">

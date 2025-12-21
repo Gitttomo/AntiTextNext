@@ -19,7 +19,7 @@ export type Item = {
   id: string;
   title: string;
   selling_price: number;
-  condition: string;
+  //condition: string;
   favorite_count?: number;
 };
 
@@ -35,7 +35,7 @@ const hiraganaToKatakana = (str: string): string => {
   );
 };
 
-// カタカナ→ひらがな変換
+// カタカナ�?��?�らがな変換
 const katakanaToHiragana = (str: string): string => {
   return str.replace(/[\u30A1-\u30F6]/g, (match) =>
     String.fromCharCode(match.charCodeAt(0) - 0x60)
@@ -58,7 +58,7 @@ function SearchContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // 検索実行
+  // 検索実�?
   const executeSearch = async (query: string) => {
     if (!query.trim()) return;
 
@@ -71,15 +71,15 @@ function SearchContent() {
       const hiragana = katakanaToHiragana(query);
       const katakana = hiraganaToKatakana(query);
 
-      // 重複を除去した検索パターン
+      // 重�?を除去した検索パターン
       const searches = [query, hiragana, katakana].filter((v, i, a) => a.indexOf(v) === i);
 
-      // 各パターンで検索を実行
+      // �?パターンで検索を実�?
       const searchResults = await Promise.all(
         searches.map(async (searchTerm) => {
           const { data, error } = await supabase
             .from("items")
-            .select("id, title, selling_price, condition, favorites(count)")
+            .select("id, title, selling_price, favorites(count)")
             .eq("status", "available")
             .ilike("title", `%${searchTerm}%`)
             .order("created_at", { ascending: false })
@@ -93,7 +93,7 @@ function SearchContent() {
         })
       );
 
-      // 結果を結合して重複を除去
+      // 結果を結合して重�?を除去
       const allResults = searchResults.flat();
       const seenIds = new Set<string>();
       const uniqueResults = allResults.filter((item: any) => {
@@ -110,7 +110,7 @@ function SearchContent() {
 
       setResults(mappedResults);
 
-      // 検索履歴の保存
+      // 検索履歴の保�?
       if (user) {
         (supabase.from("search_histories") as any).insert({
           user_id: user.id,
@@ -133,7 +133,7 @@ function SearchContent() {
     }
   }, []);
 
-  // サジェスト取得
+  // サジェスト取�?
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSuggestions([]);
@@ -172,7 +172,7 @@ function SearchContent() {
         setSuggestions(Array.from(uniqueTitles.values()).slice(0, 5));
         setShowSuggestions(true);
       } catch (err) {
-        // サジェストエラーは無視
+        // サジェストエラーは無�?
       }
     };
 
@@ -180,7 +180,7 @@ function SearchContent() {
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 
-  // お気に入り取得
+  // お気に入り取�?
   useEffect(() => {
     if (user && results.length > 0) {
       supabase
@@ -195,7 +195,7 @@ function SearchContent() {
     }
   }, [user, results]);
 
-  // 検索履歴取得
+  // 検索履歴取�?
   useEffect(() => {
     if (user && !authLoading) {
       supabase
@@ -296,7 +296,7 @@ function SearchContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
-              placeholder="教科書名を入力...（ひらがな・カタカナ対応）"
+              placeholder="教科書名を入�?...?���?�らがな・カタカナ対応�?"
               className="w-full py-3 pl-12 pr-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
@@ -370,9 +370,9 @@ function SearchContent() {
                   <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-gray-500 mb-1">
+                        {/* <div className="text-xs font-medium text-gray-500 mb-1">
                           {item.condition}
-                        </div>
+                        </div> */}
                         <h3 className="text-lg font-bold text-gray-900 mb-2 truncate">
                           {item.title}
                         </h3>
@@ -385,7 +385,7 @@ function SearchContent() {
                         <button
                           onClick={(e) => toggleFavorite(item.id, e)}
                           className="group/heart relative p-2 -m-2 hover:bg-red-50 rounded-full transition-all active:scale-90 flex items-center justify-center"
-                          aria-label={favorites.includes(item.id) ? "お気に入りから削除" : "お気に入りに追加"}
+                          aria-label={favorites.includes(item.id) ? "お気に入りから削除" : "お気に入りに追�?"}
                         >
                           <Heart
                             className={`w-6 h-6 transition-all duration-300 ${favorites.includes(item.id)

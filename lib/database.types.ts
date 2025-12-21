@@ -36,7 +36,7 @@ export interface Database {
                     title: string
                     original_price: number
                     selling_price: number
-                    condition: string
+                    //condition: string
                     status: string
                     front_image_url: string | null
                     back_image_url: string | null
@@ -48,7 +48,7 @@ export interface Database {
                     title: string
                     original_price: number
                     selling_price: number
-                    condition: string
+                    //condition: string
                     status?: string
                     front_image_url?: string | null
                     back_image_url?: string | null
@@ -60,7 +60,7 @@ export interface Database {
                     title?: string
                     original_price?: number
                     selling_price?: number
-                    condition?: string
+                    //condition?: string
                     status?: string
                     front_image_url?: string | null
                     back_image_url?: string | null

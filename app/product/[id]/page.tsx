@@ -2,8 +2,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import ProductDetailClient, { Item } from "./client";
 
-// ISR (Incremental Static Regeneration) を有効化（60秒キャッシュ）
-// これにより、データベースへのアクセス頻度が減り、レスポンスが高速化されます
+// ISR (Incremental Static Regeneration) を有効化�?60秒キャ�?シュ?�?
+// これにより、データベ�?�スへのアクセス頻度が減り、レスポンスが高速化されま�?
 export const revalidate = 60;
 
 export default async function ProductDetailPage({
@@ -18,7 +18,7 @@ export default async function ProductDetailPage({
     // Attempt to join first (Optimized path)
     let fullItem: Item | null = null;
     
-    const itemFields = "id, title, selling_price, original_price, condition, status, front_image_url, back_image_url, created_at, seller_id";
+    const itemFields = "id, title, selling_price, original_price, status, front_image_url, back_image_url, created_at, seller_id";
 
     // 1. Fetch item and profile
     const { data: itemData, error: itemError } = await supabase
@@ -29,7 +29,7 @@ export default async function ProductDetailPage({
 
     if (itemError || !itemData) {
       console.error("Error loading item:", itemError);
-      return <ErrorDisplay message={itemError ? "商品の読み込みに失敗しました" : "商品が見つかりませんでした"} />;
+      return <ErrorDisplay message={itemError ? "�?品�?�読み込みに失敗しました" : "�?品が見つかりませんでした"} />;
     }
 
     const sellerId = (itemData as any).seller_id;
@@ -53,7 +53,7 @@ export default async function ProductDetailPage({
 
     fullItem = { 
       ...(itemData as any), 
-      seller_nickname: profile?.nickname || "匿名",
+      seller_nickname: profile?.nickname || "匿�?",
       seller_avatar_url: avatarUrl,
       seller_department: profile?.department,
       seller_major: profile?.major,
@@ -75,7 +75,7 @@ function ErrorDisplay({ message }: { message: string }) {
       <div className="text-center">
         <p className="text-gray-600 mb-4">{message}</p>
         <Link href="/" className="text-primary hover:underline">
-          ホームに戻る
+          ホ�?��?に戻�?
         </Link>
       </div>
     </div>

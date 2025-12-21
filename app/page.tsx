@@ -9,7 +9,7 @@ export default async function HomePage() {
   // reserved, transaction_pending, soldの商品を除外
   const { data: recommendedData, error: recommendedError } = await supabase
     .from("items")
-    .select("id, title, selling_price, condition, front_image_url, favorites(count)")
+    .select("id, title, selling_price, front_image_url, favorites(count)")
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .limit(10);
@@ -17,7 +17,7 @@ export default async function HomePage() {
   // みんなの出品（新着順 上位15件）
   const { data: popularData, error: popularError } = await supabase
     .from("items")
-    .select("id, title, selling_price, condition, front_image_url, favorites(count)")
+    .select("id, title, selling_price, front_image_url, favorites(count)")
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .range(0, 14);
