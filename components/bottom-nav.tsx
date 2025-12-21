@@ -12,6 +12,7 @@ export function BottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
@@ -30,14 +31,32 @@ export function BottomNav() {
     }
   }, [user]);
 
+  const fetchUnreadNotificationCount = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("*", { count: 'exact', head: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+
+      if (!error && count !== null) {
+        setUnreadNotificationCount(count);
+      }
+    } catch (err) {
+      console.error("Error fetching unread notification count:", err);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
 
     fetchUnreadCount();
+    fetchUnreadNotificationCount();
 
     // Subscribe to new messages
-    const channel = supabase
-      .channel('unread-count')
+    const messagesChannel = supabase
+      .channel('unread-messages')
       .on(
         'postgres_changes',
         {
@@ -52,10 +71,28 @@ export function BottomNav() {
       )
       .subscribe();
 
+    // Subscribe to new notifications
+    const notificationsChannel = supabase
+      .channel('unread-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchUnreadNotificationCount();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(notificationsChannel);
     };
-  }, [user, fetchUnreadCount]);
+  }, [user, fetchUnreadCount, fetchUnreadNotificationCount]);
 
   // チャットページでは非表示
   if (pathname?.startsWith("/chat/")) {
@@ -64,7 +101,7 @@ export function BottomNav() {
 
   const navItems = [
     { href: "/", label: "ホーム", icon: Home },
-    { href: "/notifications", label: "おしらせ", icon: Bell },
+    { href: "/notifications", label: "おしらせ", icon: Bell, badge: unreadNotificationCount },
     { href: "/listing", label: "出品", icon: Camera, special: true },
     { href: "/profile", label: "マイページ", icon: User },
     { href: "/transactions", label: "予定", icon: ClipboardList, badge: unreadCount },
