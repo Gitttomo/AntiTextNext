@@ -5,14 +5,12 @@ import HomeClient from "./home-client";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const now = new Date().toISOString();
-
   // おすすめの教材（最新10件）
+  // reserved, transaction_pending, soldの商品を除外
   const { data: recommendedData, error: recommendedError } = await supabase
     .from("items")
     .select("id, title, selling_price, condition, front_image_url, favorites(count)")
     .eq("status", "available")
-    .or(`locked_until.is.null,locked_until.lt.${now}`)
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -21,7 +19,6 @@ export default async function HomePage() {
     .from("items")
     .select("id, title, selling_price, condition, front_image_url, favorites(count)")
     .eq("status", "available")
-    .or(`locked_until.is.null,locked_until.lt.${now}`)
     .order("created_at", { ascending: false })
     .range(0, 14);
 
@@ -29,8 +26,7 @@ export default async function HomePage() {
   const { count: totalCount } = await supabase
     .from("items")
     .select("*", { count: "exact", head: true })
-    .eq("status", "available")
-    .or(`locked_until.is.null,locked_until.lt.${now}`);
+    .eq("status", "available");
 
   if (recommendedError) {
     console.error("Error loading recommended items:", recommendedError);

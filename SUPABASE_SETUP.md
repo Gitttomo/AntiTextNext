@@ -35,6 +35,12 @@ CREATE POLICY "Users can insert own profile"
 
 ### 2. Items Table
 
+**Item Status Values:**
+- `available`: 販売中（誰でも購入可能）
+- `reserved`: 予約中（購入リクエストページで選択中、10分以内）
+- `transaction_pending`: 取引中（購入リクエスト送信済み、日程調整中）
+- `sold`: 売却済み（取引完了）
+
 ```sql
 CREATE TABLE items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -46,6 +52,8 @@ CREATE TABLE items (
   status TEXT DEFAULT 'available' NOT NULL,
   front_image_url TEXT,
   back_image_url TEXT,
+  locked_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  locked_until TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -275,7 +283,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 
 ## Step 4: Migration for Existing Databases
 
-If you already have a transactions table, run this migration to add the new fields:
+If you already have existing tables, run these migrations to add the new fields:
 
 ```sql
 -- Add new fields to transactions table for buyer/seller completion tracking
@@ -285,6 +293,71 @@ ADD COLUMN IF NOT EXISTS final_meetup_location TEXT,
 ADD COLUMN IF NOT EXISTS buyer_completed BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS seller_completed BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+
+-- Add reservation lock fields to items table
+ALTER TABLE items
+ADD COLUMN IF NOT EXISTS locked_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE;
+```
+
+## Step 5: Create RPC Functions
+
+These functions handle the reservation lock system securely on the database side.
+
+```sql
+-- Function to acquire item lock (reservation)
+CREATE OR REPLACE FUNCTION acquire_item_lock(
+  target_item_id UUID,
+  locker_id UUID,
+  lock_until TIMESTAMP WITH TIME ZONE
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Check if item is available and not locked, or lock has expired
+  UPDATE items
+  SET
+    status = 'reserved',
+    locked_by = locker_id,
+    locked_until = lock_until
+  WHERE
+    id = target_item_id
+    AND status = 'available'
+    AND (
+      locked_by IS NULL
+      OR locked_until < NOW()
+    );
+
+  -- Return true if update was successful
+  RETURN FOUND;
+END;
+$$;
+
+-- Function to release item lock (cancel reservation)
+CREATE OR REPLACE FUNCTION release_item_lock(
+  target_item_id UUID,
+  locker_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Release lock only if the user is the one who locked it
+  UPDATE items
+  SET
+    status = 'available',
+    locked_by = NULL,
+    locked_until = NULL
+  WHERE
+    id = target_item_id
+    AND locked_by = locker_id;
+
+  RETURN FOUND;
+END;
+$$;
 ```
 
 ## You're Done!
