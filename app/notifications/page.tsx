@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bell, Inbox, MessageCircle, Star, XCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, Bell, Inbox, MessageCircle, Star, XCircle, CheckCircle2, Loader2, ShoppingBag } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -95,6 +95,8 @@ export default function NotificationsPage() {
 
     const getNotificationIcon = (type: string) => {
         switch (type) {
+            case "purchase_request":
+                return <ShoppingBag className="w-5 h-5 text-purple-500" />;
             case "rating_received":
                 return <Star className="w-5 h-5 text-yellow-500" />;
             case "transaction_completed":

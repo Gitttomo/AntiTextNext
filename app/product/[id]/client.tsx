@@ -173,9 +173,37 @@ export default function ProductDetailClient({ item }: { item: Item }) {
           sender_id: user.id,
           receiver_id: item.seller_id,
           message: autoMessage,
+          is_read: false,
         });
 
       if (messageError) throw messageError;
+
+      // Get buyer's nickname for notification
+      const { data: buyerProfile } = await supabase
+        .from("profiles")
+        .select("nickname")
+        .eq("user_id", user.id)
+        .single();
+
+      const buyerNickname = (buyerProfile as any)?.nickname || "購入者";
+
+      // Send notification to seller
+      const { error: notificationError } = await (supabase
+        .from("notifications") as any)
+        .insert({
+          user_id: item.seller_id,
+          type: "purchase_request",
+          title: "新しい購入リクエスト",
+          message: `${buyerNickname}さんから購入リクエストが届きました。チャットで日程を調整してください。`,
+          link_type: "chat",
+          link_id: item.id,
+          is_read: false,
+        });
+
+      if (notificationError) {
+        console.error("Failed to send notification:", notificationError);
+        // Don't block the flow if notification fails
+      }
 
       setIsPurchaseModalOpen(false);
       // チャットはitem_idベースに変更

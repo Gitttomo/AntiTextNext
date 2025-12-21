@@ -264,6 +264,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 ```
 
 **Notification Types:**
+- `purchase_request`: 新しい購入リクエストが届きました
 - `rating_received`: 評価が送信されました
 - `transaction_completed`: 取引が完了しました
 - `message`: 新しいメッセージ
