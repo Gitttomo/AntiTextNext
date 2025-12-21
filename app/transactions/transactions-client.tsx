@@ -44,11 +44,10 @@ export default function TransactionsClient({
     const router = useRouter();
     const { user, avatarUrl, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState<Profile | null>(initialProfile);
-    const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+    const [activeTab, setActiveTab] = useState<"upcoming" | "pending">("upcoming");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
     const [historyItems, setHistoryItems] = useState<TransactionItem[]>(initialHistoryItems);
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
-    const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
     // If server didn't find a session, check client-side on mount
@@ -148,8 +147,8 @@ export default function TransactionsClient({
 
             const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }>();
             for (const tx of (sellerTransactions || []) as any[]) {
-                sellerTxMap.set(tx.item_id, { 
-                    txId: tx.id, 
+                sellerTxMap.set(tx.item_id, {
+                    txId: tx.id,
                     txStatus: tx.status,
                     final_meetup_time: tx.final_meetup_time,
                     final_meetup_location: tx.final_meetup_location
@@ -201,15 +200,15 @@ export default function TransactionsClient({
         };
     }, [user, loadData, initialCheckDone]);
 
-    const totalUnreadCount = activeItems.reduce((sum, item) => sum + item.unreadCount, 0) +
-        historyItems.reduce((sum, item) => sum + item.unreadCount, 0);
+    // Split items: confirmed (with date) vs pending (no date)
+    const confirmedItems = activeItems.filter(item => item.final_meetup_time);
+    const pendingItems = activeItems.filter(item => !item.final_meetup_time);
 
-    const activeUnreadCount = activeItems.reduce((sum, item) => sum + item.unreadCount, 0);
-    const historyUnreadCount = historyItems.reduce((sum, item) => sum + item.unreadCount, 0);
+    const totalUnreadCount = activeItems.reduce((sum, item) => sum + item.unreadCount, 0);
 
-    // Grouping logic for "Active" tab
-    const groupedItemsByDate = activeItems.reduce((groups, item) => {
-        const date = item.final_meetup_time || "未定";
+    // Grouping logic for confirmed items by date
+    const groupedItemsByDate = confirmedItems.reduce((groups, item) => {
+        const date = item.final_meetup_time!;
         if (!groups[date]) {
             groups[date] = [];
         }
@@ -217,12 +216,8 @@ export default function TransactionsClient({
         return groups;
     }, {} as Record<string, TransactionItem[]>);
 
-    // Sort dates: "未定" first, then others sorted by date string
-    const sortedDates = Object.keys(groupedItemsByDate).sort((a, b) => {
-        if (a === "未定") return -1;
-        if (b === "未定") return 1;
-        return a.localeCompare(b);
-    });
+    // Sort dates
+    const sortedDates = Object.keys(groupedItemsByDate).sort((a, b) => a.localeCompare(b));
 
     if (!initialCheckDone || authLoading) {
         return <TransactionsSkeleton />;
@@ -266,16 +261,16 @@ export default function TransactionsClient({
                             {item.isBuyer ? "購入" : "出品"}
                         </span>
                         {item.transactionStatus === "awaiting_rating" ? (
-                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full flex items-center gap-1">
+                            <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full flex items-center gap-1">
                                 <Star className="w-3 h-3" />
                                 評価待ち
-                             </span>
+                            </span>
                         ) : item.final_meetup_time ? (
-                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-green-50 text-green-600 border border-green-100 rounded-full flex items-center gap-1">
+                            <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-green-50 text-green-600 border border-green-100 rounded-full flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" />
                                 確定
-                             </span>
-                        ) : activeTab === "active" ? (
+                            </span>
+                        ) : activeTab === "pending" ? (
                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-yellow-50 text-yellow-600 border border-yellow-100 rounded-full">
                                 調整中
                             </span>
@@ -290,7 +285,7 @@ export default function TransactionsClient({
                         <p className="text-xl font-black text-primary">
                             ¥{item.selling_price.toLocaleString()}
                         </p>
-                        
+
                         {item.hasTransaction && (
                             <div className="relative">
                                 <button
@@ -314,16 +309,16 @@ export default function TransactionsClient({
 
                     {item.final_meetup_time && (
                         <div className="mt-3 pt-3 border-t border-gray-50 flex flex-col gap-1">
-                             <div className="flex items-center gap-2 text-gray-500 font-bold text-[11px]">
+                            <div className="flex items-center gap-2 text-gray-500 font-bold text-[11px]">
                                 <Clock className="w-3 h-3 text-primary/40" />
                                 <span>{item.final_meetup_time}</span>
-                             </div>
-                             {item.final_meetup_location && (
+                            </div>
+                            {item.final_meetup_location && (
                                 <div className="flex items-center gap-2 text-gray-400 font-medium text-[11px]">
                                     <MapPin className="w-3 h-3 text-primary/40" />
                                     <span>{item.final_meetup_location}</span>
                                 </div>
-                             )}
+                            )}
                         </div>
                     )}
                 </div>
@@ -378,80 +373,36 @@ export default function TransactionsClient({
             <div className="px-6 -mt-6">
                 <div className="bg-white/80 backdrop-blur-md rounded-[32px] p-1.5 flex shadow-xl border border-white/50">
                     <button
-                        onClick={() => setActiveTab("active")}
-                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] relative ${activeTab === "active"
+                        onClick={() => setActiveTab("upcoming")}
+                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] relative ${activeTab === "upcoming"
                             ? "bg-primary text-white shadow-lg shadow-primary/30"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
-                        取引中 ({activeItems.length})
+                        今後の予定 ({confirmedItems.length})
                     </button>
                     <button
-                        onClick={() => setActiveTab("history")}
-                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "history"
+                        onClick={() => setActiveTab("pending")}
+                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "pending"
                             ? "bg-primary text-white shadow-lg shadow-primary/30"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
-                        履歴 ({historyItems.length})
+                        日程調整中 ({pendingItems.length})
                     </button>
                 </div>
             </div>
 
             <div className="px-6 py-8">
-                {activeTab === "active" ? (
+                {activeTab === "upcoming" ? (
                     sortedDates.length === 0 ? (
                         <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
                             <Package className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-                            <p className="text-gray-400 font-black">取引中の商品はありません</p>
+                            <p className="text-gray-400 font-black">確定した予定はありません</p>
                         </div>
                     ) : (
                         <div className="space-y-10">
                             {sortedDates.map((date) => {
-                                const isPending = date === "未定";
-                                const itemsCount = groupedItemsByDate[date].length;
-
-                                if (isPending) {
-                                    return (
-                                        <section key={date} className="space-y-4">
-                                            <button
-                                                onClick={() => setIsPendingCollapsed(!isPendingCollapsed)}
-                                                className="w-full flex items-center justify-between p-4 bg-gray-100/50 hover:bg-gray-100 rounded-3xl transition-all group"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-gray-100">
-                                                        <Calendar className="w-5 h-5 text-gray-300" />
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <h2 className="font-black tracking-tight text-gray-400 text-lg">
-                                                            {date}
-                                                        </h2>
-                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                                            日程調整が必要
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="bg-gray-200 text-gray-500 text-[10px] font-black px-2 py-0.5 rounded-full ring-2 ring-white">
-                                                        {itemsCount}
-                                                    </span>
-                                                    {isPendingCollapsed ? (
-                                                        <ChevronDown className="w-5 h-5 text-gray-400" />
-                                                    ) : (
-                                                        <ChevronUp className="w-5 h-5 text-gray-400" />
-                                                    )}
-                                                </div>
-                                            </button>
-                                            
-                                            {!isPendingCollapsed && (
-                                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                                    {groupedItemsByDate[date].map((item, idx) => renderItem(item, idx))}
-                                                </div>
-                                            )}
-                                        </section>
-                                    );
-                                }
-
                                 return (
                                     <section key={date} className="space-y-4">
                                         <div className="flex items-center gap-3 px-2">
@@ -475,13 +426,13 @@ export default function TransactionsClient({
                     )
                 ) : (
                     <div className="space-y-4">
-                        {historyItems.length === 0 ? (
+                        {pendingItems.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
-                                <RotateCcw className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-                                <p className="text-gray-400 font-black">取引履歴はありません</p>
+                                <Calendar className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+                                <p className="text-gray-400 font-black">日程調整中の商品はありません</p>
                             </div>
                         ) : (
-                            historyItems.map((item, idx) => renderItem(item, idx))
+                            pendingItems.map((item, idx) => renderItem(item, idx))
                         )}
                     </div>
                 )}
