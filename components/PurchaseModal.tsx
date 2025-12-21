@@ -380,7 +380,7 @@ export default function PurchaseModal({
                             : "bg-gray-100 text-gray-400 cursor-not-allowed translate-y-1 opacity-50 shadow-none border border-gray-200"
                         }`}
                     >
-                        <span>購入リクエストを送信</span>
+                        <span>購入を確定</span>
                         {isValid && <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center animate-bounce-horizontal">→</div>}
                     </button>
                 </div>

@@ -527,27 +527,29 @@ export default function ListingPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   バーコード (ISBN) <span className="text-gray-400 text-xs ml-1">※任意</span>
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="978から始まる13桁の数字"
-                    value={formData.barcode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, barcode: e.target.value })
-                    }
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  />
-                  <button
-                    onClick={startScanner}
-                    className="p-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all active:scale-95"
-                    title="カメラで読み取る"
-                  >
-                    <Camera className="w-5 h-5" />
-                  </button>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="978から始まる13桁の数字"
+                      value={formData.barcode}
+                      onChange={(e) =>
+                        setFormData({ ...formData, barcode: e.target.value })
+                      }
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    />
+                    <button
+                      onClick={startScanner}
+                      className="p-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all active:scale-95 flex-shrink-0"
+                      title="カメラで読み取る"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                  </div>
                   <button
                     onClick={handleBarcodeSearch}
                     disabled={searching || !formData.barcode}
-                    className="px-3 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap"
+                    className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
                   >
                     {searching ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
