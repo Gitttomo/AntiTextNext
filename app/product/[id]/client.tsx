@@ -46,14 +46,10 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const handleReleaseLock = async () => {
     if (!user || !item) return;
     try {
-      await (supabase
-        .from("items") as any)
-        .update({
-          locked_by: null,
-          locked_until: null
-        })
-        .eq("id", item.id)
-        .eq("locked_by", user.id);
+      await (supabase as any).rpc("release_item_lock", {
+        target_item_id: item.id,
+        locker_id: user.id
+      });
     } catch (err) {
       console.error("Error releasing lock:", err);
     }
@@ -202,7 +198,39 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const isOwnItem = user?.id === item.seller_id;
   const isSold = item.status === "sold";
   const isPending = item.status === "transaction_pending";
+  const isReserved = item.status === "reserved";
   const isAvailable = item.status === "available";
+
+  // 他のユーザーが予約中または取引中の商品にアクセスした場合
+  const isReservedByOther = (isReserved || isPending) && !isOwnItem;
+
+  // If item is reserved by another user, show blocked message
+  if (isReservedByOther) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center animate-[slideUp_0.3s_ease-out]">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShoppingCart className="w-8 h-8 text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {isPending ? "取引中" : "予約済み"}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {isPending
+              ? "この商品は現在取引中です。"
+              : "この商品は他のユーザーが購入手続き中です。しばらくお待ちください。"
+            }
+          </p>
+          <Link
+            href="/"
+            className="block w-full py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all"
+          >
+            ホームに戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50" onClick={handleBackdropClick}>
