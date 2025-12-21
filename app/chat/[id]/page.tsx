@@ -431,6 +431,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       if (error) throw error;
 
+      // ローカル状態を即座に更新（即時UI反映のため）
+      setTransaction(prev => prev ? {
+        ...prev,
+        final_meetup_time: formattedTime,
+        final_meetup_location: formattedLocation,
+        status: 'confirmed'
+      } : prev);
+
       // 自動メッセージを送信
       await handleSend(`【日程が確定しました】\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\n当日はよろしくお願いいたします！`);
 
@@ -455,6 +463,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .eq("id", transaction.id);
 
       if (error) throw error;
+
+      // ローカル状態を即座に更新（即時UI反映のため）
+      setTransaction(prev => prev ? {
+        ...prev,
+        final_meetup_time: null,
+        final_meetup_location: null,
+        status: 'pending'
+      } : prev);
 
       await handleSend("この先の受け渡し日程については、こちらのチャットにてご相談ください。\n\n日程が決まりましたら、日程変更・登録を行っていただくことで、予定が自動的にカレンダーへ登録されます");
     } catch (err: any) {
@@ -712,7 +728,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           )}
 
           {/* Finalized Schedule Banner */}
-          {transaction?.final_meetup_time && (
+          {/* 日程確定済みボックス or 日程未設定ボックス */}
+          {transaction && (transaction.final_meetup_time ? (
             <div className="mb-6 bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
                 <CheckCheck className="w-6 h-6" />
@@ -723,7 +740,17 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
               </div>
             </div>
-          )}
+          ) : transaction.meetup_time_slots && transaction.meetup_time_slots.length > 0 && (
+            <div className="mb-6 bg-gray-100/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-400/20">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">日程未設定</p>
+                <p className="text-sm font-bold text-gray-700">チャットで日程を決定し、入力してください。</p>
+              </div>
+            </div>
+          ))}
 
           {/* Messages List */}
           {messages.length === 0 ? (
