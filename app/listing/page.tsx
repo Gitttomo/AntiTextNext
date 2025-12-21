@@ -421,12 +421,12 @@ export default function ListingPage() {
                 </p>
               </div>
 
-              <div>
+              {/* <div>
                 <span className="text-sm font-medium text-gray-600">状態</span>
-                {/* <p className="text-lg text-gray-900 mt-1">
+                <p className="text-lg text-gray-900 mt-1">
                   {formData.condition}
-                </p> */}
-              </div>
+                </p> 
+              </div> */}
 
               <div>
                 <span className="text-sm font-medium text-gray-600">出品価格</span>
