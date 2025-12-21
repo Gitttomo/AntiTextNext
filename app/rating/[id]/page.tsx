@@ -116,16 +116,27 @@ export default function RatingPage({ params }: { params: { id: string } }) {
           is_read: false,
         });
 
-        // Create notification for transaction completion
-        await (supabase.from("notifications") as any).insert({
-          user_id: ratedUser.user_id,
-          type: "transaction_completed",
-          title: "取引が完了しました",
-          message: "双方の評価が完了したため、取引が正式に完了しました。",
-          link_type: "chat",
-          link_id: transaction.item_id,
-          is_read: false,
-        });
+        // Create notification for transaction completion - Send to BOTH users
+        await (supabase.from("notifications") as any).insert([
+          {
+            user_id: ratedUser.user_id,
+            type: "transaction_completed",
+            title: "取引が完了しました",
+            message: "双方の評価が完了したため、取引が正式に完了しました。",
+            link_type: "chat",
+            link_id: transaction.item_id,
+            is_read: false,
+          },
+          {
+            user_id: user.id,
+            type: "transaction_completed",
+            title: "取引が完了しました",
+            message: "双方の評価が完了したため、取引が正式に完了しました。",
+            link_type: "chat",
+            link_id: transaction.item_id,
+            is_read: false,
+          }
+        ]);
       } else {
         // Only current user rated - send message to other party
         await (supabase.from("messages") as any).insert({
