@@ -431,6 +431,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       if (error) throw error;
 
+      // ローカル状態を即座に更新（即時UI反映のため）
+      setTransaction(prev => prev ? {
+        ...prev,
+        final_meetup_time: formattedTime,
+        final_meetup_location: formattedLocation,
+        status: 'confirmed'
+      } : prev);
+
       // 自動メッセージを送信
       await handleSend(`【日程が確定しました】\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\n当日はよろしくお願いいたします！`);
 
@@ -455,6 +463,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .eq("id", transaction.id);
 
       if (error) throw error;
+
+      // ローカル状態を即座に更新（即時UI反映のため）
+      setTransaction(prev => prev ? {
+        ...prev,
+        final_meetup_time: null,
+        final_meetup_location: null,
+        status: 'pending'
+      } : prev);
 
       await handleSend("この先の受け渡し日程については、こちらのチャットにてご相談ください。\n\n日程が決まりましたら、日程変更・登録を行っていただくことで、予定が自動的にカレンダーへ登録されます");
     } catch (err: any) {
@@ -678,29 +694,29 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                       <button
                         key={slot}
                         onClick={() => {
-                          if (isSeller) {
+                          if (isSeller && !transaction.final_meetup_time) {
                             handleFinalizeSchedule(slot, transaction.meetup_locations[0]);
                           }
                         }}
-                        disabled={isFinalizing || !isSeller}
-                        className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${isSeller
+                        disabled={isFinalizing || !isSeller || !!transaction.final_meetup_time}
+                        className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${isSeller && !transaction.final_meetup_time
                           ? "hover:bg-primary/10 border-primary/20 hover:border-primary/40 cursor-pointer"
                           : "border-primary/10 cursor-default"
                           }`}
                       >
-                        <span className={`text-primary font-black ${isSeller ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
-                        <Clock className={`w-4 h-4 transition-colors ${isSeller ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
+                        <span className={`text-primary font-black ${isSeller && !transaction.final_meetup_time ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
+                        <Clock className={`w-4 h-4 transition-colors ${isSeller && !transaction.final_meetup_time ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
                       </button>
                     );
                   })}
 
                   <button
                     onClick={() => {
-                      if (isSeller) {
+                      if (isSeller && !transaction.final_meetup_time) {
                         handleReschedule();
                       }
                     }}
-                    disabled={isFinalizing || !isSeller}
+                    disabled={isFinalizing || !isSeller || !!transaction.final_meetup_time}
                     className="w-full text-center py-3 text-gray-400 hover:text-gray-600 font-bold text-xs flex items-center justify-center gap-2 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -712,7 +728,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           )}
 
           {/* Finalized Schedule Banner */}
-          {transaction?.final_meetup_time && (
+          {transaction && (transaction.final_meetup_time ? (
             <div className="mb-6 bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
                 <CheckCheck className="w-6 h-6" />
@@ -723,7 +739,17 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
               </div>
             </div>
-          )}
+          ) : transaction.meetup_time_slots?.length > 0 && (
+            <div className="mb-6 bg-gray-100/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-400/20">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">日程未設定</p>
+                <p className="text-sm font-bold text-gray-700">チャットで日程を決定し、入力してください。</p>
+              </div>
+            </div>
+          ))}
 
           {/* Messages List */}
           {messages.length === 0 ? (
