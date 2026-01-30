@@ -150,11 +150,14 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       const promises: any[] = [];
       
       if (itemIds.length > 0) {
+        // アイテムの存在確認とカウント取得を同時に行う
+        // 削除されたアイテムはここで除外される
         promises.push(
           supabase
             .from("items")
             .select("id, favorites(count)")
             .in("id", itemIds)
+            .eq("status", "available") // 削除されたアイテムや非公開アイテムを除外
         );
       }
 
@@ -180,13 +183,18 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       let favRes = user ? results[1] : null;
       let profileRes = user ? results[2] : null;
 
-      // カウントの反映
+      // カウントの反映 & 削除されたアイテムのフィルタリング
       if (countRes?.data) {
+        const validItemIds = new Set((countRes.data as any[]).map((i: any) => i.id));
         const countMap = new Map((countRes.data as any[]).map((i: any) => [i.id, i.favorites?.[0]?.count || 0]));
-        const updateItemCounts = (prev: Item[]) => prev.map(item => ({
-          ...item,
-          favorite_count: countMap.get(item.id) ?? item.favorite_count
-        }));
+        
+        const updateItemCounts = (prev: Item[]) => prev
+          .filter(item => validItemIds.has(item.id)) // 削除されたアイテムを除外
+          .map(item => ({
+            ...item,
+            favorite_count: countMap.get(item.id) ?? item.favorite_count
+          }));
+        
         setRecommendedItems(prev => updateItemCounts(prev));
         setPopularItems(prev => updateItemCounts(prev));
       }
