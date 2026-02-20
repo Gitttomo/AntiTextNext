@@ -26,14 +26,14 @@ type Suggestion = {
   title: string;
 };
 
-// ã²ã‚‰ãŒãªâ†’ã‚«ã‚¿ã‚«ãƒŠå¤‰æ›
+// ‚Ğ‚ç‚ª‚È¨ƒJƒ^ƒJƒi•ÏŠ·
 const hiraganaToKatakana = (str: string): string => {
   return str.replace(/[\u3041-\u3096]/g, (match) =>
     String.fromCharCode(match.charCodeAt(0) + 0x60)
   );
 };
 
-// ã‚«ã‚¿ã‚«ãƒŠï¿½?ï¿½ï¿½?ï¿½ã‚‰ãŒãªå¤‰æ›
+// ƒJƒ^ƒJƒi??????‚ç‚ª‚È•ÏŠ·
 const katakanaToHiragana = (str: string): string => {
   return str.replace(/[\u30A1-\u30F6]/g, (match) =>
     String.fromCharCode(match.charCodeAt(0) - 0x60)
@@ -45,7 +45,7 @@ type SearchClientProps = {
   initialQuery: string;
 };
 
-// æ¤œç´¢çµæœã‚¢ã‚¤ï¿½?ï¿½?ã‚’ãƒ¡ãƒ¢ï¿½?
+// ŒŸõŒ‹‰ÊƒAƒC????‚ğƒƒ‚??
 const SearchResultItem = memo(function SearchResultItem({
   item,
   isFavorite,
@@ -67,7 +67,7 @@ const SearchResultItem = memo(function SearchResultItem({
               {item.title}
             </h3>
             <p className="text-xl font-bold text-primary">
-              Â¥{item.selling_price.toLocaleString()}
+              \{item.selling_price.toLocaleString()}
             </p>
           </div>
 
@@ -75,7 +75,7 @@ const SearchResultItem = memo(function SearchResultItem({
             <button
               onClick={(e) => onToggleFavorite(item.id, e)}
               className="group/heart relative p-2 -m-2 hover:bg-red-50 rounded-full transition-all active:scale-90 flex items-center justify-center heart-container"
-              aria-label={isFavorite ? "ãŠæ°—ã«å…¥ã‚Šã‹ã‚‰å‰Šé™¤" : "ãŠæ°—ã«å…¥ã‚Šã«è¿½ï¿½?"}
+              aria-label={isFavorite ? "‚¨‹C‚É“ü‚è‚©‚çíœ" : "‚¨‹C‚É“ü‚è‚É’Ç??"}
             >
               {/* Expanding Ring */}
               <div className={`heart-ring ${isFavorite ? 'active' : ''}`} />
@@ -118,7 +118,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
   const [favorites, setFavorites] = useState<string[]>([]);
   const historyLoadedRef = useRef(false);
 
-  // ï¿½?å­—å¤‰æ›çµæœ?ï¿½ï¿½ã‚µã‚¸ã‚§ã‚¹ãƒˆç”¨?ï¿½?
+  // ??š•ÏŠ·Œ‹‰Ê???ƒTƒWƒFƒXƒg—p???
   const convertedQuery = useMemo(() => {
     const q = searchQuery.trim();
     return {
@@ -128,14 +128,14 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     };
   }, [searchQuery]);
 
-  // åˆæœŸè¡¨ç¤ºæ™‚ã«ãŠæ°—ã«å…¥ï¿½? & æœ€æ–°ã®ã‚«ã‚¦ãƒ³ãƒˆã‚’ãƒ­ãƒ¼ãƒ‰ï¼ˆã‚­ãƒ£ï¿½?ã‚·ãƒ¥å¯¾ç­–ï¿½?
+  // ‰Šú•\¦‚É‚¨‹C‚É“ü?? & ÅV‚ÌƒJƒEƒ“ƒg‚ğƒ[ƒhiƒLƒƒ??ƒVƒ…‘Îô??
   useEffect(() => {
     const fetchData = async () => {
       const itemIds = initialResults.map(item => item.id);
       if (itemIds.length === 0) return;
 
-      // 1. ï¿½?ã‚¢ã‚¤ï¿½?ï¿½?ã®æœ€æ–°ã‚«ã‚¦ãƒ³ãƒˆã‚’å–ï¿½? (itemsï¿½?ãƒ¼ãƒ–ãƒ«ã‹ã‚‰)
-      // 2. è‡ªï¿½?ã®è¿½ï¿½?æ¸ˆã¿ãŠæ°—ã«å…¥ã‚Šã‚’å–ï¿½? (userãŒã„ã‚‹ï¿½?ï¿½ï¿½?)
+      // 1. ??ƒAƒC????‚ÌÅVƒJƒEƒ“ƒg‚ğæ?? (items??[ƒuƒ‹‚©‚ç)
+      // 2. ©??‚Ì’Ç??Ï‚İ‚¨‹C‚É“ü‚è‚ğæ?? (user‚ª‚¢‚é?????)
       const promises: any[] = [
         supabase
           .from("items")
@@ -183,12 +183,12 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
 
     const isFav = favoriteSet.has(id);
 
-    // æ¥½è¦³çš„UIæ›´æ–°
+    // ŠyŠÏ“IUIXV
     setFavorites(prev =>
       isFav ? prev.filter(favId => favId !== id) : [...prev, id]
     );
 
-    // ã‚«ã‚¦ãƒ³ãƒˆï¿½?ï¿½è¦‹ãŸç›®ä¸Šï¿½?ï¿½èª¿æ•´
+    // ƒJƒEƒ“ƒg???Œ©‚½–Úã???’²®
     setResults(prev => prev.map(item => {
       if (item.id === id) {
         return {
@@ -199,7 +199,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
       return item;
     }));
 
-    // ãƒãƒƒã‚¯ã‚¨ãƒ³ãƒ‰åŒï¿½?
+    // ƒoƒbƒNƒGƒ“ƒh“¯??
     try {
       if (isFav) {
         await (supabase
@@ -220,7 +220,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     }
   }, [user, favoriteSet]);
 
-  // å…¥åŠ›æ™‚ã«ã‚µã‚¸ã‚§ã‚¹ãƒˆã‚’å–å¾—ï¼ˆãƒ‡ãƒã‚¦ãƒ³ã‚¹å¼·åŒ–ï¿½?
+  // “ü—Í‚ÉƒTƒWƒFƒXƒg‚ğæ“¾iƒfƒoƒEƒ“ƒX‹­‰»??
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSuggestions([]);
@@ -252,7 +252,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         setSuggestions(Array.from(uniqueTitles.values()));
         setShowSuggestions(true);
       } catch (err) {
-        // ã‚µã‚¸ã‚§ã‚¹ãƒˆï¿½?ï¿½ã‚¨ãƒ©ãƒ¼ã¯ç„¡ï¿½?
+        // ƒTƒWƒFƒXƒg???ƒGƒ‰[‚Í–³??
       }
     };
 
@@ -275,7 +275,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         setSearchHistory(data as SearchHistory[]);
       }
     } catch (err) {
-      // å±¥æ­´èª­ã¿è¾¼ã¿ã‚¨ãƒ©ãƒ¼ã¯ç„¡ï¿½?
+      // —š—ğ“Ç‚İ‚İƒGƒ‰[‚Í–³??
     }
   }, [user]);
 
@@ -286,13 +286,13 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
     setSearchQuery(keyword);
     router.push(`/search?q=${encodeURIComponent(keyword)}`);
 
-    // æ¤œç´¢å±¥æ­´ã®ä¿å­˜ï¼ˆéåŒæœŸãƒ»ãƒãƒƒã‚¯ã‚°ãƒ©ã‚¦ãƒ³ãƒ‰ã§å®Ÿè¡Œï¿½?
+    // ŒŸõ—š—ğ‚Ì•Û‘¶i”ñ“¯ŠúEƒoƒbƒNƒOƒ‰ƒEƒ“ƒh‚ÅÀs??
     if (user) {
       (supabase.from("search_histories") as any).insert({
         user_id: user.id,
         keyword: keyword,
       }).then(() => {
-        // å±¥æ­´æ›´æ–°ã¯æ¬¡å›è¡¨ç¤ºæ™‚ã«è¡Œã†?ï¿½ï¿½å³æ™‚æ›´æ–°ã—ãªï¿½??ï¿½?
+        // —š—ğXV‚ÍŸ‰ñ•\¦‚És‚¤???‘¦XV‚µ‚È?????
       }).catch(() => { });
     }
   }, [router, user]);
@@ -319,7 +319,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
             <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
           </Link>
           <h1 className="text-3xl font-bold text-primary">
-            æ¤œç´¢
+            ŒŸõ
           </h1>
         </div>
 
@@ -334,7 +334,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
-              placeholder="æ•™ç§‘æ›¸åã‚’å…¥ï¿½?...?ï¿½ï¿½ï¿½?ï¿½ã‚‰ãŒãªãƒ»ã‚«ã‚¿ã‚«ãƒŠå¯¾å¿œï¿½?"
+              placeholder="‹³‰È‘–¼‚ğ“ü‚ê‚Ä‚­‚¾‚³‚¢"
               className="w-full py-3 pl-12 pr-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
@@ -371,7 +371,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         <div className="px-6 py-6 border-b">
           <div className="flex items-center gap-2 mb-4">
             <History className="w-5 h-5 text-gray-600" />
-            <h2 className="text-sm font-semibold text-gray-700">æ¤œç´¢å±¥æ­´</h2>
+            <h2 className="text-sm font-semibold text-gray-700">ŒŸõ—š—ğ</h2>
           </div>
           <div className="space-y-2">
             {searchHistory.map((history) => (
@@ -395,7 +395,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
         {initialResults.length > 0 ? (
           <>
             <h3 className="text-sm font-semibold text-gray-700 mb-4">
-              {results.length}ä»¶ã®çµæœ
+              {results.length}Œ‚ÌŒ‹‰Ê
             </h3>
             <div className="space-y-4">
               {results.map((item) => (
@@ -410,7 +410,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
           </>
         ) : initialQuery ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">çµæœãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã§ã—ãŸ</p>
+            <p className="text-gray-500">Œ‹‰Ê‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ‚Å‚µ‚½</p>
           </div>
         ) : null}
       </div>
@@ -425,7 +425,7 @@ export default function SearchClient({ initialResults, initialQuery }: SearchCli
   );
 }
 
-// å±¥æ­´èª­ã¿è¾¼ã¿ç”¨ã‚µãƒ–ãƒ«ãƒ¼ãƒãƒ³?ï¿½ï¿½ãƒ¡ã‚¤ãƒ³ã‚³ãƒ³ãƒï¿½?ï¿½ãƒãƒ³ãƒˆã‚’ã‚¹ï¿½?ã‚­ãƒªã•ã›ã‚‹ãŸï¿½??ï¿½?
+// —š—ğ“Ç‚İ‚İ—pƒTƒuƒ‹[ƒ`ƒ“???ƒƒCƒ“ƒRƒ“ƒ|???ƒlƒ“ƒg‚ğƒX??ƒLƒŠ‚³‚¹‚é‚½?????
 function SearchHistoryEffect({ user, authLoading, historyLoadedRef, loadSearchHistory }: any) {
   useEffect(() => {
     if (authLoading || !user || historyLoadedRef.current) return;
