@@ -36,7 +36,7 @@ const ItemCard = memo(function ItemCard({
 }) {
   return (
     <Link href={`/product/${item.id}`}>
-      <div 
+      <div
         className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 animate-slide-in-up"
         style={{ animationDelay: `${index * 80}ms` }}
       >
@@ -87,7 +87,7 @@ const ItemCard = memo(function ItemCard({
             >
               {/* Expanding Ring */}
               <div className={`heart-ring ${isFavorite ? 'active' : ''}`} />
-              
+
               {/* Particles */}
               <div className={`heart-particle-container ${isFavorite ? 'active' : ''}`}>
                 {[...Array(7)].map((_, i) => (
@@ -99,7 +99,7 @@ const ItemCard = memo(function ItemCard({
                 className={`w-5 h-5 transition-all duration-300 relative heart-main ${isFavorite
                   ? "fill-red-500 text-red-500 heart-pop"
                   : "text-gray-300 group-hover/heart:text-red-300"
-                }`}
+                  }`}
               />
             </button>
             {item.favorite_count !== undefined && item.favorite_count > 0 && (
@@ -123,11 +123,11 @@ type HomeClientProps = {
 export default function HomeClient({ items: initialRecommendedItems, popularItems: initialPopularItems, totalPopularCount }: HomeClientProps) {
   const { user, loading, avatarUrl } = useAuth();
   const [favorites, setFavorites] = useState<string[]>([]);
-  
+
   // 各アイテムの状態管理（サーバーのキャッシュを上書きできるようにState化）
   const [recommendedItems, setRecommendedItems] = useState<Item[]>(initialRecommendedItems);
   const [popularItems, setPopularItems] = useState<Item[]>(initialPopularItems);
-  
+
   const [loadingMoreRecommended, setLoadingMoreRecommended] = useState(false);
   const [hasMoreRecommended, setHasMoreRecommended] = useState(false); // 初期はサーバーサイドの10件
   const [totalRecommendedCount, setTotalRecommendedCount] = useState(10);
@@ -146,9 +146,9 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         ...recommendedItems.map(i => i.id),
         ...popularItems.map(i => i.id)
       ];
-      
+
       const promises: any[] = [];
-      
+
       if (itemIds.length > 0) {
         // アイテムの存在確認とカウント取得を同時に行う
         // 削除されたアイテムはここで除外される
@@ -212,17 +212,17 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       // 2. パーソナライズされたおすすめの取得
       if (user && profileRes?.data) {
         const { department, major } = profileRes.data as any;
-        
+
         let query = supabase
           .from("items")
           .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
           .eq("status", "available")
           .eq("profiles.department", department);
-        
+
         if (major) {
           query = query.eq("profiles.major", major);
         }
-        
+
         const { data: majorData, count, error } = await query
           .order("created_at", { ascending: false })
           .limit(15);
@@ -232,7 +232,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             ...item,
             favorite_count: item.favorites?.[0]?.count || 0
           })) as Item[];
-          
+
           setRecommendedItems(personalized);
           setTotalRecommendedCount(count || 0);
           setHasMoreRecommended((count || 0) > personalized.length);
@@ -247,11 +247,11 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     if (!user) return;
 
     const isFav = favoriteSet.has(id);
-    
+
     // 状態が既に遷移中（連打防止）などのためのガードは特になし（Setなので重複はしない）
-    
+
     // 楽観的UI更新
-    setFavorites(prev => 
+    setFavorites(prev =>
       isFav ? prev.filter(favId => favId !== id) : [...prev, id]
     );
 
@@ -285,7 +285,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     } catch (err) {
       console.error("Favorite sync failed:", err);
       // 失敗時はロールバックするのが丁寧
-      setFavorites(prev => 
+      setFavorites(prev =>
         isFav ? [...prev, id] : prev.filter(favId => favId !== id)
       );
     }
@@ -297,7 +297,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     setLoadingMoreRecommended(true);
     try {
       const currentLength = recommendedItems.length;
-      
+
       // ユーザーの所属情報を再取得（またはStateから持ってくる）
       const { data: profile } = await supabase
         .from("profiles")
@@ -311,7 +311,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)")
           .eq("status", "available")
           .eq("profiles.department", (profile as any).department);
-        
+
         if ((profile as any).major) {
           query = query.eq("profiles.major", (profile as any).major);
         }
@@ -340,7 +340,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
 
   const loadMorePopular = async () => {
     if (loadingMore || !hasMore) return;
-    
+
     setLoadingMore(true);
     try {
       const currentLength = popularItems.length;
@@ -482,7 +482,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
                 />
               ))}
             </div>
-            
+
             {hasMoreRecommended && (
               <div className="mt-8 text-center">
                 <button
