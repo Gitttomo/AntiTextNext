@@ -4,95 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Camera, ClipboardList, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
-import { useAuth } from "./auth-provider";
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-
-  const fetchUnreadCount = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { count, error } = await supabase
-        .from("messages")
-        .select("*", { count: 'exact', head: true })
-        .eq("receiver_id", user.id)
-        .eq("is_read", false);
-
-      if (!error && count !== null) {
-        setUnreadCount(count);
-      }
-    } catch (err) {
-      console.error("Error fetching unread count:", err);
-    }
-  }, [user]);
-
-  const fetchUnreadNotificationCount = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("*", { count: 'exact', head: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
-
-      if (!error && count !== null) {
-        setUnreadNotificationCount(count);
-      }
-    } catch (err) {
-      console.error("Error fetching unread notification count:", err);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    fetchUnreadCount();
-    fetchUnreadNotificationCount();
-
-    // Subscribe to new messages
-    const messagesChannel = supabase
-      .channel('unread-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'messages',
-          filter: `receiver_id=eq.${user.id}`
-        },
-        () => {
-          fetchUnreadCount();
-        }
-      )
-      .subscribe();
-
-    // Subscribe to new notifications
-    const notificationsChannel = supabase
-      .channel('unread-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchUnreadNotificationCount();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messagesChannel);
-      supabase.removeChannel(notificationsChannel);
-    };
-  }, [user, fetchUnreadCount, fetchUnreadNotificationCount]);
 
   // チャットページでは非表示
   if (pathname?.startsWith("/chat/")) {
@@ -101,10 +15,10 @@ export function BottomNav() {
 
   const navItems = [
     { href: "/", label: "ホーム", icon: Home },
-    { href: "/notifications", label: "おしらせ", icon: Bell, badge: unreadNotificationCount },
+    { href: "/notifications", label: "おしらせ", icon: Bell },
     { href: "/listing", label: "出品", icon: Camera, special: true },
-    { href: "/profile", label: "マイページ", icon: User },
-    { href: "/transactions", label: "予定", icon: ClipboardList, badge: unreadCount },
+    { href: "/profile" , label: "マイページ", icon: User },
+    { href: "/transactions", label: "予定", icon: ClipboardList },
   ];
 
   return (
@@ -152,17 +66,10 @@ export function BottomNav() {
                   : "text-gray-400 hover:text-primary/70"
               )}
             >
-                <div className="relative">
-                  <Icon 
-                    className={cn("w-6 h-6 transition-all", isActive ? "scale-110" : "")} 
-                    strokeWidth={isActive ? 2.5 : 2} 
-                  />
-                  {item.badge && item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm px-1 animate-in zoom-in duration-300">
-                      {item.badge > 99 ? "99+" : item.badge}
-                    </span>
-                  )}
-                </div>
+              <Icon 
+                className={cn("w-6 h-6 transition-all", isActive ? "scale-110" : "")} 
+                strokeWidth={isActive ? 2.5 : 2} 
+              />
               <span className={cn(
                 "text-[10px] font-bold tracking-tight",
                 isActive ? "text-primary" : "text-gray-400"

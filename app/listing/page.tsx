@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import Quagga from "@ericblade/quagga2";
+import ListingTutorial from "@/components/ListingTutorial";
 
 type ListingStep = "form" | "confirm" | "success";
 
@@ -21,186 +22,45 @@ export default function ListingPage() {
     //condition: "良好",
     frontCover: null as File | null,
     backCover: null as File | null,
-    barcode: "",
   });
 
   const [frontCoverPreview, setFrontCoverPreview] = useState<string>("");
   const [backCoverPreview, setBackCoverPreview] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanStatus, setScanStatus] = useState<"scanning" | "detected" | "idle">("idle");
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [maxZoom, setMaxZoom] = useState(1);
-  const scannerRef = useRef<HTMLDivElement>(null);
-  const videoTrackRef = useRef<MediaStreamTrack | null>(null);
-  const autoScanIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const detectedRef = useRef(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
-  // ズームレベルを変更する関数
-  const changeZoom = useCallback(async (newZoom: number) => {
-    if (!videoTrackRef.current) return;
-    try {
-      const capabilities = videoTrackRef.current.getCapabilities?.() as any;
-      if (capabilities?.zoom) {
-        const clampedZoom = Math.min(Math.max(newZoom, capabilities.zoom.min), capabilities.zoom.max);
-        await (videoTrackRef.current as any).applyConstraints({
-          advanced: [{ zoom: clampedZoom }]
-        });
-        setZoomLevel(clampedZoom);
-      }
-    } catch (e) {
-      console.log("Zoom not supported:", e);
-    }
-  }, []);
-
-  // Stop scanner when component unmounts or isScanning becomes false
+  // Check if user has seen the tutorial
   useEffect(() => {
-    let active = true;
-
-    if (!isScanning) {
-      if (videoTrackRef.current) {
-        videoTrackRef.current.stop();
-        videoTrackRef.current = null;
-      }
-      Quagga.stop();
-      return;
+    const hasSeenTutorial = localStorage.getItem('listing_tutorial_seen');
+    if (!hasSeenTutorial && user) {
+      setShowTutorial(true);
     }
+  }, [user]);
 
-    // Initialize scanner
-    const initScanner = async () => {
-      // Wait for the modal DOM to be ready
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      if (!active) return; // Stop if effect was cleaned up
-
-      if (!scannerRef.current) {
-        console.error("Scanner ref not found");
-        setIsScanning(false);
-        return;
-      }
-
-      Quagga.init({
-        inputStream: {
-          type: "LiveStream",
-          target: scannerRef.current,
-          constraints: {
-            facingMode: "environment",
-            width: { min: 640 },
-            height: { min: 480 },
-            aspectRatio: { min: 4/3, max: 16/9 }
-          },
-        },
-        locator: {
-          patchSize: "medium",
-          halfSample: true,
-        },
-        numOfWorkers: 2,
-        decoder: {
-          readers: ["ean_reader"], // ISBN is EAN-13
-        },
-        locate: true,
-      }, async (err) => {
-        if (err) {
-          console.error("Quagga init error:", err);
-          if (active) setIsScanning(false);
-          return;
-        }
-        
-        if (!active) {
-          Quagga.stop();
-          return;
-        }
-
-        Quagga.start();
-        
-        // Get video track for zoom control
-        const video = scannerRef.current?.querySelector("video");
-        if (video && video.srcObject) {
-          const stream = video.srcObject as MediaStream;
-          const track = stream.getVideoTracks()[0];
-          if (track) {
-            videoTrackRef.current = track;
-            
-            // Check for zoom capabilities
-            const capabilities = track.getCapabilities?.() as any;
-            if (capabilities?.zoom) {
-              setMaxZoom(capabilities.zoom.max);
-              setZoomLevel(capabilities.zoom.min); // Reset to min
-            }
-          }
-        }
-      });
-
-      Quagga.onDetected((result) => {
-        if (!active || detectedRef.current) return; // Prevent double detection
-        
-        const code = result.codeResult.code;
-        if (code && (code.startsWith("978") || code.startsWith("979"))) {
-          detectedRef.current = true;
-          setScanStatus("detected");
-          
-          // Play a sound or vibrate here if possible
-          if (navigator.vibrate) navigator.vibrate(200);
-
-          setTimeout(() => {
-            if (!active) return;
-            Quagga.stop();
-            setIsScanning(false);
-            setFormData(prev => ({ ...prev, barcode: code }));
-            detectedRef.current = false; // Reset for next time
-            setScanStatus("idle");
-            
-            setTimeout(() => {
-              searchBookByIsbn(code);
-            }, 100);
-          }, 500); // Give user a moment to see "Detected" status
-        }
-      });
-    };
-
-    initScanner();
-
-    return () => {
-      active = false;
-      if (videoTrackRef.current) {
-        videoTrackRef.current.stop();
-        videoTrackRef.current = null;
-      }
-      Quagga.stop();
-      detectedRef.current = false;
-    };
-  }, [isScanning]);
-
-  const startScanner = () => {
-    setIsScanning(true);
-    setScanStatus("scanning");
+  const handleCloseTutorial = () => {
+    localStorage.setItem('listing_tutorial_seen', 'true');
+    setShowTutorial(false);
   };
 
-  const stopScanner = () => {
-    setIsScanning(false);
-    setScanStatus("idle");
-  };
-
-  const searchBookByIsbn = async (isbn: string) => {
-    const cleanIsbn = isbn.replace(/-/g, "").trim();
-    if (!cleanIsbn) return;
+  const handleBarcodeSearch = async () => {
+    const isbn = formData.barcode.replace(/-/g, "").trim();
+    if (!isbn) return;
 
     setSearching(true);
     try {
-      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}`);
+      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
       const data = await response.json();
 
       if (data.totalItems > 0) {
         const book = data.items[0].volumeInfo;
         const saleInfo = data.items[0].saleInfo;
-        
+
         setFormData(prev => ({
           ...prev,
-          barcode: isbn,
           bookName: book.title || prev.bookName,
-          originalPrice: saleInfo?.listPrice?.amount 
-            ? String(saleInfo.listPrice.amount) 
+          originalPrice: saleInfo?.listPrice?.amount
+            ? String(saleInfo.listPrice.amount)
             : prev.originalPrice
         }));
       } else {
@@ -211,67 +71,7 @@ export default function ListingPage() {
       alert("検索中にエラーが発生しました。");
     } finally {
       setSearching(false);
-      // Ensure scanner is effectively off if it wasn't already (though logic handles this)
     }
-  };
-
-  const captureAndScan = async () => {
-    if (!scannerRef.current) return;
-    const video = scannerRef.current.querySelector("video");
-    if (!video) return;
-
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      // Image enhancement: High contrast & Grayscale
-      ctx.filter = "grayscale(1) contrast(1.5) brightness(1.2)";
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const dataUrl = canvas.toDataURL("image/jpeg");
-
-      Quagga.decodeSingle({
-        src: dataUrl,
-        numOfWorkers: 0,
-        inputStream: {
-          size: 800
-        },
-        decoder: {
-          readers: ["ean_reader"]
-        },
-      }, (result) => {
-        if (result?.codeResult) {
-          const code = result.codeResult.code;
-          if (code && (code.startsWith("978") || code.startsWith("979"))) {
-            setScanStatus("detected");
-            if (navigator.vibrate) navigator.vibrate(200);
-            
-            setTimeout(() => {
-              Quagga.stop();
-              setIsScanning(false);
-              setFormData(prev => ({ ...prev, barcode: code }));
-              setScanStatus("idle");
-              
-              setTimeout(() => {
-                searchBookByIsbn(code);
-              }, 100);
-            }, 500);
-            return;
-          }
-        }
-        alert("バーコードを検出できませんでした。もう一度試してください。");
-      });
-    } catch (e) {
-      console.error("Snapshot scan error:", e);
-      alert("撮影に失敗しました。");
-    }
-  };
-
-  const handleBarcodeSearch = () => {
-    searchBookByIsbn(formData.barcode);
   };
 
   // useEffect内でリダイレクト（SSRでのlocationエラーを防止）
@@ -508,6 +308,11 @@ export default function ListingPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Listing Tutorial for first-time visitors */}
+      {showTutorial && (
+        <ListingTutorial onClose={handleCloseTutorial} />
+      )}
+
       <header className="bg-white px-6 pt-8 pb-6 border-b">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -527,29 +332,20 @@ export default function ListingPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   バーコード (ISBN) <span className="text-gray-400 text-xs ml-1">※任意</span>
                 </label>
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="978から始まる13桁の数字"
-                      value={formData.barcode}
-                      onChange={(e) =>
-                        setFormData({ ...formData, barcode: e.target.value })
-                      }
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    />
-                    <button
-                      onClick={startScanner}
-                      className="p-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all active:scale-95 flex-shrink-0"
-                      title="カメラで読み取る"
-                    >
-                      <Camera className="w-5 h-5" />
-                    </button>
-                  </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="978から始まる13桁の数字"
+                    value={formData.barcode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, barcode: e.target.value })
+                    }
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  />
                   <button
                     onClick={handleBarcodeSearch}
                     disabled={searching || !formData.barcode}
-                    className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                    className="px-3 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap"
                   >
                     {searching ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -701,7 +497,7 @@ export default function ListingPage() {
         </div>
       </div>
 
-      {/* Barcode Scanner Modal */}
+      {/* Barcode Scanner Modal - Temporarily disabled due to missing state variables
       {isScanning && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl overflow-hidden w-full max-w-md relative">
@@ -724,12 +520,10 @@ export default function ListingPage() {
             <div className="relative w-full aspect-[3/4] bg-black">
               <div ref={scannerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
 
-              {/* Overlay guides */}
-              <div className={`absolute inset-0 m-8 rounded-lg pointer-events-none transition-all duration-300 ${
-                scanStatus === "detected"
-                  ? "border-4 border-green-500 bg-green-500/20"
-                  : "border-2 border-primary/50"
-              }`}>
+              <div className={`absolute inset-0 m-8 rounded-lg pointer-events-none transition-all duration-300 ${scanStatus === "detected"
+                ? "border-4 border-green-500 bg-green-500/20"
+                : "border-2 border-primary/50"
+                }`}>
                 {scanStatus === "scanning" && (
                   <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
                     <div className="w-full h-1 bg-red-500 animate-scan-line" />
@@ -746,7 +540,6 @@ export default function ListingPage() {
                 )}
               </div>
 
-              {/* Auto scan indicator */}
               {scanStatus === "scanning" && (
                 <div className="absolute top-4 left-4 right-4 flex justify-center z-20">
                   <div className="bg-black/60 text-white px-4 py-2 rounded-full flex items-center gap-2 text-sm">
@@ -756,7 +549,6 @@ export default function ListingPage() {
                 </div>
               )}
 
-              {/* Zoom Controls - 小さいバーコード用 */}
               {scanStatus === "scanning" && maxZoom > 1 && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
                   <button
@@ -779,7 +571,6 @@ export default function ListingPage() {
                 </div>
               )}
 
-              {/* Manual Snapshot Button */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center z-20">
                 <button
                   onClick={captureAndScan}
@@ -796,13 +587,14 @@ export default function ListingPage() {
               {scanStatus === "detected" ? (
                 <span className="text-green-600 font-medium">バーコードを検出しました！書籍情報を取得中...</span>
               ) : (
-                <>バーコードを枠の中央に入れると自動で読み取ります<br/>
-                <span className="text-xs text-gray-400">小さいバーコードは右の＋ボタンでズームしてください</span></>
+                <>バーコードを枠の中央に入れると自動で読み取ります<br />
+                  <span className="text-xs text-gray-400">小さいバーコードは右の＋ボタンでズームしてください</span></>
               )}
             </div>
           </div>
         </div>
       )}
+      */}
     </div>
   );
 }

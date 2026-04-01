@@ -296,7 +296,7 @@ function SearchContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
-              placeholder="教科書名を入�?...?���?�らがな・カタカナ対応�?"
+              placeholder="教科書名を入れてください"
               className="w-full py-3 pl-12 pr-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
