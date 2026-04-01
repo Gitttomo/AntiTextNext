@@ -2,9 +2,10 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import ProductDetailClient, { Item } from "./client";
 
-// ISR (Incremental Static Regeneration) を有効化（60秒キャッシュ）
-// これにより、データベースへのアクセス頻度が減り、レスポンスが高速化されます
-export const revalidate = 60;
+// Phase 2: 適切なキャッシュ戦略
+// 30秒ごとに再検証することで、削除されたアイテムが長時間表示されるのを防ぐ
+// ISRの60秒から30秒に短縮し、削除反映を早める
+export const revalidate = 30;
 
 export default async function ProductDetailPage({
   params,
@@ -18,7 +19,7 @@ export default async function ProductDetailPage({
     // Attempt to join first (Optimized path)
     let fullItem: Item | null = null;
     
-    const itemFields = "id, title, selling_price, original_price, condition, status, front_image_url, back_image_url, created_at, seller_id";
+    const itemFields = "id, title, selling_price, original_price, status, front_image_url, back_image_url, created_at, seller_id";
 
     // 1. Fetch item and profile
     const { data: itemData, error: itemError } = await supabase

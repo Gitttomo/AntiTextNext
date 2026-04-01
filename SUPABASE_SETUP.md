@@ -36,10 +36,10 @@ CREATE POLICY "Users can insert own profile"
 ### 2. Items Table
 
 **Item Status Values:**
-- `available`: 販売中（誰でも購入可能）
-- `reserved`: 予約中（購入リクエストページで選択中、10分以内）
-- `transaction_pending`: 取引中（購入リクエスト送信済み、日程調整中）
-- `sold`: 売却済み（取引完了）
+- `available`: 販売中?��誰でも購入可能?�?
+- `reserved`: 予�?中?��購入リクエスト�?��?�ジで選択中�?10�?以�??�?
+- `transaction_pending`: 取引中?��購入リクエスト送信済み、日程調整中?�?
+- `sold`: 売却済み?��取引完�??�?
 
 ```sql
 CREATE TABLE items (
@@ -48,7 +48,6 @@ CREATE TABLE items (
   title TEXT NOT NULL,
   original_price INTEGER NOT NULL,
   selling_price INTEGER NOT NULL,
-  condition TEXT NOT NULL,
   status TEXT DEFAULT 'available' NOT NULL,
   front_image_url TEXT,
   back_image_url TEXT,
@@ -61,7 +60,7 @@ CREATE TABLE items (
 ALTER TABLE items ENABLE ROW LEVEL SECURITY;
 
 -- Policies
--- 誰でも販売中・取引中のアイテムを閲覧可能
+-- 誰でも販売中・取引中のアイ�?�?を閲覧可能
 CREATE POLICY "Anyone can view items"
   ON items FOR SELECT
   USING (true);
@@ -70,7 +69,7 @@ CREATE POLICY "Users can insert own items"
   ON items FOR INSERT
   WITH CHECK (auth.uid() = seller_id);
 
--- 出品者と購入リクエストした購入者がステータスを更新可能
+-- 出品�?と購入リクエストした購入�?がス�?ータスを更新可能
 CREATE POLICY "Users can update items"
   ON items FOR UPDATE
   USING (true);
@@ -131,7 +130,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ### Migration: Add missing fields to existing messages table
 
 ```sql
--- 既存のテーブルがある場合、このSQLを実行
+-- 既存�?��?ーブルがある�?�合、このSQLを実�?
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_url TEXT;
@@ -142,8 +141,8 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_url TEXT;
 **Transaction Status Values:**
 - `pending`: 日程調整中
 - `confirmed`: 日程確定済み
-- `awaiting_rating`: 評価待ち (少なくとも一方のユーザーが取引完了ボタンを押して評価送信済み)
-- `completed`: 取引完了 (双方が評価を送信済み)
+- `awaiting_rating`: 評価�?ち (少なくとも一方のユーザーが取引完�?ボタンを押して評価送信済み)
+- `completed`: 取引完�? (双方が評価を送信済み)
 - `cancelled`: キャンセル済み
 
 ```sql
@@ -266,14 +265,14 @@ ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 **Notification Types:**
 - `purchase_request`: 新しい購入リクエストが届きました
 - `rating_received`: 評価が送信されました
-- `transaction_completed`: 取引が完了しました
-- `message`: 新しいメッセージ
+- `transaction_completed`: 取引が完�?しました
+- `message`: 新しいメ�?セージ
 - `transaction_cancelled`: 取引がキャンセルされました
 
 **Link Types:**
-- `chat`: チャットページへのリンク (link_id = item_id)
-- `transaction`: 取引ページへのリンク
-- `profile`: プロフィールページへのリンク
+- `chat`: チャ�?ト�?��?�ジへのリンク (link_id = item_id)
+- `transaction`: 取引�?��?�ジへのリンク
+- `profile`: プロフィールペ�?�ジへのリンク
 
 ## Step 3: Configure Email Authentication
 

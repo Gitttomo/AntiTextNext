@@ -1,15 +1,18 @@
 import { supabase } from "@/lib/supabase";
 import HomeClient from "./home-client";
 
-// 常に最新の在庫・ロック状況を反映するため動的レンダリングを強制
-export const dynamic = "force-dynamic";
+// Phase 2: 適切なキャッシュ戦略
+// 30秒ごとに再検証することで、パフォーマンスを維持しつつ削除反映を早める
+// クライアント側でも useEffect で最新データを取得するため、実質的にはより早く反映される
+export const revalidate = 30;
 
 export default async function HomePage() {
+  
   // おすすめの教材（最新10件）
   // reserved, transaction_pending, soldの商品を除外
   const { data: recommendedData, error: recommendedError } = await supabase
     .from("items")
-    .select("id, title, selling_price, condition, front_image_url, favorites(count)")
+    .select("id, title, selling_price, front_image_url, favorites(count)")
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .limit(10);
@@ -17,7 +20,7 @@ export default async function HomePage() {
   // みんなの出品（新着順 上位15件）
   const { data: popularData, error: popularError } = await supabase
     .from("items")
-    .select("id, title, selling_price, condition, front_image_url, favorites(count)")
+    .select("id, title, selling_price, front_image_url, favorites(count)")
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .range(0, 14);

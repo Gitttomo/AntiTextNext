@@ -11,16 +11,16 @@ type Item = {
   id: string;
   title: string;
   selling_price: number;
-  condition: string;
+  //condition: string;
   front_image_url: string | null;
   favorite_count?: number;
 };
 
-const conditionColors: Record<string, string> = {
+/* const conditionColors: Record<string, string> = {
   "美品": "bg-green-100 text-green-700",
   "良好": "bg-blue-100 text-blue-700",
   "可": "bg-yellow-100 text-yellow-700",
-};
+}; */
 
 // アイテムカードをメモ化して再レンダリングを防止
 const ItemCard = memo(function ItemCard({
@@ -62,9 +62,9 @@ const ItemCard = memo(function ItemCard({
           {/* コンテンツ */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
+              {/* <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
                 {item.condition}
-              </span>
+              </span> */}
             </div>
             <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
               {item.title}
@@ -150,11 +150,14 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       const promises: any[] = [];
       
       if (itemIds.length > 0) {
+        // アイテムの存在確認とカウント取得を同時に行う
+        // 削除されたアイテムはここで除外される
         promises.push(
           supabase
             .from("items")
             .select("id, favorites(count)")
             .in("id", itemIds)
+            .eq("status", "available") // 削除されたアイテムや非公開アイテムを除外
         );
       }
 
@@ -180,13 +183,18 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       let favRes = user ? results[1] : null;
       let profileRes = user ? results[2] : null;
 
-      // カウントの反映
+      // カウントの反映 & 削除されたアイテムのフィルタリング
       if (countRes?.data) {
+        const validItemIds = new Set((countRes.data as any[]).map((i: any) => i.id));
         const countMap = new Map((countRes.data as any[]).map((i: any) => [i.id, i.favorites?.[0]?.count || 0]));
-        const updateItemCounts = (prev: Item[]) => prev.map(item => ({
-          ...item,
-          favorite_count: countMap.get(item.id) ?? item.favorite_count
-        }));
+        
+        const updateItemCounts = (prev: Item[]) => prev
+          .filter(item => validItemIds.has(item.id)) // 削除されたアイテムを除外
+          .map(item => ({
+            ...item,
+            favorite_count: countMap.get(item.id) ?? item.favorite_count
+          }));
+        
         setRecommendedItems(prev => updateItemCounts(prev));
         setPopularItems(prev => updateItemCounts(prev));
       }
@@ -207,7 +215,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         
         let query = supabase
           .from("items")
-          .select("id, title, selling_price, condition, front_image_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
+          .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
           .eq("status", "available")
           .eq("profiles.department", department);
         
@@ -300,7 +308,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       if (profile) {
         let query = supabase
           .from("items")
-          .select("id, title, selling_price, condition, front_image_url, favorites(count), profiles!inner(department, major)")
+          .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)")
           .eq("status", "available")
           .eq("profiles.department", (profile as any).department);
         
@@ -338,7 +346,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       const currentLength = popularItems.length;
       const { data, error } = await supabase
         .from("items")
-        .select("id, title, selling_price, condition, front_image_url, favorites(count)")
+        .select("id, title, selling_price, front_image_url, favorites(count)")
         .eq("status", "available")
         .order("created_at", { ascending: false })
         .range(currentLength, currentLength + 14);

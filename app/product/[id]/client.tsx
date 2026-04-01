@@ -17,7 +17,7 @@ export type Item = {
   title: string;
   selling_price: number;
   original_price: number;
-  condition: string;
+  //condition: string;
   status: string;
   front_image_url: string | null;
   back_image_url: string | null;
@@ -216,12 +216,12 @@ export default function ProductDetailClient({ item }: { item: Item }) {
     }
   };
 
-  const conditionLabel = {
+  /* const conditionLabel = {
     new: "新品・未使用",
     like_new: "ほぼ新品",
     good: "やや傷あり",
     fair: "傷あり",
-  }[item.condition] || item.condition;
+  }[item.condition] || item.condition; */
 
   const isOwnItem = user?.id === item.seller_id;
   const isSold = item.status === "sold";
@@ -367,12 +367,12 @@ export default function ProductDetailClient({ item }: { item: Item }) {
               )}
 
               <div className="space-y-4">
-                <div>
+                {/* <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">状態</h3>
                   <span className="inline-block bg-gray-100 px-3 py-1 rounded-full text-sm">
                     {conditionLabel}
                   </span>
-                </div>
+                </div> */}
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">価格</h3>
