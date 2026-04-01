@@ -4,20 +4,16 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Mail, Lock, User, GraduationCap } from "lucide-react";
+import { ArrowLeft, Mail, Lock, CheckCircle } from "lucide-react";
 
 export default function SignupPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [nickname, setNickname] = useState("");
-    const [department, setDepartment] = useState("");
-    const [degree, setDegree] = useState("学士");
-    const [grade, setGrade] = useState("1");
-    const [major, setMajor] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [emailSent, setEmailSent] = useState(false);
 
     // Prefetch login page for instant transition
     useEffect(() => {
@@ -49,38 +45,91 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
-            // Sign up user
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
+                options: {
+                    emailRedirectTo: `${window.location.origin}/auth/callback`,
+                },
             });
 
             if (authError) throw authError;
 
-            if (authData.user) {
-                // Create profile
-                const { error: profileError } = await (supabase
-                    .from("profiles") as any)
-                    .insert({
-                        user_id: authData.user.id,
-                        nickname,
-                        department,
-                        degree,
-                        grade: parseInt(grade),
-                        major: (degree !== "学士" || parseInt(grade) >= 2) ? major : null,
-                    });
-
-                if (profileError) throw profileError;
-
-                alert("登録が完了しました！ログインページに移動します。");
-                router.push("/auth/login");
-            }
+            // メール送信成功画面へ切り替え
+            setEmailSent(true);
         } catch (err: any) {
             setError(err.message || "登録に失敗しました");
         } finally {
             setLoading(false);
         }
     };
+
+    // メール送信完了画面
+    if (emailSent) {
+        return (
+            <div className="min-h-screen bg-white">
+                <header className="bg-white px-6 pt-8 pb-6 border-b">
+                    <div className="flex items-center gap-4 mb-6">
+                        <Link href="/">
+                            <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
+                        </Link>
+                        <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
+                            メール確認
+                        </h1>
+                    </div>
+                </header>
+
+                <div className="px-6 py-8">
+                    <div className="max-w-md mx-auto">
+                        <div className="bg-white rounded-2xl shadow-lg border p-8 text-center">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-slide-in-left">
+                                <Mail className="w-10 h-10 text-green-600" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4 animate-slide-in-left" style={{ animationDelay: '100ms' }}>
+                                確認メールを送信しました
+                            </h2>
+                            <p className="text-gray-600 mb-2 animate-slide-in-left" style={{ animationDelay: '200ms' }}>
+                                <span className="font-semibold text-primary">{email}</span>
+                            </p>
+                            <p className="text-gray-600 mb-6 animate-slide-in-left" style={{ animationDelay: '200ms' }}>
+                                上記のメールアドレスに確認メールを送信しました。
+                                メール内のリンクをクリックして、登録を完了してください。
+                            </p>
+
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-left mb-6 animate-slide-in-left" style={{ animationDelay: '300ms' }}>
+                                <p className="text-sm text-yellow-800 font-medium mb-2">📌 メールが届かない場合</p>
+                                <ul className="text-sm text-yellow-700 space-y-1">
+                                    <li>• 迷惑メールフォルダを確認してください</li>
+                                    <li>• メールアドレスが正しいか確認してください</li>
+                                    <li>• 数分待ってから再度お試しください</li>
+                                </ul>
+                            </div>
+
+                            <div className="space-y-3 animate-slide-in-left" style={{ animationDelay: '400ms' }}>
+                                <button
+                                    onClick={() => {
+                                        setEmailSent(false);
+                                        setEmail("");
+                                        setPassword("");
+                                        setConfirmPassword("");
+                                    }}
+                                    className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                                >
+                                    別のメールアドレスで登録
+                                </button>
+                                <Link
+                                    href="/auth/login"
+                                    className="block w-full py-3 text-primary font-semibold hover:underline"
+                                >
+                                    ログインページに戻る
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-white">
@@ -129,120 +178,6 @@ export default function SignupPage() {
 
                             <div className="animate-slide-in-left" style={{ animationDelay: '100ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    <User className="w-4 h-4 inline mr-1" />
-                                    ニックネーム
-                                </label>
-                                <input
-                                    type="text"
-                                    value={nickname}
-                                    onChange={(e) => setNickname(e.target.value)}
-                                    placeholder="山田太郎"
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    required
-                                />
-                            </div>
-
-                            <div className="animate-slide-in-left" style={{ animationDelay: '200ms' }}>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    <GraduationCap className="w-4 h-4 inline mr-1" />
-                                    学院
-                                </label>
-                                <select
-                                    value={department}
-                                    onChange={(e) => {
-                                        setDepartment(e.target.value);
-                                        setMajor(""); // 学院が変わったら専攻をリセット
-                                    }}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    required
-                                >
-                                    <option value="">選択してください</option>
-                                    <option value="理学院">理学院</option>
-                                    <option value="工学院">工学院</option>
-                                    <option value="物質理工学院">物質理工学院</option>
-                                    <option value="情報理工学院">情報理工学院</option>
-                                    <option value="生命理工学院">生命理工学院</option>
-                                    <option value="環境・社会理工学院">環境・社会理工学院</option>
-                                    <option value="その他">その他</option>
-                                </select>
-                            </div>
-
-                            <div className="flex gap-4 animate-slide-in-left" style={{ animationDelay: '250ms' }}>
-                                <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        課程
-                                    </label>
-                                    <select
-                                        value={degree}
-                                        onChange={(e) => setDegree(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        required
-                                    >
-                                        <option value="学士">学士</option>
-                                        <option value="修士">修士</option>
-                                        <option value="博士">博士</option>
-                                    </select>
-                                </div>
-                                <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        学年
-                                    </label>
-                                    <select
-                                        value={grade}
-                                        onChange={(e) => setGrade(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        required
-                                    >
-                                        {degree === "学士" && [1, 2, 3, 4].map(g => (
-                                            <option key={g} value={g}>{g}年</option>
-                                        ))}
-                                        {degree === "修士" && [1, 2].map(g => (
-                                            <option key={g} value={g}>{g}年</option>
-                                        ))}
-                                        {degree === "博士" && [1, 2, 3, 4, 5].map(g => (
-                                            <option key={g} value={g}>{g}年</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {(degree !== "学士" || parseInt(grade) >= 2) && department && (
-                                <div className="animate-slide-in-left" style={{ animationDelay: '280ms' }}>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        系（専攻）
-                                    </label>
-                                    <select
-                                        value={major}
-                                        onChange={(e) => setMajor(e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                        required
-                                    >
-                                        <option value="">選択してください</option>
-                                        {department === "理学院" && ["数学系", "物理学系", "化学系", "地球惑星科学系"].map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                        {department === "工学院" && ["機械系", "システム制御系", "電気電子系", "情報通信系", "経営工学系"].map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                        {department === "物質理工学院" && ["材料系", "応用科学系"].map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                        {department === "情報理工学院" && ["数理・計算科学系", "情報工学系"].map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                        {department === "生命理工学院" && ["生命理工系"].map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                        {department === "環境・社会理工学院" && ["建築学系", "土木・環境工学系", "融合理工学系"].map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                        <option value="その他">その他</option>
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="animate-slide-in-left" style={{ animationDelay: '300ms' }}>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <Lock className="w-4 h-4 inline mr-1" />
                                     パスワード
                                 </label>
@@ -256,7 +191,7 @@ export default function SignupPage() {
                                 />
                             </div>
 
-                            <div className="animate-slide-in-left" style={{ animationDelay: '400ms' }}>
+                            <div className="animate-slide-in-left" style={{ animationDelay: '200ms' }}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <Lock className="w-4 h-4 inline mr-1" />
                                     パスワード（確認）
@@ -271,13 +206,19 @@ export default function SignupPage() {
                                 />
                             </div>
 
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 animate-slide-in-left" style={{ animationDelay: '250ms' }}>
+                                <p className="text-sm text-blue-800">
+                                    📧 登録後、メールアドレスに確認メールが送信されます。メール内のリンクをクリックして登録を完了してください。
+                                </p>
+                            </div>
+
                              <button
                                 type="submit"
                                 disabled={loading}
                                 className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg mt-6 animate-slide-in-left"
-                                style={{ animationDelay: '500ms' }}
+                                style={{ animationDelay: '300ms' }}
                             >
-                                {loading ? "登録中..." : "登録"}
+                                {loading ? "送信中..." : "確認メールを送信"}
                             </button>
                         </form>
 

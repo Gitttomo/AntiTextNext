@@ -861,8 +861,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
-      {/* Input Area */}
-      <div className="flex-shrink-0 bg-white px-4 py-3 border-t border-gray-200 safe-area-bottom">
+        {/* Input Area */}
+        <div className="flex-shrink-0 bg-white px-4 py-3 border-t border-gray-200">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -917,6 +917,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
             )}
           </button>
         </form>
+        </div>
       </div>
 
       {/* Schedule Adjustment Modal */}

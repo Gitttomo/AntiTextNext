@@ -54,7 +54,34 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const pathname = request.nextUrl.pathname;
+
+  // 除外パス（これらのページはリダイレクトしない）
+  const excludedPaths = [
+    '/auth/login',
+    '/auth/signup',
+    '/auth/callback',
+    '/auth/setup-profile',
+    '/api/',
+  ];
+
+  const isExcluded = excludedPaths.some(path => pathname.startsWith(path));
+
+  // セッションがあり、除外パスでない場合 → プロフィールが存在するか確認
+  if (session?.user && !isExcluded) {
+    const { data: profile } = await (supabase
+      .from("profiles") as any)
+      .select("user_id")
+      .eq("user_id", session.user.id)
+      .single();
+
+    if (!profile) {
+      // プロフィール未設定 → 設定ページにリダイレクト
+      return NextResponse.redirect(new URL('/auth/setup-profile', request.url));
+    }
+  }
 
   return response;
 }

@@ -32,8 +32,29 @@ export default function LoginPage() {
             if (error) throw error;
 
             if (data.user) {
-                router.push("/");
-                router.refresh(); // Ensure the server-side catches the new session
+                // メール認証が完了しているか確認
+                if (!data.user.email_confirmed_at) {
+                    await supabase.auth.signOut();
+                    setError("メールアドレスの認証が完了していません。確認メール内のリンクをクリックしてください。");
+                    return;
+                }
+
+                // プロフィールが設定済みか確認
+                const { data: profile } = await (supabase
+                    .from("profiles") as any)
+                    .select("user_id")
+                    .eq("user_id", data.user.id)
+                    .single();
+
+                if (!profile) {
+                    // プロフィール未設定 → 設定ページへ
+                    router.push("/auth/setup-profile");
+                    router.refresh();
+                } else {
+                    // 通常ログイン → ホームへ
+                    router.push("/");
+                    router.refresh();
+                }
             }
         } catch (err: any) {
             setError(err.message || "ログインに失敗しました");

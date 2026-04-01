@@ -14,18 +14,30 @@ export interface Database {
                     user_id: string
                     nickname: string
                     department: string
+                    degree: string | null
+                    grade: number | null
+                    major: string | null
+                    avatar_url: string | null
                     created_at: string
                 }
                 Insert: {
                     user_id: string
                     nickname: string
                     department: string
+                    degree?: string | null
+                    grade?: number | null
+                    major?: string | null
+                    avatar_url?: string | null
                     created_at?: string
                 }
                 Update: {
                     user_id?: string
                     nickname?: string
                     department?: string
+                    degree?: string | null
+                    grade?: number | null
+                    major?: string | null
+                    avatar_url?: string | null
                     created_at?: string
                 }
             }

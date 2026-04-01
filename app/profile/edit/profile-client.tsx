@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
-import { ArrowLeft, User, GraduationCap, LogOut, Camera } from "lucide-react";
+import { ArrowLeft, User, GraduationCap, LogOut, Camera, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { ProfileSkeleton } from "./skeleton";
 
 type Profile = {
@@ -39,19 +39,81 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // ユーザーネーム重複チェック用
+    const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+    const [usernameMessage, setUsernameMessage] = useState("");
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
+    const originalNickname = useRef(initialProfile?.nickname || "");
+
     // If server didn't find a session, check client-side on mount
     useEffect(() => {
         if (!serverSession && !authLoading) {
             if (!user) {
                 router.push("/auth/login");
             } else {
-                // User exists on client but not on server (cookie sync issue)
                 setInitialCheckDone(true);
-                // We'll let the user fill the data or fetch it here if we want to be very thorough,
-                // but usually the next page load will have the cookie.
             }
         }
     }, [user, authLoading, serverSession, router]);
+
+    // ユーザーネームのリアルタイム重複チェック
+    const checkUsername = useCallback(async (value: string) => {
+        // 元のニックネームと同じなら常にOK
+        if (value === originalNickname.current) {
+            setUsernameStatus("idle");
+            setUsernameMessage("");
+            return;
+        }
+
+        if (!value || value.trim().length === 0) {
+            setUsernameStatus("idle");
+            setUsernameMessage("");
+            return;
+        }
+
+        // フロントエンドバリデーション
+        const usernameRegex = /^[a-zA-Z0-9_\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u3400-\u4DBF]{2,20}$/;
+        if (!usernameRegex.test(value)) {
+            setUsernameStatus("invalid");
+            setUsernameMessage("2〜20文字の日本語・英数字・アンダースコアのみ使用可能です");
+            return;
+        }
+
+        setUsernameStatus("checking");
+        setUsernameMessage("確認中...");
+
+        try {
+            const params = new URLSearchParams({ nickname: value });
+            if (user?.id) {
+                params.set("excludeUserId", user.id);
+            }
+            const res = await fetch(`/api/check-username?${params.toString()}`);
+            const data = await res.json();
+
+            if (data.available) {
+                setUsernameStatus("available");
+                setUsernameMessage("使用できます");
+            } else {
+                setUsernameStatus("taken");
+                setUsernameMessage(data.error || "このユーザーネームは使用されています");
+            }
+        } catch {
+            setUsernameStatus("idle");
+            setUsernameMessage("確認に失敗しました");
+        }
+    }, [user?.id]);
+
+    const handleNicknameChange = (value: string) => {
+        setNickname(value);
+
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
+
+        debounceRef.current = setTimeout(() => {
+            checkUsername(value);
+        }, 500);
+    };
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -109,6 +171,21 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
         e.preventDefault();
         if (!user) return;
 
+        // ユーザーネームが変更されている場合、重複チェックを通過しているか確認
+        if (nickname !== originalNickname.current) {
+            if (usernameStatus !== "available") {
+                setError("有効なユーザーネームを入力してください");
+                return;
+            }
+        }
+
+        // バリデーション
+        const usernameRegex = /^[a-zA-Z0-9_\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u3400-\u4DBF]{2,20}$/;
+        if (!usernameRegex.test(nickname)) {
+            setError("ユーザーネームは2〜20文字の日本語・英数字・アンダースコアのみ使用可能です");
+            return;
+        }
+
         setSaving(true);
         setError("");
         setSuccess(false);
@@ -125,8 +202,20 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
                 })
                 .eq("user_id", user.id);
 
-            if (error) throw error;
+            if (error) {
+                if (error.message?.includes("duplicate") || error.message?.includes("unique")) {
+                    setError("このユーザーネームは既に使用されています。別のユーザーネームを選んでください。");
+                    setUsernameStatus("taken");
+                    setUsernameMessage("このユーザーネームは使用されています");
+                } else {
+                    throw error;
+                }
+                return;
+            }
 
+            originalNickname.current = nickname;
+            setUsernameStatus("idle");
+            setUsernameMessage("");
             setSuccess(true);
             setTimeout(() => setSuccess(false), 3000);
         } catch (err: any) {
@@ -144,6 +233,10 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
     if (!initialCheckDone || authLoading) {
         return <ProfileSkeleton />;
     }
+
+    // ユーザーネーム変更時のみ保存ボタンの無効を判定
+    const isNicknameChanged = nickname !== originalNickname.current;
+    const isSaveDisabled = saving || (isNicknameChanged && usernameStatus !== "available");
 
     return (
         <div className="min-h-screen bg-white pb-24">
@@ -171,7 +264,7 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
                                             width={96}
                                             height={96}
                                             className="w-full h-full object-cover"
-                                            unoptimized // Avoid pre-processing public Supabase URLs again
+                                            unoptimized
                                         />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-primary/10">
@@ -225,15 +318,46 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     <User className="w-4 h-4 inline mr-1" />
-                                    ニックネーム
+                                    ユーザーネーム
                                 </label>
-                                <input
-                                    type="text"
-                                    value={nickname}
-                                    onChange={(e) => setNickname(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                    required
-                                />
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={nickname}
+                                        onChange={(e) => handleNicknameChange(e.target.value)}
+                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all pr-10 ${
+                                            isNicknameChanged && usernameStatus === "available"
+                                                ? "border-green-400 focus:ring-green-400"
+                                                : isNicknameChanged && (usernameStatus === "taken" || usernameStatus === "invalid")
+                                                    ? "border-red-400 focus:ring-red-400"
+                                                    : "border-gray-300 focus:ring-primary"
+                                        } focus:border-transparent`}
+                                        required
+                                        maxLength={20}
+                                    />
+                                    {isNicknameChanged && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            {usernameStatus === "checking" && (
+                                                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                                            )}
+                                            {usernameStatus === "available" && (
+                                                <CheckCircle className="w-5 h-5 text-green-500" />
+                                            )}
+                                            {(usernameStatus === "taken" || usernameStatus === "invalid") && (
+                                                <XCircle className="w-5 h-5 text-red-500" />
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                {isNicknameChanged && usernameMessage && (
+                                    <p className={`text-xs mt-1 ${
+                                        usernameStatus === "available" ? "text-green-600" :
+                                        usernameStatus === "taken" || usernameStatus === "invalid" ? "text-red-600" :
+                                        "text-gray-500"
+                                    }`}>
+                                        {usernameMessage}
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -337,7 +461,7 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
 
                             <button
                                 type="submit"
-                                disabled={saving}
+                                disabled={isSaveDisabled}
                                 className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                             >
                                 {saving ? "保存中..." : "保存"}
