@@ -64,6 +64,7 @@ export async function middleware(request: NextRequest) {
     '/auth/signup',
     '/auth/callback',
     '/auth/setup-profile',
+    '/auth/add-to-home',
     '/api/',
   ];
 

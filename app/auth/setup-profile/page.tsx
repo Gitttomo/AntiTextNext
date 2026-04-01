@@ -134,7 +134,7 @@ export default function SetupProfilePage() {
                 return;
             }
 
-            router.push("/");
+            router.push("/auth/add-to-home");
             router.refresh();
         } catch (err: any) {
             setError(err.message || "プロフィールの作成に失敗しました");

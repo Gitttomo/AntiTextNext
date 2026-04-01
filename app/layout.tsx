@@ -18,6 +18,17 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "TextNext - 学内教科書フリマ",
   description: "学内限定で教科書が循環するC2Cフリマアプリ",
+  manifest: "/manifest.json",
+  themeColor: "#2563eb",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "TextNext",
+  },
+  icons: {
+    icon: "/icons/icon-192x192.png",
+    apple: "/icons/icon-192x192.png",
+  },
 };
 
 export default function RootLayout({
@@ -30,6 +41,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
         <link rel="dns-prefetch" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
       <body className={inter.className}>
         <AuthProvider>
