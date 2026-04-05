@@ -825,7 +825,6 @@ export default function ChatPage({ params }: { params: { id: string } }) {
             </div>
           )}
         </div>
-      </div>
 
       {/* Cancellation Section */}
       {transaction && transaction.status !== 'completed' && transaction.status !== 'cancelled' &&
