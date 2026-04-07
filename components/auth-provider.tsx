@@ -49,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(session?.user ?? null);
             if (session?.user) {
                 fetchAvatarUrl(session.user.id);
+            } else {
+                setAvatarUrl(null);
             }
             setLoading(false);
         };
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [fetchAvatarUrl]);
 
     const signOut = useCallback(async () => {
+        setUser(null);
         await supabase.auth.signOut();
         setAvatarUrl(null);
     }, []);

@@ -47,9 +47,15 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
 
     // If server didn't find a session, check client-side on mount
     useEffect(() => {
+        if (!authLoading && !user) {
+            router.replace("/auth/login");
+            router.refresh();
+            return;
+        }
+
         if (!serverSession && !authLoading) {
             if (!user) {
-                router.push("/auth/login");
+                router.replace("/auth/login");
             } else {
                 setInitialCheckDone(true);
             }
@@ -227,11 +233,16 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
 
     const handleSignOut = async () => {
         await signOut();
-        router.push("/auth/login");
+        router.replace("/auth/login");
+        router.refresh();
     };
 
     if (!initialCheckDone || authLoading) {
         return <ProfileSkeleton />;
+    }
+
+    if (!user) {
+        return null;
     }
 
     // ユーザーネーム変更時のみ保存ボタンの無効を判定

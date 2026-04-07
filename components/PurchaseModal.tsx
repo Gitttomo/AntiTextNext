@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, CreditCard, Banknote, Smartphone, Clock, AlertCircle, MapPin, CalendarCheck2 } from "lucide-react";
+import { X, CreditCard, Banknote, Smartphone, Clock, AlertCircle, MapPin, CalendarCheck2, CheckCircle } from "lucide-react";
 import { PurchaseData } from "./purchase-utils";
+import { PURCHASE_NOTICE_ITEMS } from "@/lib/legal";
 
 type PurchaseModalProps = {
     isOpen: boolean;
@@ -69,12 +70,14 @@ export default function PurchaseModal({
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
     const [expandedDays, setExpandedDays] = useState<string[]>([]);
     const [timeLeft, setTimeLeft] = useState<string>("");
+    const [purchaseNoticeConfirmed, setPurchaseNoticeConfirmed] = useState(false);
 
     const distinctDaysCount = useMemo(() => {
         return new Set(selectedTimeSlots.map(slot => slot.split('_')[0])).size;
     }, [selectedTimeSlots]);
 
     const isValid = distinctDaysCount >= 2 && selectedLocations.length > 0;
+    const canSubmit = isValid && purchaseNoticeConfirmed;
 
     // Timer logic
     useEffect(() => {
@@ -126,7 +129,7 @@ export default function PurchaseModal({
     };
 
     const handleSubmit = () => {
-        if (!isValid) return;
+        if (!canSubmit) return;
 
         onSubmit({
             paymentMethod,
@@ -334,6 +337,33 @@ export default function PurchaseModal({
                             })}
                         </div>
                     </section>
+
+                    <section className="rounded-3xl border-2 border-red-200 bg-red-50 p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                            <AlertCircle className="w-5 h-5 text-red-600" />
+                            <h3 className="text-base font-black text-red-700">購入前の確認事項</h3>
+                        </div>
+                        <ul className="space-y-2 text-sm font-medium text-red-900">
+                            {PURCHASE_NOTICE_ITEMS.map((item) => (
+                                <li key={item} className="flex gap-2">
+                                    <span className="font-black">・</span>
+                                    <span>{item}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <button
+                            type="button"
+                            onClick={() => setPurchaseNoticeConfirmed(true)}
+                            className={`mt-4 w-full rounded-2xl py-3 font-black transition-all flex items-center justify-center gap-2 ${
+                                purchaseNoticeConfirmed
+                                    ? "bg-green-600 text-white"
+                                    : "bg-white text-red-700 border border-red-200 hover:bg-red-100"
+                            }`}
+                        >
+                            <CheckCircle className="w-5 h-5" />
+                            {purchaseNoticeConfirmed ? "確認済み" : "確認した"}
+                        </button>
+                    </section>
                 </div>
 
                 {/* Submit Toolbar - Fixed at bottom */}
@@ -364,6 +394,17 @@ export default function PurchaseModal({
                                     />
                                 </div>
                              </div>
+                             <div className="flex flex-col border-l border-gray-100 pl-4">
+                                <span className={`text-xs font-black uppercase tracking-widest ${purchaseNoticeConfirmed ? "text-green-500" : "text-gray-400"}`}>
+                                    Notice: {purchaseNoticeConfirmed ? "OK" : "Required"}
+                                </span>
+                                <div className="w-16 h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                     <div
+                                        className={`h-full transition-all duration-500 rounded-full ${purchaseNoticeConfirmed ? "bg-green-500" : "bg-gray-200"}`}
+                                        style={{ width: purchaseNoticeConfirmed ? "100%" : "0%" }}
+                                    />
+                                </div>
+                             </div>
                         </div>
                         <div className="text-right">
                             <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Slots</span>
@@ -373,15 +414,15 @@ export default function PurchaseModal({
 
                     <button
                         onClick={handleSubmit}
-                        disabled={!isValid}
+                        disabled={!canSubmit}
                         className={`w-full py-5 rounded-[28px] font-black text-lg transition-all transform shadow-2xl active:scale-95 flex items-center justify-center gap-3 ${
-                            isValid 
+                            canSubmit
                             ? "bg-primary text-white shadow-primary/25 hover:bg-primary-dark translate-y-0" 
                             : "bg-gray-100 text-gray-400 cursor-not-allowed translate-y-1 opacity-50 shadow-none border border-gray-200"
                         }`}
                     >
                         <span>購入を確定</span>
-                        {isValid && <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center animate-bounce-horizontal">→</div>}
+                        {canSubmit && <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center animate-bounce-horizontal">→</div>}
                     </button>
                 </div>
             </div>

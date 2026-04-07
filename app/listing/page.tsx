@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Upload, Loader2, Camera, X, Scan } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Camera, X, Scan, AlertCircle, CheckCircle } from "lucide-react";
 import { calculateSellingPrice } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import Quagga from "@ericblade/quagga2";
 import ListingTutorial from "@/components/ListingTutorial";
+import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
 
 type ListingStep = "form" | "confirm" | "success";
 
@@ -19,6 +20,7 @@ export default function ListingPage() {
   const [formData, setFormData] = useState({
     bookName: "",
     originalPrice: "",
+    barcode: "",
     //condition: "良好",
     frontCover: null as File | null,
     backCover: null as File | null,
@@ -29,6 +31,7 @@ export default function ListingPage() {
   const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [listingNoticeConfirmed, setListingNoticeConfirmed] = useState(false);
 
   // Check if user has seen the tutorial
   useEffect(() => {
@@ -178,7 +181,8 @@ export default function ListingPage() {
     formData.originalPrice &&
     //formData.condition &&
     formData.frontCover &&
-    formData.backCover;
+    formData.backCover &&
+    listingNoticeConfirmed;
 
   if (step === "success") {
     return (
@@ -482,6 +486,33 @@ export default function ListingPage() {
                 <p className="text-xs text-gray-600 mt-2">
                   ※ 定価の約30%で自動計算されます
                 </p>
+              </div>
+
+              <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 animate-slide-in-bottom" style={{ animationDelay: '450ms' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <h2 className="font-bold text-red-700">出品前の確認事項</h2>
+                </div>
+                <ul className="space-y-2 text-sm text-red-900">
+                  {LISTING_NOTICE_ITEMS.map((item) => (
+                    <li key={item} className="flex gap-2">
+                      <span className="font-bold">・</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => setListingNoticeConfirmed(true)}
+                  className={`mt-4 w-full rounded-xl py-3 font-semibold transition-all flex items-center justify-center gap-2 ${
+                    listingNoticeConfirmed
+                      ? "bg-green-600 text-white"
+                      : "bg-white text-red-700 border border-red-200 hover:bg-red-100"
+                  }`}
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  {listingNoticeConfirmed ? "確認済み" : "確認した"}
+                </button>
               </div>
             </div>
 

@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Mail, Lock, CheckCircle } from "lucide-react";
+import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from "@/lib/legal";
 
 export default function SignupPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [agreedToLegal, setAgreedToLegal] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
@@ -42,6 +44,11 @@ export default function SignupPage() {
             return;
         }
 
+        if (!agreedToLegal) {
+            setError("利用規約・プライバシーポリシーへの同意が必要です");
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -50,6 +57,11 @@ export default function SignupPage() {
                 password,
                 options: {
                     emailRedirectTo: `${window.location.origin}/auth/callback`,
+                    data: {
+                        accepted_terms_version: CURRENT_TERMS_VERSION,
+                        accepted_privacy_version: CURRENT_PRIVACY_VERSION,
+                        accepted_legal_at: new Date().toISOString(),
+                    },
                 },
             });
 
@@ -212,9 +224,21 @@ export default function SignupPage() {
                                 </p>
                             </div>
 
+                            <label className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 animate-slide-in-left" style={{ animationDelay: '280ms' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={agreedToLegal}
+                                    onChange={(e) => setAgreedToLegal(e.target.checked)}
+                                    className="mt-1 h-5 w-5 accent-primary"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                    利用規約・プライバシーポリシーに同意して登録する
+                                </span>
+                            </label>
+
                              <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || !agreedToLegal}
                                 className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg mt-6 animate-slide-in-left"
                                 style={{ animationDelay: '300ms' }}
                             >

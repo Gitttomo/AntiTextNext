@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -43,7 +43,6 @@ type MypageClientProps = {
 
 export default function MypageClient({
     initialProfile,
-    serverSession,
     initialListingItems,
     initialPastItems,
     initialFavoriteItems,
@@ -54,13 +53,19 @@ export default function MypageClient({
     const { user, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState<"past" | "listing" | null>(null);
 
-    if (!serverSession && !authLoading && !user) {
-        router.push("/auth/login");
-        return null;
-    }
+    useEffect(() => {
+        if (!authLoading && !user) {
+            router.replace("/auth/login");
+            router.refresh();
+        }
+    }, [authLoading, user, router]);
 
     if (authLoading) {
         return <ProfileSkeleton />;
+    }
+
+    if (!user) {
+        return null;
     }
 
     const ratingStars = Math.round(averageRating);

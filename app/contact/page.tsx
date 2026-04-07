@@ -18,6 +18,7 @@ import {
     ArrowRight,
     ChevronLeft,
 } from "lucide-react";
+import { CONTACT_NOTICE_ITEMS } from "@/lib/legal";
 
 const CATEGORIES = [
     { value: "bug", label: "不具合・バグ報告", icon: "🐛" },
@@ -41,6 +42,7 @@ export default function ContactPage() {
     const [category, setCategory] = useState("");
     const [content, setContent] = useState("");
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [contactNoticeConfirmed, setContactNoticeConfirmed] = useState(false);
 
     // ユーザー情報をプリロード
     useEffect(() => {
@@ -85,6 +87,7 @@ export default function ContactPage() {
 
     const handleNext = () => {
         if (validate()) {
+            setContactNoticeConfirmed(false);
             setStep("confirm");
             window.scrollTo({ top: 0, behavior: "smooth" });
         }
@@ -295,9 +298,36 @@ export default function ContactPage() {
                         </div>
 
                         <div className="mt-6 space-y-3 animate-slide-in-left" style={{ animationDelay: '100ms' }}>
+                            <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 text-left">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <AlertCircle className="w-5 h-5 text-red-600" />
+                                    <h2 className="font-bold text-red-700">送信前の確認事項</h2>
+                                </div>
+                                <ul className="space-y-2 text-sm text-red-900">
+                                    {CONTACT_NOTICE_ITEMS.map((item) => (
+                                        <li key={item} className="flex gap-2">
+                                            <span className="font-bold">・</span>
+                                            <span>{item}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <button
+                                    type="button"
+                                    onClick={() => setContactNoticeConfirmed(true)}
+                                    className={`mt-4 w-full rounded-xl py-3 font-semibold transition-all flex items-center justify-center gap-2 ${
+                                        contactNoticeConfirmed
+                                            ? "bg-green-600 text-white"
+                                            : "bg-white text-red-700 border border-red-200 hover:bg-red-100"
+                                    }`}
+                                >
+                                    <CheckCircle className="w-5 h-5" />
+                                    {contactNoticeConfirmed ? "確認済み" : "確認した"}
+                                </button>
+                            </div>
+
                             <button
                                 onClick={handleSubmit}
-                                disabled={sending}
+                                disabled={sending || !contactNoticeConfirmed}
                                 className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                             >
                                 {sending ? (

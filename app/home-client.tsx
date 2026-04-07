@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Search, Heart, BookOpen, TrendingUp, User, Users, ChevronDown } from "lucide-react";
-import { useState, useCallback, memo, useMemo, useEffect } from "react";
+import { useState, useCallback, memo, useMemo, useEffect, useRef } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase";
 
@@ -128,19 +128,37 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
   const [recommendedItems, setRecommendedItems] = useState<Item[]>(initialRecommendedItems);
   const [popularItems, setPopularItems] = useState<Item[]>(initialPopularItems);
   
+  const [loadingRecommended, setLoadingRecommended] = useState(false);
   const [loadingMoreRecommended, setLoadingMoreRecommended] = useState(false);
   const [hasMoreRecommended, setHasMoreRecommended] = useState(false); // 初期はサーバーサイドの10件
-  const [totalRecommendedCount, setTotalRecommendedCount] = useState(10);
+  const [totalRecommendedCount, setTotalRecommendedCount] = useState(initialRecommendedItems.length);
 
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialPopularItems.length < totalPopularCount);
+  const requestIdRef = useRef(0);
 
   // お気に入りセットをメモ化
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+  const recommendedIdSet = useMemo(() => new Set(recommendedItems.map(item => item.id)), [recommendedItems]);
+  const displayedPopularItems = useMemo(
+    () => popularItems.filter(item => !recommendedIdSet.has(item.id)),
+    [popularItems, recommendedIdSet]
+  );
 
   // 初期表示時にお気に入り & パーソナライズされたおすすめをロード
   useEffect(() => {
+    const requestId = ++requestIdRef.current;
+    let cancelled = false;
+
     const fetchData = async () => {
+      if (!user) {
+        setFavorites([]);
+        setRecommendedItems([]);
+        setHasMoreRecommended(false);
+        setTotalRecommendedCount(0);
+        setLoadingRecommended(false);
+      }
+
       // 1. お気に入り状態のロード & 最新カウントの取得
       const itemIds = [
         ...recommendedItems.map(i => i.id),
@@ -162,6 +180,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       }
 
       if (user) {
+        setLoadingRecommended(true);
         promises.push(
           supabase
             .from("favorites")
@@ -179,6 +198,8 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       }
 
       const results = await Promise.all(promises);
+      if (cancelled || requestId !== requestIdRef.current) return;
+
       let countRes = itemIds.length > 0 ? results[0] : null;
       let favRes = user ? results[1] : null;
       let profileRes = user ? results[2] : null;
@@ -204,9 +225,10 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         setFavorites(favRes.data.map((f: any) => f.item_id));
       } else if (!user) {
         setFavorites([]);
-        // ログアウト時は初期のおすすめ(最新10件)に戻す
-        setRecommendedItems(initialRecommendedItems);
+        setRecommendedItems([]);
         setHasMoreRecommended(false);
+        setTotalRecommendedCount(0);
+        setLoadingRecommended(false);
       }
 
       // 2. パーソナライズされたおすすめの取得
@@ -217,6 +239,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           .from("items")
           .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
           .eq("status", "available")
+          .neq("seller_id", user.id)
           .eq("profiles.department", department);
         
         if (major) {
@@ -228,6 +251,8 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           .limit(15);
 
         if (!error && majorData) {
+          if (cancelled || requestId !== requestIdRef.current) return;
+
           const personalized = (majorData as any[]).map(item => ({
             ...item,
             favorite_count: item.favorites?.[0]?.count || 0
@@ -238,10 +263,17 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           setHasMoreRecommended((count || 0) > personalized.length);
         }
       }
+
+      if (user) {
+        setLoadingRecommended(false);
+      }
     };
 
     fetchData();
-  }, [user]); // userが変わった時（ログイン/ログアウト）に再実行
+    return () => {
+      cancelled = true;
+    };
+  }, [user, initialRecommendedItems]); // userが変わった時（ログイン/ログアウト）に再実行
 
   const toggleFavorite = useCallback(async (id: string) => {
     if (!user) return;
@@ -310,6 +342,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           .from("items")
           .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)")
           .eq("status", "available")
+          .neq("seller_id", user.id)
           .eq("profiles.department", (profile as any).department);
         
         if ((profile as any).major) {
@@ -449,67 +482,72 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       </header>
 
       {/* おすすめの教材 */}
-      <div className="px-6 py-8">
-        <div className="flex items-center gap-2 mb-6">
-          <TrendingUp className="w-6 h-6 text-primary" />
-          <h2 className="text-xl font-bold text-gray-900">
-            おすすめの教材
-          </h2>
-        </div>
+      {user && (
+        <div className="px-6 py-8">
+          <div className="flex items-center gap-2 mb-6">
+            <TrendingUp className="w-6 h-6 text-primary" />
+            <h2 className="text-xl font-bold text-gray-900">
+              おすすめの教材
+            </h2>
+          </div>
 
-        {recommendedItems.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">まだ出品がありません</p>
-            {user && (
+          {loadingRecommended ? (
+            <div className="text-center py-12">
+              <div className="w-6 h-6 border-2 border-gray-200 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-gray-500">おすすめを読み込み中...</p>
+            </div>
+          ) : recommendedItems.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 mb-4">同じ所属の出品はまだありません</p>
               <Link
                 href="/listing"
                 className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all"
               >
                 最初の出品者になる
               </Link>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="space-y-4">
-              {recommendedItems.map((item, index) => (
-                <ItemCard
-                  key={item.id}
-                  item={item}
-                  isFavorite={favoriteSet.has(item.id)}
-                  onToggleFavorite={toggleFavorite}
-                  index={index}
-                />
-              ))}
             </div>
-            
-            {hasMoreRecommended && (
-              <div className="mt-8 text-center">
-                <button
-                  onClick={loadMoreRecommended}
-                  disabled={loadingMoreRecommended}
-                  className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-primary/50 transition-all disabled:opacity-50"
-                >
-                  {loadingMoreRecommended ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
-                      読み込み中...
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-5 h-5" />
-                      もっと見る
-                    </>
-                  )}
-                </button>
+          ) : (
+            <>
+              <div className="space-y-4">
+                {recommendedItems.map((item, index) => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    isFavorite={favoriteSet.has(item.id)}
+                    onToggleFavorite={toggleFavorite}
+                    index={index}
+                  />
+                ))}
               </div>
-            )}
-          </>
-        )}
-      </div>
+
+              {hasMoreRecommended && (
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={loadMoreRecommended}
+                    disabled={loadingMoreRecommended}
+                    className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-primary/50 transition-all disabled:opacity-50"
+                  >
+                    {loadingMoreRecommended ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+                        読み込み中...
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-5 h-5" />
+                        もっと見る
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* みんなの出品 */}
-      {popularItems.length > 0 && (
+      {(displayedPopularItems.length > 0 || hasMore) && (
         <div className="px-6 py-8 bg-gray-50">
           <div className="flex items-center gap-2 mb-6">
             <Users className="w-6 h-6 text-primary" />
@@ -519,7 +557,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           </div>
 
           <div className="space-y-4">
-            {popularItems.map((item, index) => (
+            {displayedPopularItems.map((item, index) => (
               <ItemCard
                 key={`popular-${item.id}`}
                 item={item}

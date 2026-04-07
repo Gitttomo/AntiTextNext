@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import dynamic from "next/dynamic";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
+import LegalFooter from "@/components/legal-footer";
 
 // BottomNavを遅延読み込み（初期表示を高速化）
 const BottomNav = dynamic(() => import("@/components/bottom-nav").then(mod => ({ default: mod.BottomNav })), {
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <main className="min-h-screen pb-24">{children}</main>
+          <LegalFooter />
           <BottomNav />
         </AuthProvider>
       </body>

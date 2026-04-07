@@ -7,16 +7,6 @@ import HomeClient from "./home-client";
 export const revalidate = 30;
 
 export default async function HomePage() {
-  
-  // おすすめの教材（最新10件）
-  // reserved, transaction_pending, soldの商品を除外
-  const { data: recommendedData, error: recommendedError } = await supabase
-    .from("items")
-    .select("id, title, selling_price, front_image_url, favorites(count)")
-    .eq("status", "available")
-    .order("created_at", { ascending: false })
-    .limit(10);
-
   // みんなの出品（新着順 上位15件）
   const { data: popularData, error: popularError } = await supabase
     .from("items")
@@ -31,9 +21,6 @@ export default async function HomePage() {
     .select("*", { count: "exact", head: true })
     .eq("status", "available");
 
-  if (recommendedError) {
-    console.error("Error loading recommended items:", recommendedError);
-  }
   if (popularError) {
     console.error("Error loading popular items:", popularError);
   }
@@ -48,7 +35,7 @@ export default async function HomePage() {
 
   return (
     <HomeClient 
-      items={mapItems(recommendedData)} 
+      items={[]} 
       popularItems={mapItems(popularData)}
       totalPopularCount={totalCount || 0}
     />
