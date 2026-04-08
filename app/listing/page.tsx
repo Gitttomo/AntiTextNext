@@ -132,8 +132,18 @@ export default function ListingPage() {
     return publicUrl;
   };
 
+  const canSubmit = Boolean(
+    formData.bookName &&
+    formData.originalPrice &&
+    //formData.condition &&
+    formData.frontCover &&
+    formData.backCover &&
+    listingNoticeConfirmed
+  );
+
   const handleSubmit = async () => {
     if (step === "form") {
+      if (!canSubmit) return;
       setStep("confirm");
     } else if (step === "confirm") {
       setUploading(true);
@@ -175,14 +185,6 @@ export default function ListingPage() {
       }
     }
   };
-
-  const canSubmit =
-    formData.bookName &&
-    formData.originalPrice &&
-    //formData.condition &&
-    formData.frontCover &&
-    formData.backCover &&
-    listingNoticeConfirmed;
 
   if (step === "success") {
     return (
@@ -519,7 +521,11 @@ export default function ListingPage() {
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full mt-8 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg animate-slide-in-bottom"
+              className={`w-full mt-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-md animate-slide-in-bottom ${
+                canSubmit
+                  ? "bg-primary text-white hover:bg-primary/90 hover:shadow-lg"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none"
+              }`}
               style={{ animationDelay: '500ms' }}
             >
               確認画面へ

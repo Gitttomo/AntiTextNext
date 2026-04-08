@@ -6,6 +6,57 @@ import { PRIVACY_POLICY_TEXT, TERMS_TEXT } from "@/lib/legal";
 
 type LegalKind = "terms" | "privacy";
 
+function renderLegalText(text: string) {
+  return text.split("\n").map((line, index) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      return <div key={index} className="h-4" />;
+    }
+
+    if (index === 0) {
+      return (
+        <h3 key={index} className="mb-5 text-xl font-black text-gray-900">
+          {trimmed}
+        </h3>
+      );
+    }
+
+    if (/^第\d+条/.test(trimmed) || trimmed === "附則") {
+      return (
+        <h4
+          key={index}
+          className="sticky top-0 z-10 mt-6 mb-3 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-sm"
+        >
+          {trimmed}
+        </h4>
+      );
+    }
+
+    if (/^\d+\./.test(trimmed)) {
+      return (
+        <p key={index} className="mt-4 font-bold text-gray-900">
+          {trimmed}
+        </p>
+      );
+    }
+
+    if (/^\(\d+\)/.test(trimmed)) {
+      return (
+        <p key={index} className="ml-4 text-sm leading-7 text-gray-700">
+          {trimmed}
+        </p>
+      );
+    }
+
+    return (
+      <p key={index} className="text-sm leading-7 text-gray-700">
+        {trimmed}
+      </p>
+    );
+  });
+}
+
 export default function LegalFooter() {
   const [active, setActive] = useState<LegalKind | null>(null);
 
@@ -39,12 +90,15 @@ export default function LegalFooter() {
           <button
             type="button"
             aria-label="閉じる"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-200"
             onClick={() => setActive(null)}
           />
-          <section className="relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-t-2xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-300">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <section className="relative w-full max-w-3xl max-h-[86vh] overflow-hidden rounded-t-2xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div className="flex items-center justify-between border-b bg-white px-6 py-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-primary">TextNext</p>
+                <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+              </div>
               <button
                 type="button"
                 onClick={() => setActive(null)}
@@ -54,8 +108,10 @@ export default function LegalFooter() {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
-              <p className="whitespace-pre-wrap text-sm leading-7 text-gray-700">{text}</p>
+            <div className="max-h-[72vh] overflow-y-auto bg-gray-50 px-4 py-4">
+              <div className="rounded-xl border border-gray-100 bg-white px-5 py-6 shadow-sm">
+                {renderLegalText(text)}
+              </div>
             </div>
           </section>
         </div>
