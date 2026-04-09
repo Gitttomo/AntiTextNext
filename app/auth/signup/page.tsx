@@ -22,13 +22,22 @@ export default function SignupPage() {
         router.prefetch("/auth/login");
     }, [router]);
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const allowedAdminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "")
+        .split(",")
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
 
         // Validate email domain
-        if (!email.endsWith("@m.isct.ac.jp")) {
-            setError("学内メールアドレス（@m.isct.ac.jp）を使用してください");
+        const isCampusEmail = normalizedEmail.endsWith("@m.isct.ac.jp");
+        const isAllowedAdminEmail = allowedAdminEmails.includes(normalizedEmail);
+
+        if (!isCampusEmail && !isAllowedAdminEmail) {
+            setError("学内メールアドレス（@m.isct.ac.jp）または登録済みの管理者メールアドレスを使用してください");
             return;
         }
 
