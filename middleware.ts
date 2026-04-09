@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse, type NextRequest } from 'next/server';
-import { isAdminEmail } from '@/lib/admin';
+import { isCurrentUserAdmin } from '@/lib/admin';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -80,7 +80,9 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    if (!isAdminEmail(session.user.email)) {
+    const isAdmin = await isCurrentUserAdmin(supabase as any);
+
+    if (!isAdmin) {
       return NextResponse.redirect(new URL('/profile', request.url));
     }
   }

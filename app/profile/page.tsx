@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import MypageClient from "./client";
-import { isAdminEmail } from "@/lib/admin";
+import { isCurrentUserAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ export default async function Mypage() {
     }
 
     const userId = session.user.id;
-    const isAdmin = isAdminEmail(session.user.email);
+    const isAdmin = await isCurrentUserAdmin(supabase as any);
 
     // Fetch data in parallel
     const [

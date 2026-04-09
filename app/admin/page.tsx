@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Shield, Users, Package, ClipboardList, ArrowRight, AlertCircle } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { isAdminEmail } from "@/lib/admin";
+import { isCurrentUserAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,9 @@ export default async function AdminPage() {
     redirect("/auth/login?redirectTo=/admin");
   }
 
-  if (!isAdminEmail(session.user.email)) {
+  const isAdmin = await isCurrentUserAdmin(supabase);
+
+  if (!isAdmin) {
     redirect("/profile");
   }
 

@@ -9,6 +9,23 @@ export type Json =
 export interface Database {
     public: {
         Tables: {
+            admin_emails: {
+                Row: {
+                    email: string
+                    note: string | null
+                    created_at: string
+                }
+                Insert: {
+                    email: string
+                    note?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    email?: string
+                    note?: string | null
+                    created_at?: string
+                }
+            }
             profiles: {
                 Row: {
                     user_id: string
@@ -168,7 +185,16 @@ export interface Database {
             [_ in never]: never
         }
         Functions: {
-            [_ in never]: never
+            is_allowed_admin_email: {
+                Args: {
+                    target_email: string
+                }
+                Returns: boolean
+            }
+            is_current_user_admin: {
+                Args: Record<PropertyKey, never>
+                Returns: boolean
+            }
         }
         Enums: {
             [_ in never]: never

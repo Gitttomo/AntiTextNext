@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Mail, Lock, CheckCircle } from "lucide-react";
 import { CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from "@/lib/legal";
+import { isAllowedAdminEmail } from "@/lib/admin";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -23,10 +24,6 @@ export default function SignupPage() {
     }, [router]);
 
     const normalizedEmail = email.trim().toLowerCase();
-    const allowedAdminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "")
-        .split(",")
-        .map((value) => value.trim().toLowerCase())
-        .filter(Boolean);
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -34,10 +31,12 @@ export default function SignupPage() {
 
         // Validate email domain
         const isCampusEmail = normalizedEmail.endsWith("@m.isct.ac.jp");
-        const isAllowedAdminEmail = allowedAdminEmails.includes(normalizedEmail);
+        const isRegisteredAdminEmail = isCampusEmail
+            ? false
+            : await isAllowedAdminEmail(supabase as any, normalizedEmail);
 
-        if (!isCampusEmail && !isAllowedAdminEmail) {
-            setError("学内メールアドレス（@m.isct.ac.jp）を使用してください");
+        if (!isCampusEmail && !isRegisteredAdminEmail) {
+            setError("学内メールアドレス（@m.isct.ac.jp）または登録済みの管理者メールアドレスを使用してください");
             return;
         }
 
@@ -193,7 +192,7 @@ export default function SignupPage() {
                                     required
                                 />
                                 <p className="text-xs text-gray-500 mt-1">
-                                    ※ @m.isct.ac.jp のメールのみ登録可能
+                                    ※ 通常は @m.isct.ac.jp のメールのみ登録可能です。管理者として事前登録されたメールアドレスは例外的に利用できます。
                                 </p>
                             </div>
 
