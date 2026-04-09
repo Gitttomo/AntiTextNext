@@ -195,6 +195,12 @@ export interface Database {
                 Args: Record<PropertyKey, never>
                 Returns: boolean
             }
+            is_registered_email: {
+                Args: {
+                    target_email: string
+                }
+                Returns: boolean
+            }
         }
         Enums: {
             [_ in never]: never

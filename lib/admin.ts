@@ -33,3 +33,23 @@ export const isCurrentUserAdmin = async (supabase: SupabaseClient<Database>) => 
 
   return Boolean(data);
 };
+
+export const isRegisteredEmail = async (
+  supabase: SupabaseClient<Database>,
+  email?: string | null
+) => {
+  if (!email) {
+    return false;
+  }
+
+  const { data, error } = await supabase.rpc("is_registered_email" as any, {
+    target_email: normalizeEmail(email),
+  } as any);
+
+  if (error) {
+    console.error("Failed to check registered email:", error);
+    return false;
+  }
+
+  return Boolean(data);
+};

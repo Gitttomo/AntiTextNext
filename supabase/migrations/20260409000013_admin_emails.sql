@@ -35,6 +35,21 @@ AS $$
     );
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_registered_email(target_email TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM auth.users
+        WHERE email = LOWER(TRIM(target_email))
+    );
+$$;
+
 GRANT EXECUTE ON FUNCTION public.is_allowed_admin_email(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.is_allowed_admin_email(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_current_user_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_registered_email(TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION public.is_registered_email(TEXT) TO authenticated;
