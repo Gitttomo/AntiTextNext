@@ -37,7 +37,7 @@ export default function SignupPage() {
         const isAllowedAdminEmail = allowedAdminEmails.includes(normalizedEmail);
 
         if (!isCampusEmail && !isAllowedAdminEmail) {
-            setError("学内メールアドレス（@m.isct.ac.jp）または登録済みの管理者メールアドレスを使用してください");
+            setError("学内メールアドレス（@m.isct.ac.jp）を使用してください");
             return;
         }
 
@@ -248,7 +248,7 @@ export default function SignupPage() {
                              <button
                                 type="submit"
                                 disabled={loading || !agreedToLegal}
-                                className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg mt-6 animate-slide-in-left"
+                                className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:opacity-100 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg mt-6 animate-slide-in-left"
                                 style={{ animationDelay: '300ms' }}
                             >
                                 {loading ? "送信中..." : "確認メールを送信"}
