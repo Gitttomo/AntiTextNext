@@ -12,7 +12,8 @@ import {
     Package,
     Heart,
     ChevronRight,
-    ArrowRight
+    ArrowRight,
+    MoreHorizontal
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { ProfileSkeleton } from "./edit/skeleton";
@@ -128,6 +129,20 @@ export default function MypageClient({
                             <Settings className="w-5 h-5 text-primary" />
                         </div>
                         <span className="font-bold text-gray-700">プロフィール編集</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </button>
+
+                {/* その他設定ボタン */}
+                <button
+                    onClick={() => router.push("/settings")}
+                    className="w-full bg-white rounded-2xl p-4 shadow-md border border-gray-100 flex items-center justify-between group active:scale-[0.98] transition-all hover:border-primary/30"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center transition-colors group-hover:bg-gray-200">
+                            <MoreHorizontal className="w-5 h-5 text-gray-500" />
+                        </div>
+                        <span className="font-bold text-gray-700">その他設定・お問い合わせなど</span>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </button>

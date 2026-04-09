@@ -479,23 +479,6 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
                             </button>
                         </form>
 
-                        {/* その他セクション */}
-                        <div className="mt-8 pt-6 border-t">
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">その他</h3>
-                            <div className="space-y-2">
-                                <Link
-                                    href="/contact"
-                                    className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <MessageSquare className="w-5 h-5 text-gray-500 group-hover:text-primary transition-colors" />
-                                        <span className="text-gray-700 font-medium group-hover:text-gray-900 transition-colors">お問い合わせ</span>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" />
-                                </Link>
-                            </div>
-                        </div>
-
                         <div className="mt-6 pt-6 border-t">
                             <button
                                 onClick={handleSignOut}

@@ -63,22 +63,30 @@ export async function middleware(request: NextRequest) {
     '/auth/login',
     '/auth/signup',
     '/auth/callback',
+    '/auth/setup-profile',
+    '/auth/add-to-home',
     '/api/',
+    '/contact',
   ];
 
   const isExcluded = excludedPaths.some(path => pathname.startsWith(path));
 
   // セッションがあり、除外パスでない場合 → プロフィールが存在するか確認
   if (session?.user && !isExcluded) {
-    const { data: profile } = await (supabase
-      .from("profiles") as any)
-      .select("user_id")
-      .eq("user_id", session.user.id)
-      .single();
+    try {
+      const { data: profile, error } = await (supabase
+        .from("profiles") as any)
+        .select("user_id")
+        .eq("user_id", session.user.id)
+        .single();
 
-    if (!profile) {
-      // プロフィール未設定 → 設定ページにリダイレクト
-      return NextResponse.redirect(new URL('/auth/setup-profile', request.url));
+      if (!profile && !error) {
+        // プロフィール未設定 → 設定ページにリダイレクト
+        return NextResponse.redirect(new URL('/auth/setup-profile', request.url));
+      }
+      // エラー時はリダイレクトせずそのまま通す（無限ループ防止）
+    } catch {
+      // クエリエラー時もそのまま通す
     }
   }
 
@@ -92,8 +100,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * - icons (PWA icons)
+     * - manifest.json
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json).*)',
   ],
 };

@@ -42,13 +42,17 @@ export default function LoginPage() {
                 // プロフィールが設定済みか確認
                 const { data: profile } = await (supabase
                     .from("profiles") as any)
-                    .select("user_id")
+                    .select("user_id, is_deactivated")
                     .eq("user_id", data.user.id)
                     .single();
 
                 if (!profile) {
                     // プロフィール未設定 → 設定ページへ
                     router.push("/auth/setup-profile");
+                    router.refresh();
+                } else if (profile.is_deactivated) {
+                    // アカウント停止中 → 復旧ページへ
+                    router.push("/auth/reactivate");
                     router.refresh();
                 } else {
                     // 通常ログイン → ホームへ
