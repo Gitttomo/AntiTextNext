@@ -12,7 +12,8 @@ import {
     Package,
     Heart,
     ChevronRight,
-    ArrowRight
+    ArrowRight,
+    Shield
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { ProfileSkeleton } from "./edit/skeleton";
@@ -39,6 +40,7 @@ type MypageClientProps = {
     initialFavoriteItems: Item[];
     averageRating: number;
     ratingCount: number;
+    isAdmin: boolean;
 };
 
 export default function MypageClient({
@@ -47,7 +49,8 @@ export default function MypageClient({
     initialPastItems,
     initialFavoriteItems,
     averageRating,
-    ratingCount
+    ratingCount,
+    isAdmin
 }: MypageClientProps) {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -131,6 +134,21 @@ export default function MypageClient({
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </button>
+
+                {isAdmin && (
+                    <button
+                        onClick={() => router.push("/admin")}
+                        className="w-full bg-slate-900 rounded-2xl p-4 shadow-md border border-slate-800 flex items-center justify-between group active:scale-[0.98] transition-all hover:bg-slate-800"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center transition-colors group-hover:bg-white/15">
+                                <Shield className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-white">管理ダッシュボード</span>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                    </button>
+                )}
 
                 {/* History Section */}
                 <section className="space-y-4">

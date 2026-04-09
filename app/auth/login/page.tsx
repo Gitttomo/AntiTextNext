@@ -51,8 +51,9 @@ export default function LoginPage() {
                     router.push("/auth/setup-profile");
                     router.refresh();
                 } else {
-                    // 通常ログイン → ホームへ
-                    router.push("/");
+                    const redirectTo = new URLSearchParams(window.location.search).get("redirectTo");
+                    const nextPath = redirectTo?.startsWith("/") ? redirectTo : "/";
+                    router.push(nextPath);
                     router.refresh();
                 }
             }
