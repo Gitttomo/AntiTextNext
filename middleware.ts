@@ -65,8 +65,10 @@ export async function middleware(request: NextRequest) {
     '/auth/callback',
     '/auth/setup-profile',
     '/auth/add-to-home',
+    '/auth/reactivate',
     '/api/',
     '/contact',
+    '/settings',
   ];
 
   const isExcluded = excludedPaths.some(path => pathname.startsWith(path));

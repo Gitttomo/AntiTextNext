@@ -18,6 +18,8 @@ export interface Database {
                     grade: number | null
                     major: string | null
                     avatar_url: string | null
+                    is_deactivated: boolean
+                    deactivated_at: string | null
                     created_at: string
                 }
                 Insert: {
@@ -28,6 +30,8 @@ export interface Database {
                     grade?: number | null
                     major?: string | null
                     avatar_url?: string | null
+                    is_deactivated?: boolean
+                    deactivated_at?: string | null
                     created_at?: string
                 }
                 Update: {
@@ -38,6 +42,8 @@ export interface Database {
                     grade?: number | null
                     major?: string | null
                     avatar_url?: string | null
+                    is_deactivated?: boolean
+                    deactivated_at?: string | null
                     created_at?: string
                 }
             }
