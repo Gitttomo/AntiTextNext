@@ -13,7 +13,8 @@ import {
     Heart,
     ChevronRight,
     ArrowRight,
-    MoreHorizontal
+    MoreHorizontal,
+    Shield
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { ProfileSkeleton } from "./edit/skeleton";
@@ -40,6 +41,7 @@ type MypageClientProps = {
     initialFavoriteItems: Item[];
     averageRating: number;
     ratingCount: number;
+    isAdmin: boolean;
 };
 
 export default function MypageClient({
@@ -48,7 +50,8 @@ export default function MypageClient({
     initialPastItems,
     initialFavoriteItems,
     averageRating,
-    ratingCount
+    ratingCount,
+    isAdmin
 }: MypageClientProps) {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -82,7 +85,16 @@ export default function MypageClient({
 
             <div className="px-6 space-y-8">
                 {/* Profile Section */}
-                <div className="bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-md border border-white/50 flex items-center gap-5 transition-transform hover:scale-[1.01]">
+                <div className="relative bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-md border border-white/50 flex items-center gap-5 transition-transform hover:scale-[1.01]">
+                    {isAdmin && (
+                        <button
+                            onClick={() => router.push("/admin")}
+                            className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-900 text-white shadow-sm transition hover:bg-slate-800"
+                            aria-label="管理ダッシュボード"
+                        >
+                            <Shield className="h-5 w-5" />
+                        </button>
+                    )}
                     <div className="w-20 h-20 rounded-full border-4 border-primary/20 overflow-hidden shadow-inner">
                         {initialProfile?.avatar_url ? (
                             <Image
@@ -99,7 +111,7 @@ export default function MypageClient({
                             </div>
                         )}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 pr-12">
                         <h2 className="text-xl font-bold text-gray-900 truncate">
                             {initialProfile?.nickname || "読み込み中..."}
                         </h2>

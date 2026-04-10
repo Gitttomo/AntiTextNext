@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isCurrentUserAdmin } from '@/lib/admin';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -57,6 +58,7 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
 
   const pathname = request.nextUrl.pathname;
+  const isAdminRoute = pathname.startsWith('/admin');
 
   // 除外パス（これらのページはリダイレクトしない）
   const excludedPaths = [
@@ -72,6 +74,20 @@ export async function middleware(request: NextRequest) {
   ];
 
   const isExcluded = excludedPaths.some(path => pathname.startsWith(path));
+
+  if (isAdminRoute) {
+    if (!session?.user) {
+      const loginUrl = new URL('/auth/login', request.url);
+      loginUrl.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const isAdmin = await isCurrentUserAdmin(supabase as any);
+
+    if (!isAdmin) {
+      return NextResponse.redirect(new URL('/profile', request.url));
+    }
+  }
 
   // セッションがあり、除外パスでない場合 → プロフィールが存在するか確認
   if (session?.user && !isExcluded) {

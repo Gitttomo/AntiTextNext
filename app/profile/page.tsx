@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import MypageClient from "./client";
+import { isCurrentUserAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,11 @@ export default async function Mypage() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-        return <MypageClient initialProfile={null} serverSession={false} initialListingItems={[]} initialPastItems={[]} initialFavoriteItems={[]} averageRating={0} ratingCount={0} />;
+        return <MypageClient initialProfile={null} serverSession={false} initialListingItems={[]} initialPastItems={[]} initialFavoriteItems={[]} averageRating={0} ratingCount={0} isAdmin={false} />;
     }
 
     const userId = session.user.id;
+    const isAdmin = await isCurrentUserAdmin(supabase as any);
 
     // Fetch data in parallel
     const [
@@ -77,6 +79,7 @@ export default async function Mypage() {
             initialFavoriteItems={favoriteItems as any[]}
             averageRating={averageRating}
             ratingCount={ratingCount}
+            isAdmin={isAdmin}
         />
     );
 }
