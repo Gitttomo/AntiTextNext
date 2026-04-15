@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap } from "lucide-react";
+import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import dynamic from 'next/dynamic';
@@ -38,6 +38,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const isLockedRef = useRef(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [togglingFav, setTogglingFav] = useState(false);
 
   useEffect(() => {
     isLockedRef.current = !!lockedUntil;
@@ -67,6 +69,42 @@ export default function ProductDetailClient({ item }: { item: Item }) {
       }
     };
   }, []);
+
+  // お気に入り状態の取得
+  useEffect(() => {
+    if (!user || !item) return;
+    supabase
+      .from("favorites")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("item_id", item.id)
+      .single()
+      .then(({ data }) => {
+        setIsFavorite(!!data);
+      });
+  }, [user, item]);
+
+  const toggleFavorite = async () => {
+    if (!user || togglingFav) return;
+    setTogglingFav(true);
+    try {
+      if (isFavorite) {
+        await (supabase.from("favorites") as any)
+          .delete()
+          .eq("user_id", user.id)
+          .eq("item_id", item.id);
+        setIsFavorite(false);
+      } else {
+        await (supabase.from("favorites") as any)
+          .insert({ user_id: user.id, item_id: item.id });
+        setIsFavorite(true);
+      }
+    } catch (err) {
+      console.error("Favorite toggle error:", err);
+    } finally {
+      setTogglingFav(false);
+    }
+  };
 
   // モーダル状態に合わせてナビゲーションの表示を制御
   useEffect(() => {
@@ -507,14 +545,31 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 自分の出品商品です
               </div>
             ) : (
-              <button
-                onClick={handleOpenPurchaseModal}
-                disabled={!isAvailable}
-                className="w-full py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {isSold ? "売り切れ" : isPending ? "取引中" : "購入する"}
-              </button>
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite();
+                  }}
+                  disabled={togglingFav}
+                  className={`w-14 h-14 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 flex-shrink-0 ${
+                    isFavorite
+                      ? "bg-red-50 border-red-200 text-red-500"
+                      : "bg-gray-50 border-gray-200 text-gray-400 hover:text-red-400 hover:border-red-200"
+                  }`}
+                  aria-label="お気に入り"
+                >
+                  <Heart className={`w-6 h-6 transition-all ${isFavorite ? "fill-current" : ""}`} />
+                </button>
+                <button
+                  onClick={handleOpenPurchaseModal}
+                  disabled={!isAvailable}
+                  className="flex-1 py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  {isSold ? "売り切れ" : isPending ? "取引中" : "購入する"}
+                </button>
+              </>
             )}
           </div>
         </div>

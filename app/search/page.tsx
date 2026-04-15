@@ -67,6 +67,7 @@ function SearchContent() {
     setIsLoading(true);
     setShowSuggestions(false);
     setHasSearched(true);
+    setWatchSaved(false);
 
     try {
       // ひらがな・カタカナ変換

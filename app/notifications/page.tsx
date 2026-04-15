@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bell, Inbox, MessageCircle, Star, XCircle, CheckCircle2, Loader2, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Bell, Inbox, MessageCircle, Star, XCircle, CheckCircle2, Loader2, ShoppingBag, CheckCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -74,6 +74,25 @@ export default function NotificationsPage() {
         }
     };
 
+    const markAllAsRead = async () => {
+        if (!user) return;
+        const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+        if (unreadIds.length === 0) return;
+
+        try {
+            await (supabase.from("notifications") as any)
+                .update({ is_read: true })
+                .eq("user_id", user.id)
+                .eq("is_read", false);
+
+            setNotifications(prev =>
+                prev.map(n => ({ ...n, is_read: true }))
+            );
+        } catch (err) {
+            console.error("Error marking all as read:", err);
+        }
+    };
+
     const handleNotificationClick = async (notification: Notification) => {
         // Mark as read
         if (!notification.is_read) {
@@ -142,16 +161,27 @@ export default function NotificationsPage() {
         <div className="min-h-screen bg-white pb-24">
             {/* Header */}
             <header className="bg-white px-6 pt-8 pb-6 border-b sticky top-0 z-10">
-                <div className="flex items-center gap-4">
-                    <Link href="/">
-                        <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
-                    </Link>
-                    <div className="flex items-center gap-2">
-                        <Bell className="w-6 h-6 text-primary" />
-                        <h1 className="text-2xl font-bold text-gray-900">
-                            お知らせ
-                        </h1>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Link href="/">
+                            <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
+                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Bell className="w-6 h-6 text-primary" />
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                お知らせ
+                            </h1>
+                        </div>
                     </div>
+                    {notifications.some(n => !n.is_read) && (
+                        <button
+                            onClick={markAllAsRead}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-full transition-all active:scale-95"
+                        >
+                            <CheckCheck className="w-4 h-4" />
+                            すべて既読
+                        </button>
+                    )}
                 </div>
             </header>
 
