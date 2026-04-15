@@ -4,9 +4,71 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Camera, ClipboardList, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/auth-provider";
+import { supabase } from "@/lib/supabase";
+import { useState, useEffect, useCallback } from "react";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // 未読通知数の取得
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    try {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+
+      if (!error && count !== null) {
+        setUnreadCount(count);
+      }
+    } catch {
+      // エラー時は無視
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchUnreadCount();
+
+    if (!user) return;
+
+    // リアルタイムで通知の変更を監視
+    const channel = supabase
+      .channel('bottom-nav-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchUnreadCount]);
+
+  // おしらせページに移動した時にカウントをリフレッシュ
+  useEffect(() => {
+    if (pathname === "/notifications") {
+      // 少し遅延させて既読処理を待つ
+      const timer = setTimeout(fetchUnreadCount, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [pathname, fetchUnreadCount]);
 
   // チャットページでは非表示
   if (pathname?.startsWith("/chat/")) {
@@ -15,7 +77,7 @@ export function BottomNav() {
 
   const navItems = [
     { href: "/", label: "ホーム", icon: Home },
-    { href: "/notifications", label: "おしらせ", icon: Bell },
+    { href: "/notifications", label: "おしらせ", icon: Bell, badge: unreadCount },
     { href: "/listing", label: "出品", icon: Camera, special: true },
     { href: "/profile" , label: "マイページ", icon: User },
     { href: "/transactions", label: "予定", icon: ClipboardList },
@@ -60,16 +122,24 @@ export function BottomNav() {
               href={item.href}
               prefetch={true}
               className={cn(
-                "flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200",
+                "flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200 relative",
                 isActive
                   ? "text-primary translate-y-[-2px]"
                   : "text-gray-400 hover:text-primary/70"
               )}
             >
-              <Icon 
-                className={cn("w-6 h-6 transition-all", isActive ? "scale-110" : "")} 
-                strokeWidth={isActive ? 2.5 : 2} 
-              />
+              <div className="relative">
+                <Icon 
+                  className={cn("w-6 h-6 transition-all", isActive ? "scale-110" : "")} 
+                  strokeWidth={isActive ? 2.5 : 2} 
+                />
+                {/* 未読バッジ */}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow-sm animate-in zoom-in-50 duration-200">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
+              </div>
               <span className={cn(
                 "text-[10px] font-bold tracking-tight",
                 isActive ? "text-primary" : "text-gray-400"
@@ -84,3 +154,4 @@ export function BottomNav() {
     </nav>
   );
 }
+

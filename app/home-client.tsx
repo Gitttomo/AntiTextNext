@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Heart, BookOpen, TrendingUp, User, Users, ChevronDown } from "lucide-react";
-import { useState, useCallback, memo, useMemo, useEffect, useRef } from "react";
+import { Search, Heart, BookOpen, TrendingUp, User, Users, ChevronDown, RefreshCw } from "lucide-react";
+import { useState, useCallback, memo, useMemo, useEffect, useRef, TouchEvent as ReactTouchEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { supabase } from "@/lib/supabase";
 
@@ -136,6 +136,13 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialPopularItems.length < totalPopularCount);
   const requestIdRef = useRef(0);
+
+  // Pull-to-Refresh
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
+  const PULL_THRESHOLD = 80;
 
   // お気に入りセットをメモ化
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
@@ -401,8 +408,84 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     }
   };
 
+  // Pull-to-Refresh handlers
+  const handleTouchStart = useCallback((e: ReactTouchEvent) => {
+    if (window.scrollY === 0 && !isRefreshing) {
+      touchStartY.current = e.touches[0].clientY;
+      isPulling.current = true;
+    }
+  }, [isRefreshing]);
+
+  const handleTouchMove = useCallback((e: ReactTouchEvent) => {
+    if (!isPulling.current || isRefreshing) return;
+    const diff = e.touches[0].clientY - touchStartY.current;
+    if (diff > 0 && window.scrollY === 0) {
+      setPullDistance(Math.min(diff * 0.5, 120));
+    }
+  }, [isRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (!isPulling.current) return;
+    isPulling.current = false;
+
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(PULL_THRESHOLD);
+
+      try {
+        // みんなの出品を再取得
+        const { data: freshPopular } = await supabase
+          .from("items")
+          .select("id, title, selling_price, front_image_url, favorites(count)")
+          .eq("status", "available")
+          .order("created_at", { ascending: false })
+          .range(0, 14);
+
+        if (freshPopular) {
+          const mapped = (freshPopular as any[]).map(item => ({
+            ...item,
+            favorite_count: item.favorites?.[0]?.count || 0,
+            favorites: undefined
+          })) as Item[];
+          setPopularItems(mapped);
+        }
+      } catch (err) {
+        console.error("Refresh error:", err);
+      } finally {
+        setIsRefreshing(false);
+        setPullDistance(0);
+      }
+    } else {
+      setPullDistance(0);
+    }
+  }, [pullDistance, isRefreshing]);
+
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div
+      className="min-h-screen bg-white pb-24"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-Refresh Indicator */}
+      <div
+        className="flex items-center justify-center overflow-hidden transition-all duration-200"
+        style={{
+          height: pullDistance > 0 ? `${pullDistance}px` : '0px',
+          opacity: Math.min(pullDistance / PULL_THRESHOLD, 1),
+        }}
+      >
+        <RefreshCw
+          className={`w-6 h-6 text-primary transition-transform duration-200 ${isRefreshing ? 'animate-spin' : ''}`}
+          style={{
+            transform: isRefreshing ? undefined : `rotate(${pullDistance * 3}deg)`,
+          }}
+        />
+        <span className="ml-2 text-sm text-gray-500 font-medium">
+          {isRefreshing ? '更新中...' : pullDistance >= PULL_THRESHOLD ? '離すと更新' : '引っ張って更新'}
+        </span>
+      </div>
+
       {/* CSS for animations */}
       <style jsx global>{`
         @keyframes slideInUp {

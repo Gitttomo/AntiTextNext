@@ -186,6 +186,26 @@ export interface Database {
                     created_at?: string
                 }
             }
+            watch_keywords: {
+                Row: {
+                    id: string
+                    user_id: string
+                    keyword: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    keyword: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    keyword?: string
+                    created_at?: string
+                }
+            }
         }
         Views: {
             [_ in never]: never

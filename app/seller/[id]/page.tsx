@@ -12,6 +12,7 @@ type SellerProfile = {
     department: string;
     major?: string;
     avatar_url?: string | null;
+    is_deactivated?: boolean;
 };
 
 type Item = {
@@ -53,7 +54,7 @@ export default function SellerDetailPage({
             // プロフィール、アイテム、評価を並列取得で高速化
             const profilePromise = supabase
                 .from("profiles")
-                .select("user_id, nickname, department, major, avatar_url")
+                .select("user_id, nickname, department, major, avatar_url, is_deactivated")
                 .eq("user_id", params.id)
                 .single();
 
@@ -125,6 +126,23 @@ export default function SellerDetailPage({
             <div className="min-h-screen bg-white flex items-center justify-center">
                 <div className="text-center p-8">
                     <p className="text-gray-600 mb-6 text-xl font-bold">出品者が見つかりませんでした</p>
+                    <Link href="/" className="inline-block px-8 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-95">
+                        ホームに戻る
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    if (profile.is_deactivated) {
+        return (
+            <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center">
+                <div className="text-center p-8 max-w-sm">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <User className="w-10 h-10 text-gray-300" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-700 mb-3">退会済みユーザー</h2>
+                    <p className="text-gray-500 mb-6">このユーザーは現在アカウントを停止しています</p>
                     <Link href="/" className="inline-block px-8 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-95">
                         ホームに戻る
                     </Link>

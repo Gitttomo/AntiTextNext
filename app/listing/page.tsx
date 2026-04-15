@@ -175,6 +175,16 @@ export default function ListingPage() {
 
         if (error) throw error;
 
+        // ウォッチキーワードマッチング（バックグラウンドで実行）
+        fetch("/api/check-watch-keywords", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            itemTitle: formData.bookName,
+            sellerId: user!.id,
+          }),
+        }).catch(() => {}); // 失敗しても出品自体はブロックしない
+
         setStep("success");
         setTimeout(() => {
           router.push("/");

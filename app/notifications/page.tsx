@@ -90,6 +90,8 @@ export default function NotificationsPage() {
             router.push(`/transactions`);
         } else if (notification.link_type === "profile") {
             router.push(`/profile`);
+        } else if (notification.link_type === "search" && notification.link_id) {
+            router.push(`/search?q=${encodeURIComponent(notification.link_id)}`);
         }
     };
 
@@ -105,6 +107,8 @@ export default function NotificationsPage() {
                 return <MessageCircle className="w-5 h-5 text-blue-500" />;
             case "transaction_cancelled":
                 return <XCircle className="w-5 h-5 text-red-500" />;
+            case "watch_match":
+                return <Bell className="w-5 h-5 text-primary" />;
             default:
                 return <Bell className="w-5 h-5 text-gray-500" />;
         }

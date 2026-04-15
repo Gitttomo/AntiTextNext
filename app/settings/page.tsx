@@ -18,6 +18,7 @@ import {
     XCircle,
     CheckCircle,
     ShieldAlert,
+    Bell,
 } from "lucide-react";
 
 type DeactivateStep = "idle" | "confirm" | "password" | "processing" | "done" | "error";
@@ -174,6 +175,28 @@ export default function SettingsPage() {
                                 <div>
                                     <span className="font-bold text-gray-700 group-hover:text-gray-900 transition-colors">お問い合わせ</span>
                                     <p className="text-xs text-gray-400 mt-0.5">不具合報告・通報・要望など</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                        </Link>
+                    </section>
+
+                    {/* 探している教科書 */}
+                    <section className="animate-slide-in-left" style={{ animationDelay: '50ms' }}>
+                        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 px-1">
+                            通知設定
+                        </h2>
+                        <Link
+                            href="/settings/watch-keywords"
+                            className="flex items-center justify-between px-5 py-4 bg-white rounded-2xl shadow-md border border-gray-100 hover:border-primary/30 transition-all group"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center group-hover:bg-yellow-100 transition-colors">
+                                    <Bell className="w-5 h-5 text-yellow-600" />
+                                </div>
+                                <div>
+                                    <span className="font-bold text-gray-700 group-hover:text-gray-900 transition-colors">探している教科書</span>
+                                    <p className="text-xs text-gray-400 mt-0.5">キーワードを登録して出品通知を受け取る</p>
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />

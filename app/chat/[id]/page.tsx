@@ -44,6 +44,7 @@ type Transaction = {
 type UserProfile = {
   avatar_url: string | null;
   nickname: string;
+  is_deactivated?: boolean;
 };
 
 const TIME_SLOT_LABELS: Record<string, string> = {
@@ -300,12 +301,21 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         if (other) {
           const { data: profileData } = await supabase
             .from("profiles")
-            .select("avatar_url, nickname")
+            .select("avatar_url, nickname, is_deactivated")
             .eq("user_id", other)
             .single();
 
           if (profileData) {
-            setOtherUserProfile(profileData as UserProfile);
+            const profile = profileData as UserProfile;
+            if (profile.is_deactivated) {
+              setOtherUserProfile({
+                avatar_url: null,
+                nickname: "退会済みユーザー",
+                is_deactivated: true,
+              });
+            } else {
+              setOtherUserProfile(profile);
+            }
           }
         }
       }
@@ -636,7 +646,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
             {item.title}
           </h1>
           <p className="text-gray-500 text-xs">
-            {statusLabel}
+            {otherUserProfile?.is_deactivated ? "相手は退会済みです" : statusLabel}
           </p>
         </div>
       </header>

@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Search, History, Heart } from "lucide-react";
+import { ArrowLeft, Search, History, Heart, Bell, Loader2, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 
@@ -57,6 +57,8 @@ function SearchContent() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [watchSaving, setWatchSaving] = useState(false);
+  const [watchSaved, setWatchSaved] = useState(false);
 
   // 検索実�?
   const executeSearch = async (query: string) => {
@@ -408,7 +410,49 @@ function SearchContent() {
           </>
         ) : hasSearched ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">結果が見つかりませんでした</p>
+            <p className="text-gray-500 mb-4">結果が見つかりませんでした</p>
+            {user && searchQuery.trim() && (
+              <div className="max-w-xs mx-auto">
+                {watchSaved ? (
+                  <div className="flex items-center justify-center gap-2 text-green-600 font-medium py-3">
+                    <CheckCircle className="w-5 h-5" />
+                    <span>登録しました！出品されたら通知します</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setWatchSaving(true);
+                      try {
+                        const res = await fetch("/api/watch-keywords", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ keyword: searchQuery.trim() }),
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          setWatchSaved(true);
+                        } else {
+                          alert(data.error || "登録に失敗しました");
+                        }
+                      } catch {
+                        alert("通信エラーが発生しました");
+                      } finally {
+                        setWatchSaving(false);
+                      }
+                    }}
+                    disabled={watchSaving}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 text-primary rounded-xl font-semibold hover:bg-primary/20 transition-all disabled:opacity-50"
+                  >
+                    {watchSaving ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Bell className="w-5 h-5" />
+                    )}
+                    「{searchQuery}」が出品されたら通知
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : null}
       </div>

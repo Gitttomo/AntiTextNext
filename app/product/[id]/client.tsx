@@ -300,59 +300,105 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         {/* Scrollable content */}
         <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-6">
           <div className="max-w-4xl mx-auto">
-            {/* Images */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              {item.front_image_url && (
-                <div 
-                  className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse cursor-zoom-in group"
-                  onClick={() => setZoomedImage(item.front_image_url)}
-                >
-                  <Image
-                    src={item.front_image_url}
-                    alt={`${item.title} 表紙`}
-                    fill
-                    sizes="(max-width: 768px) 40vw, 500px"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="eager"
-                    quality={70}
-                    onLoad={(e) => {
-                      (e.target as HTMLElement).parentElement?.classList.remove('animate-pulse', 'bg-gray-200');
-                      (e.target as HTMLElement).parentElement?.classList.add('bg-gray-100');
+            {/* Images - Swipe Carousel */}
+            {(item.front_image_url || item.back_image_url) && (() => {
+              const images = [
+                item.front_image_url ? { url: item.front_image_url, label: "表紙" } : null,
+                item.back_image_url ? { url: item.back_image_url, label: "裏表紙" } : null,
+              ].filter(Boolean) as { url: string; label: string }[];
+
+              return (
+                <div className="mb-6">
+                  <div
+                    className="relative overflow-hidden rounded-2xl bg-gray-100"
+                    onTouchStart={(e) => {
+                      const t = e.currentTarget as any;
+                      t._touchStartX = e.touches[0].clientX;
+                      t._touchStartTime = Date.now();
                     }}
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-md p-2 rounded-full">
-                      <Search className="w-5 h-5 text-white" />
+                    onTouchEnd={(e) => {
+                      const t = e.currentTarget as any;
+                      if (!t._touchStartX) return;
+                      const diff = e.changedTouches[0].clientX - t._touchStartX;
+                      const elapsed = Date.now() - (t._touchStartTime || 0);
+                      // Swipe threshold: 50px or fast swipe
+                      if (Math.abs(diff) > 50 || (Math.abs(diff) > 20 && elapsed < 250)) {
+                        const carousel = t.querySelector('[data-carousel]');
+                        if (!carousel) return;
+                        const currentIdx = Math.round(carousel.scrollLeft / carousel.offsetWidth);
+                        const nextIdx = diff < 0
+                          ? Math.min(currentIdx + 1, images.length - 1)
+                          : Math.max(currentIdx - 1, 0);
+                        carousel.scrollTo({ left: nextIdx * carousel.offsetWidth, behavior: 'smooth' });
+                      }
+                      t._touchStartX = null;
+                    }}
+                  >
+                    <div
+                      data-carousel
+                      className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+                      onScroll={(e) => {
+                        const el = e.currentTarget;
+                        const idx = Math.round(el.scrollLeft / el.offsetWidth);
+                        const dots = el.parentElement?.querySelectorAll('[data-dot]');
+                        dots?.forEach((dot, i) => {
+                          (dot as HTMLElement).style.opacity = i === idx ? '1' : '0.4';
+                          (dot as HTMLElement).style.width = i === idx ? '20px' : '8px';
+                        });
+                      }}
+                    >
+                      {images.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="flex-none w-full snap-center"
+                        >
+                          <div
+                            className="relative aspect-[3/4] cursor-zoom-in group"
+                            onClick={() => setZoomedImage(img.url)}
+                          >
+                            <Image
+                              src={img.url}
+                              alt={`${item.title} ${img.label}`}
+                              fill
+                              sizes="(max-width: 768px) 90vw, 600px"
+                              className="object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading={idx === 0 ? "eager" : "lazy"}
+                              quality={70}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-md p-2 rounded-full">
+                                <Search className="w-5 h-5 text-white" />
+                              </div>
+                            </div>
+                            {/* Image label */}
+                            <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full">
+                              {img.label}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                    {/* Dot Indicators */}
+                    {images.length > 1 && (
+                      <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                        {images.map((_, idx) => (
+                          <div
+                            key={idx}
+                            data-dot
+                            className="h-2 rounded-full bg-white shadow-sm transition-all duration-300"
+                            style={{
+                              width: idx === 0 ? '20px' : '8px',
+                              opacity: idx === 0 ? 1 : 0.4,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-              {item.back_image_url && (
-                <div 
-                  className="relative aspect-[3/4] bg-gray-200 rounded-2xl overflow-hidden animate-pulse cursor-zoom-in group"
-                  onClick={() => setZoomedImage(item.back_image_url)}
-                >
-                  <Image
-                    src={item.back_image_url}
-                    alt={`${item.title} 裏表紙`}
-                    fill
-                    sizes="(max-width: 768px) 40vw, 500px"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    loading="lazy"
-                    quality={70}
-                    onLoad={(e) => {
-                      (e.target as HTMLElement).parentElement?.classList.remove('animate-pulse', 'bg-gray-200');
-                      (e.target as HTMLElement).parentElement?.classList.add('bg-gray-100');
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 backdrop-blur-md p-2 rounded-full">
-                      <Search className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Product Info */}
             <div className="bg-white rounded-2xl shadow-lg border p-6">
