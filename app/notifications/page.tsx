@@ -80,7 +80,8 @@ export default function NotificationsPage() {
         if (unreadIds.length === 0) return;
 
         try {
-            await (supabase.from("notifications") as any)
+            await (supabase
+                .from("notifications") as any)
                 .update({ is_read: true })
                 .eq("user_id", user.id)
                 .eq("is_read", false);
@@ -176,7 +177,7 @@ export default function NotificationsPage() {
                     {notifications.some(n => !n.is_read) && (
                         <button
                             onClick={markAllAsRead}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-full transition-all active:scale-95"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-full transition-colors"
                         >
                             <CheckCheck className="w-4 h-4" />
                             すべて既読

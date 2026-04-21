@@ -12,6 +12,8 @@ import {
     Loader2,
     Search,
     Inbox,
+    Pencil,
+    Check,
 } from "lucide-react";
 
 type WatchKeyword = {
@@ -28,6 +30,8 @@ export default function WatchKeywordsPage() {
     const [newKeyword, setNewKeyword] = useState("");
     const [adding, setAdding] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingText, setEditingText] = useState("");
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -93,6 +97,38 @@ export default function WatchKeywordsPage() {
             alert("通信エラーが発生しました");
         } finally {
             setDeletingId(null);
+        }
+    };
+
+    const startEdit = (kw: WatchKeyword) => {
+        setEditingId(kw.id);
+        setEditingText(kw.keyword);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditingText("");
+    };
+
+    const handleEdit = async () => {
+        if (!editingId || !editingText.trim()) return;
+        try {
+            const res = await fetch("/api/watch-keywords", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: editingId, keyword: editingText.trim() }),
+            });
+            const data = await res.json();
+            if (res.ok && data.keyword) {
+                setKeywords(prev =>
+                    prev.map(k => k.id === editingId ? { ...k, keyword: data.keyword.keyword } : k)
+                );
+                cancelEdit();
+            } else {
+                alert(data.error || "編集に失敗しました");
+            }
+        } catch {
+            alert("通信エラーが発生しました");
         }
     };
 
@@ -191,31 +227,73 @@ export default function WatchKeywordsPage() {
                                     key={kw.id}
                                     className="flex items-center justify-between px-4 py-3 bg-white rounded-xl border border-gray-200 shadow-sm hover:border-primary/20 transition-all group"
                                 >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                            <Search className="w-4 h-4 text-primary" />
+                                    {editingId === kw.id ? (
+                                        /* 編集モード */
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <input
+                                                type="text"
+                                                value={editingText}
+                                                onChange={(e) => setEditingText(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") handleEdit();
+                                                    if (e.key === "Escape") cancelEdit();
+                                                }}
+                                                className="flex-1 px-3 py-1.5 border border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 text-sm font-bold"
+                                                autoFocus
+                                            />
+                                            <button
+                                                onClick={handleEdit}
+                                                disabled={!editingText.trim()}
+                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all disabled:opacity-50"
+                                            >
+                                                <Check className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={cancelEdit}
+                                                className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-all"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-gray-800 truncate">
-                                                {kw.keyword}
-                                            </p>
-                                            <p className="text-xs text-gray-400">
-                                                {formatDate(kw.created_at)} 登録
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDelete(kw.id)}
-                                        disabled={deletingId === kw.id}
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all active:scale-90 disabled:opacity-50 flex-shrink-0"
-                                        aria-label={`${kw.keyword}を削除`}
-                                    >
-                                        {deletingId === kw.id ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : (
-                                            <X className="w-4 h-4" />
-                                        )}
-                                    </button>
+                                    ) : (
+                                        /* 通常表示 */
+                                        <>
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                    <Search className="w-4 h-4 text-primary" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-gray-800 truncate">
+                                                        {kw.keyword}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400">
+                                                        {formatDate(kw.created_at)} 登録
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                                <button
+                                                    onClick={() => startEdit(kw)}
+                                                    className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all active:scale-90"
+                                                    aria-label={`${kw.keyword}を編集`}
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(kw.id)}
+                                                    disabled={deletingId === kw.id}
+                                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all active:scale-90 disabled:opacity-50"
+                                                    aria-label={`${kw.keyword}を削除`}
+                                                >
+                                                    {deletingId === kw.id ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <X className="w-4 h-4" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             ))}
                         </div>

@@ -14,6 +14,7 @@ type Item = {
   //condition: string;
   front_image_url: string | null;
   favorite_count?: number;
+  seller_id?: string;
 };
 
 /* const conditionColors: Record<string, string> = {
@@ -148,8 +149,8 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
   const recommendedIdSet = useMemo(() => new Set(recommendedItems.map(item => item.id)), [recommendedItems]);
   const displayedPopularItems = useMemo(
-    () => popularItems.filter(item => !recommendedIdSet.has(item.id)),
-    [popularItems, recommendedIdSet]
+    () => popularItems.filter(item => !recommendedIdSet.has(item.id) && (!user || item.seller_id !== user.id)),
+    [popularItems, recommendedIdSet, user]
   );
 
   // 初期表示時にお気に入り & パーソナライズされたおすすめをロード
@@ -386,7 +387,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       const currentLength = popularItems.length;
       const { data, error } = await supabase
         .from("items")
-        .select("id, title, selling_price, front_image_url, favorites(count)")
+        .select("id, title, selling_price, front_image_url, seller_id, favorites(count)")
         .eq("status", "available")
         .order("created_at", { ascending: false })
         .range(currentLength, currentLength + 14);
@@ -436,7 +437,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         // みんなの出品を再取得
         const { data: freshPopular } = await supabase
           .from("items")
-          .select("id, title, selling_price, front_image_url, favorites(count)")
+          .select("id, title, selling_price, front_image_url, seller_id, favorites(count)")
           .eq("status", "available")
           .order("created_at", { ascending: false })
           .range(0, 14);

@@ -39,7 +39,44 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const isLockedRef = useRef(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [togglingFav, setTogglingFav] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // お気に入り状態を取得
+  useEffect(() => {
+    if (!user || !item) return;
+    const checkFavorite = async () => {
+      const { data } = await supabase
+        .from("favorites")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("item_id", item.id)
+        .maybeSingle();
+      setIsFavorite(!!data);
+    };
+    checkFavorite();
+  }, [user, item]);
+
+  const toggleFavorite = async () => {
+    if (!user || favoriteLoading) return;
+    setFavoriteLoading(true);
+    try {
+      if (isFavorite) {
+        await (supabase.from("favorites") as any)
+          .delete()
+          .eq("user_id", user.id)
+          .eq("item_id", item.id);
+        setIsFavorite(false);
+      } else {
+        await (supabase.from("favorites") as any)
+          .insert({ user_id: user.id, item_id: item.id });
+        setIsFavorite(true);
+      }
+    } catch (err) {
+      console.error("Error toggling favorite:", err);
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   useEffect(() => {
     isLockedRef.current = !!lockedUntil;
@@ -69,42 +106,6 @@ export default function ProductDetailClient({ item }: { item: Item }) {
       }
     };
   }, []);
-
-  // お気に入り状態の取得
-  useEffect(() => {
-    if (!user || !item) return;
-    supabase
-      .from("favorites")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("item_id", item.id)
-      .single()
-      .then(({ data }) => {
-        setIsFavorite(!!data);
-      });
-  }, [user, item]);
-
-  const toggleFavorite = async () => {
-    if (!user || togglingFav) return;
-    setTogglingFav(true);
-    try {
-      if (isFavorite) {
-        await (supabase.from("favorites") as any)
-          .delete()
-          .eq("user_id", user.id)
-          .eq("item_id", item.id);
-        setIsFavorite(false);
-      } else {
-        await (supabase.from("favorites") as any)
-          .insert({ user_id: user.id, item_id: item.id });
-        setIsFavorite(true);
-      }
-    } catch (err) {
-      console.error("Favorite toggle error:", err);
-    } finally {
-      setTogglingFav(false);
-    }
-  };
 
   // モーダル状態に合わせてナビゲーションの表示を制御
   useEffect(() => {
@@ -539,7 +540,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
         {/* Action Buttons - Fixed at bottom of modal */}
         <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-[60]">
-          <div className="max-w-4xl mx-auto flex gap-4">
+          <div className="max-w-4xl mx-auto flex gap-3">
             {isOwnItem ? (
               <div className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-semibold text-center">
                 自分の出品商品です
@@ -547,19 +548,22 @@ export default function ProductDetailClient({ item }: { item: Item }) {
             ) : (
               <>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite();
-                  }}
-                  disabled={togglingFav}
-                  className={`w-14 h-14 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 flex-shrink-0 ${
+                  onClick={toggleFavorite}
+                  disabled={favoriteLoading || !user}
+                  className={`w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
                     isFavorite
-                      ? "bg-red-50 border-red-200 text-red-500"
-                      : "bg-gray-50 border-gray-200 text-gray-400 hover:text-red-400 hover:border-red-200"
+                      ? "border-red-200 bg-red-50"
+                      : "border-gray-200 bg-white hover:border-red-200 hover:bg-red-50"
                   }`}
                   aria-label="お気に入り"
                 >
-                  <Heart className={`w-6 h-6 transition-all ${isFavorite ? "fill-current" : ""}`} />
+                  <Heart
+                    className={`w-6 h-6 transition-colors ${
+                      isFavorite
+                        ? "fill-red-500 text-red-500"
+                        : "text-gray-400"
+                    }`}
+                  />
                 </button>
                 <button
                   onClick={handleOpenPurchaseModal}
