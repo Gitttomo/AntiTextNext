@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap, Heart } from "lucide-react";
+import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap, Heart, Pencil, Pause, Play, Trash2, Loader2, AlertTriangle, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from 'next/dynamic';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { PurchaseData, generatePurchaseMessage } from "@/components/purchase-utils";
+import { calculateSellingPrice } from "@/lib/utils";
 
 const PurchaseModal = dynamic(() => import('@/components/PurchaseModal'), { ssr: false });
 
@@ -40,6 +41,12 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const isLockedRef = useRef(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // 出品者管理用 state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isManaging, setIsManaging] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState(item.status);
 
   // お気に入り状態を取得
   useEffect(() => {
@@ -542,8 +549,54 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-[60]">
           <div className="max-w-4xl mx-auto flex gap-3">
             {isOwnItem ? (
-              <div className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-semibold text-center">
-                自分の出品商品です
+              <div className="flex gap-2 flex-1">
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  disabled={currentStatus === 'sold' || currentStatus === 'transaction_pending'}
+                  className="flex-1 py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 text-sm"
+                >
+                  <Pencil className="w-4 h-4" />
+                  編集
+                </button>
+                <button
+                  onClick={async () => {
+                    if (isManaging) return;
+                    setIsManaging(true);
+                    try {
+                      const newStatus = currentStatus === 'paused' ? 'available' : 'paused';
+                      const { error } = await (supabase.from('items') as any)
+                        .update({ status: newStatus })
+                        .eq('id', item.id);
+                      if (error) throw error;
+                      setCurrentStatus(newStatus);
+                    } catch (err: any) {
+                      alert('ステータスの変更に失敗しました');
+                    } finally {
+                      setIsManaging(false);
+                    }
+                  }}
+                  disabled={isManaging || currentStatus === 'sold' || currentStatus === 'transaction_pending'}
+                  className={`py-3.5 px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed ${
+                    currentStatus === 'paused'
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                  }`}
+                >
+                  {isManaging ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : currentStatus === 'paused' ? (
+                    <><Play className="w-4 h-4" />再開</>
+                  ) : (
+                    <><Pause className="w-4 h-4" />停止</>
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  disabled={currentStatus === 'transaction_pending'}
+                  className="py-3.5 px-4 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center text-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ) : (
               <>
@@ -615,6 +668,202 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         itemTitle={item.title}
         lockedUntil={lockedUntil}
       />
+
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <EditItemModal
+          item={item}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={async (title: string, originalPrice: number) => {
+            setIsManaging(true);
+            try {
+              const sellingPrice = calculateSellingPrice(originalPrice);
+              const { error } = await (supabase.from('items') as any)
+                .update({
+                  title,
+                  original_price: originalPrice,
+                  selling_price: sellingPrice,
+                })
+                .eq('id', item.id);
+              if (error) throw error;
+              // Refresh page to show updated data
+              window.location.reload();
+            } catch (err: any) {
+              alert('更新に失敗しました: ' + err.message);
+            } finally {
+              setIsManaging(false);
+            }
+          }}
+          isSubmitting={isManaging}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <DeleteConfirmModal
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={async () => {
+            setIsManaging(true);
+            try {
+              const { error } = await (supabase.from('items') as any)
+                .update({ status: 'deleted' })
+                .eq('id', item.id);
+              if (error) throw error;
+              router.push('/');
+            } catch (err: any) {
+              alert('削除に失敗しました: ' + err.message);
+            } finally {
+              setIsManaging(false);
+            }
+          }}
+          isSubmitting={isManaging}
+        />
+      )}
+    </div>
+  );
+}
+
+// --- Edit Item Modal ---
+function EditItemModal({
+  item,
+  onClose,
+  onSave,
+  isSubmitting
+}: {
+  item: { title: string; original_price: number };
+  onClose: () => void;
+  onSave: (title: string, originalPrice: number) => void;
+  isSubmitting: boolean;
+}) {
+  const [title, setTitle] = useState(item.title);
+  const [originalPrice, setOriginalPrice] = useState(String(item.original_price));
+  const sellingPrice = originalPrice ? calculateSellingPrice(Number(originalPrice)) : 0;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+        <div className="p-8">
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <Pencil className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900 text-center mb-6">出品情報を編集</h2>
+
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="text-sm font-bold text-gray-600 mb-1 block">教科書名</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-gray-600 mb-1 block">定価（円）</label>
+              <input
+                type="number"
+                value={originalPrice}
+                onChange={(e) => setOriginalPrice(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors font-medium"
+              />
+            </div>
+            {sellingPrice > 0 && (
+              <div className="bg-primary/5 rounded-xl p-3 text-center">
+                <span className="text-xs text-gray-500">販売価格: </span>
+                <span className="text-lg font-black text-primary">¥{sellingPrice.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                if (!title.trim() || !originalPrice) return;
+                onSave(title.trim(), Number(originalPrice));
+              }}
+              disabled={!title.trim() || !originalPrice || isSubmitting}
+              className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Check className="w-5 h-5" />保存する</>}
+            </button>
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Delete Confirm Modal ---
+function DeleteConfirmModal({
+  onClose,
+  onConfirm,
+  isSubmitting
+}: {
+  onClose: () => void;
+  onConfirm: () => void;
+  isSubmitting: boolean;
+}) {
+  const [confirmed, setConfirmed] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+        <div className="p-8">
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900 text-center mb-2">出品を削除しますか？</h2>
+          <p className="text-gray-500 text-sm text-center mb-6 font-medium">
+            この操作は取り消せません。商品は検索結果やホームから非表示になります。
+          </p>
+
+          <button
+            onClick={() => setConfirmed(!confirmed)}
+            className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 transition-all mb-6 ${
+              confirmed ? "border-red-400 bg-red-50" : "border-gray-200 bg-white"
+            }`}
+          >
+            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+              confirmed ? "bg-red-500 border-red-500" : "bg-white border-gray-300"
+            }`}>
+              {confirmed && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+            </div>
+            <span className={`text-sm font-bold ${confirmed ? "text-red-600" : "text-gray-500"}`}>
+              削除することを確認しました
+            </span>
+          </button>
+
+          <div className="space-y-3">
+            <button
+              onClick={onConfirm}
+              disabled={!confirmed || isSubmitting}
+              className={`w-full py-4 rounded-2xl font-black shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                confirmed && !isSubmitting
+                  ? "bg-red-500 text-white shadow-red-500/20 hover:bg-red-600"
+                  : "bg-gray-100 text-gray-400 shadow-none cursor-not-allowed"
+              }`}
+            >
+              {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Trash2 className="w-5 h-5" />削除する</>}
+            </button>
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
