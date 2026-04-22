@@ -1,0 +1,124 @@
+{
+  "nav": {
+    "home": "ホーム",
+    "notifications": "おしらせ",
+    "listing": "出品",
+    "mypage": "マイページ",
+    "schedule": "予定"
+  },
+  "home": {
+    "search_placeholder": "教科書を探す...",
+    "everyones_listings": "みんなの出品",
+    "see_all": "すべて見る",
+    "recommended": "あなたへのおすすめ",
+    "load_more": "もっと見る",
+    "loading": "読み込み中...",
+    "no_items": "まだ出品されている教科書はありません",
+    "pull_to_refresh": "引っ張って更新",
+    "refreshing": "更新中..."
+  },
+  "product": {
+    "detail": "商品詳細",
+    "price": "販売価格",
+    "original_price": "定価",
+    "seller": "出品者",
+    "listed_date": "出品日",
+    "buy": "購入する",
+    "sold": "売り切れ",
+    "in_transaction": "取引中",
+    "reserved": "予約済み",
+    "own_item": "自分の出品商品です",
+    "edit": "編集",
+    "pause": "停止",
+    "resume": "再開",
+    "delete": "削除",
+    "favorite": "お気に入り"
+  },
+  "auth": {
+    "login": "ログイン",
+    "signup": "新規登録",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "login_button": "ログインする",
+    "signup_button": "登録する",
+    "no_account": "アカウントをお持ちでない方",
+    "has_account": "すでにアカウントをお持ちの方",
+    "forgot_password": "パスワードを忘れた方"
+  },
+  "profile": {
+    "mypage": "マイページ",
+    "edit_profile": "プロフィール編集",
+    "settings": "その他設定・お問い合わせなど",
+    "history": "履歴",
+    "past_transactions": "過去の取引",
+    "listing_items": "出品中",
+    "favorites": "お気に入り一覧",
+    "no_items": "アイテムがありません",
+    "no_favorites": "お気に入りのアイテムはありません",
+    "items_count": "件"
+  },
+  "notifications": {
+    "title": "お知らせ",
+    "mark_all_read": "すべて既読",
+    "no_notifications": "通知はありません",
+    "just_now": "たった今",
+    "minutes_ago": "{n}分前",
+    "hours_ago": "{n}時間前",
+    "days_ago": "{n}日前"
+  },
+  "transactions": {
+    "title": "予定管理",
+    "upcoming": "今後の予定",
+    "pending": "日程調整中",
+    "completed": "完了",
+    "no_upcoming": "確定した予定はありません",
+    "no_pending": "日程調整中の商品はありません",
+    "no_completed": "完了した取引はありません",
+    "buyer": "購入",
+    "seller": "出品",
+    "chat": "チャット"
+  },
+  "listing": {
+    "title": "出品する",
+    "book_name": "教科書名",
+    "original_price": "定価（税込）",
+    "selling_price": "販売価格",
+    "barcode": "ISBNバーコード",
+    "front_cover": "表紙の写真",
+    "back_cover": "裏表紙の写真",
+    "submit": "出品する",
+    "confirm": "確認する"
+  },
+  "chat": {
+    "placeholder": "メッセージを入力...",
+    "complete": "取引完了",
+    "cancel": "取引キャンセル",
+    "confirmation_title": "受け渡し確認",
+    "confirmation_message": "商品の受け渡しは完了しましたか？",
+    "irreversible_warning": "この操作は取り消せません。受け渡しが完了してから押してください。",
+    "confirmed_checkbox": "受け渡しが完了したことを確認しました",
+    "yes_complete": "はい、取引を完了して評価へ",
+    "not_yet": "まだです、チャットに戻る"
+  },
+  "settings": {
+    "title": "設定",
+    "contact": "お問い合わせ",
+    "language": "言語設定",
+    "watch_keywords": "探している教科書",
+    "deactivate": "アカウント停止",
+    "logout": "ログアウト"
+  },
+  "common": {
+    "save": "保存する",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除する",
+    "back": "戻る",
+    "close": "閉じる",
+    "loading": "読み込み中...",
+    "error": "エラーが発生しました",
+    "success": "成功しました",
+    "yes": "はい",
+    "no": "いいえ"
+  }
+}

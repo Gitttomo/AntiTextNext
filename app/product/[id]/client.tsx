@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from 'next/dynamic';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n } from "@/lib/i18n";
 import { PurchaseData, generatePurchaseMessage } from "@/components/purchase-utils";
 import { calculateSellingPrice } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ export type Item = {
 export default function ProductDetailClient({ item }: { item: Item }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useI18n();
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -556,7 +558,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                   className="flex-1 py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 text-sm"
                 >
                   <Pencil className="w-4 h-4" />
-                  編集
+                  {t('product.edit')}
                 </button>
                 <button
                   onClick={async () => {
@@ -585,9 +587,9 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                   {isManaging ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : currentStatus === 'paused' ? (
-                    <><Play className="w-4 h-4" />再開</>
+                    <><Play className="w-4 h-4" />{t('product.resume')}</>
                   ) : (
-                    <><Pause className="w-4 h-4" />停止</>
+                    <><Pause className="w-4 h-4" />{t('product.pause')}</>
                   )}
                 </button>
                 <button
@@ -624,7 +626,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                   className="flex-1 py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  {isSold ? "売り切れ" : isPending ? "取引中" : "購入する"}
+                  {isSold ? t('product.sold') : isPending ? t('product.in_transaction') : t('product.buy')}
                 </button>
               </>
             )}

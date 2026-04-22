@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { Home, Camera, ClipboardList, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import { useState, useEffect, useCallback } from "react";
 
 export function BottomNav() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useI18n();
   const [unreadCount, setUnreadCount] = useState(0);
 
   // 未読通知数の取得
@@ -76,11 +78,11 @@ export function BottomNav() {
   }
 
   const navItems = [
-    { href: "/", label: "ホーム", icon: Home },
-    { href: "/notifications", label: "おしらせ", icon: Bell, badge: unreadCount },
-    { href: "/listing", label: "出品", icon: Camera, special: true },
-    { href: "/profile" , label: "マイページ", icon: User },
-    { href: "/transactions", label: "予定", icon: ClipboardList },
+    { href: "/", label: t("nav.home"), icon: Home },
+    { href: "/notifications", label: t("nav.notifications"), icon: Bell, badge: unreadCount },
+    { href: "/listing", label: t("nav.listing"), icon: Camera, special: true },
+    { href: "/profile" , label: t("nav.mypage"), icon: User },
+    { href: "/transactions", label: t("nav.schedule"), icon: ClipboardList },
   ];
 
   return (

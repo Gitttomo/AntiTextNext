@@ -6,6 +6,7 @@ import { ArrowLeft, Bell, Inbox, MessageCircle, Star, XCircle, CheckCircle2, Loa
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n } from "@/lib/i18n";
 
 type Notification = {
     id: string;
@@ -21,6 +22,7 @@ type Notification = {
 export default function NotificationsPage() {
     const router = useRouter();
     const { user } = useAuth();
+    const { t } = useI18n();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -142,10 +144,10 @@ export default function NotificationsPage() {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 1) return "たった今";
-        if (diffMins < 60) return `${diffMins}分前`;
-        if (diffHours < 24) return `${diffHours}時間前`;
-        if (diffDays < 7) return `${diffDays}日前`;
+        if (diffMins < 1) return t("notifications.just_now");
+        if (diffMins < 60) return t("notifications.minutes_ago", { n: diffMins });
+        if (diffHours < 24) return t("notifications.hours_ago", { n: diffHours });
+        if (diffDays < 7) return t("notifications.days_ago", { n: diffDays });
 
         return `${date.getMonth() + 1}/${date.getDate()}`;
     };
@@ -170,7 +172,7 @@ export default function NotificationsPage() {
                         <div className="flex items-center gap-2">
                             <Bell className="w-6 h-6 text-primary" />
                             <h1 className="text-2xl font-bold text-gray-900">
-                                お知らせ
+                                {t("notifications.title")}
                             </h1>
                         </div>
                     </div>
@@ -180,7 +182,7 @@ export default function NotificationsPage() {
                             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-full transition-colors"
                         >
                             <CheckCheck className="w-4 h-4" />
-                            すべて既読
+                            {t("notifications.mark_all_read")}
                         </button>
                     )}
                 </div>
@@ -193,7 +195,7 @@ export default function NotificationsPage() {
                         <Inbox className="w-10 h-10 text-gray-400" />
                     </div>
                     <h2 className="text-lg font-bold text-gray-900 mb-2">
-                        お知らせはありません
+                        {t("notifications.no_notifications")}
                     </h2>
                     <p className="text-gray-500 text-center max-w-xs">
                         新しいお知らせがあるとここに表示されます

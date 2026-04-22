@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Search, Heart, BookOpen, TrendingUp, User, Users, ChevronDown, RefreshCw } from "lucide-react";
 import { useState, useCallback, memo, useMemo, useEffect, useRef, TouchEvent as ReactTouchEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 
 type Item = {
@@ -122,7 +123,8 @@ type HomeClientProps = {
 };
 
 export default function HomeClient({ items: initialRecommendedItems, popularItems: initialPopularItems, totalPopularCount }: HomeClientProps) {
-  const { user, loading, avatarUrl } = useAuth();
+  const { user, avatarUrl, loading } = useAuth();
+  const { t } = useI18n();
   const [favorites, setFavorites] = useState<string[]>([]);
   
   // 各アイテムの状態管理（サーバーのキャッシュを上書きできるようにState化）
@@ -483,7 +485,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           }}
         />
         <span className="ml-2 text-sm text-gray-500 font-medium">
-          {isRefreshing ? '更新中...' : pullDistance >= PULL_THRESHOLD ? '離すと更新' : '引っ張って更新'}
+          {isRefreshing ? t('home.refreshing') : pullDistance >= PULL_THRESHOLD ? t('home.pull_to_refresh') : t('home.pull_to_refresh')}
         </span>
       </div>
 
@@ -543,7 +545,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
                 href="/auth/login"
                 className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-sm active:scale-95 whitespace-nowrap block"
               >
-                ログイン
+                {t('auth.login')}
               </Link>
             )}
           </div>
@@ -557,7 +559,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             </div>
             <input
               type="text"
-              placeholder="教科書を検索..."
+              placeholder={t('home.search_placeholder')}
               className="w-full py-3 pl-12 pr-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none hover:border-primary/50 hover:bg-white transition-all cursor-pointer"
               readOnly
             />
@@ -571,7 +573,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           <div className="flex items-center gap-2 mb-6">
             <TrendingUp className="w-6 h-6 text-primary" />
             <h2 className="text-xl font-bold text-gray-900">
-              おすすめの教材
+              {t('home.recommended')}
             </h2>
           </div>
 
@@ -614,12 +616,12 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
                     {loadingMoreRecommended ? (
                       <>
                         <div className="w-5 h-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
-                        読み込み中...
+                        {t('home.loading')}
                       </>
                     ) : (
                       <>
                         <ChevronDown className="w-5 h-5" />
-                        もっと見る
+                        {t('home.load_more')}
                       </>
                     )}
                   </button>
@@ -636,7 +638,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
           <div className="flex items-center gap-2 mb-6">
             <Users className="w-6 h-6 text-primary" />
             <h2 className="text-xl font-bold text-gray-900">
-              みんなの出品
+              {t('home.everyones_listings')}
             </h2>
           </div>
 
@@ -663,12 +665,12 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
                 {loadingMore ? (
                   <>
                     <div className="w-5 h-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
-                    読み込み中...
+                    {t('home.loading')}
                   </>
                 ) : (
                   <>
                     <ChevronDown className="w-5 h-5" />
-                    もっと見る
+                    {t('home.load_more')}
                   </>
                 )}
               </button>

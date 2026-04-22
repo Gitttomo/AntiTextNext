@@ -17,6 +17,7 @@ import {
     Shield
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n } from "@/lib/i18n";
 import { ProfileSkeleton } from "./edit/skeleton";
 
 type Profile = {
@@ -55,6 +56,7 @@ export default function MypageClient({
 }: MypageClientProps) {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
+    const { t } = useI18n();
     const [activeTab, setActiveTab] = useState<"past" | "listing" | null>(null);
 
     useEffect(() => {
@@ -79,7 +81,7 @@ export default function MypageClient({
             {/* Header */}
             <header className="px-6 pt-12 pb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                    マイページ
+                    {t('profile.mypage')}
                 </h1>
             </header>
 
@@ -140,7 +142,7 @@ export default function MypageClient({
                         <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center transition-colors group-hover:bg-primary/10">
                             <Settings className="w-5 h-5 text-primary" />
                         </div>
-                        <span className="font-bold text-gray-700">プロフィール編集</span>
+                        <span className="font-bold text-gray-700">{t('profile.edit_profile')}</span>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </button>
@@ -154,7 +156,7 @@ export default function MypageClient({
                         <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center transition-colors group-hover:bg-gray-200">
                             <MoreHorizontal className="w-5 h-5 text-gray-500" />
                         </div>
-                        <span className="font-bold text-gray-700">その他設定・お問い合わせなど</span>
+                        <span className="font-bold text-gray-700">{t('profile.settings')}</span>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </button>
@@ -163,7 +165,7 @@ export default function MypageClient({
                 <section className="space-y-4">
                     <h3 className="text-lg font-extrabold text-gray-800 flex items-center gap-2 px-1">
                         <History className="w-5 h-5 text-primary" />
-                        履歴
+                        {t('profile.history')}
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
                         <button
@@ -174,7 +176,7 @@ export default function MypageClient({
                                 }`}
                         >
                             <History className={`w-6 h-6 ${activeTab === "past" ? "text-white" : "text-primary"}`} />
-                            <span className="text-sm font-bold">過去の取引</span>
+                            <span className="text-sm font-bold">{t('profile.past_transactions')}</span>
                             <span className={`text-lg font-extrabold ${activeTab === "past" ? "text-white/90" : "text-primary"}`}>{initialPastItems.length}</span>
                         </button>
                         <button
@@ -185,7 +187,7 @@ export default function MypageClient({
                                 }`}
                         >
                             <Package className={`w-6 h-6 ${activeTab === "listing" ? "text-white" : "text-red-500"}`} />
-                            <span className="text-sm font-bold">出品中</span>
+                            <span className="text-sm font-bold">{t('profile.listing_items')}</span>
                             <span className={`text-lg font-extrabold ${activeTab === "listing" ? "text-white/90" : "text-red-500"}`}>{initialListingItems.length}</span>
                         </button>
                     </div>

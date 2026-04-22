@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n, Locale } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import {
     ArrowLeft,
@@ -19,6 +20,7 @@ import {
     CheckCircle,
     ShieldAlert,
     Bell,
+    Globe,
 } from "lucide-react";
 
 type DeactivateStep = "idle" | "confirm" | "password" | "processing" | "done" | "error";
@@ -26,6 +28,7 @@ type DeactivateStep = "idle" | "confirm" | "password" | "processing" | "done" | 
 export default function SettingsPage() {
     const router = useRouter();
     const { user, loading: authLoading, signOut } = useAuth();
+    const { locale, setLocale, t } = useI18n();
 
     // アカウント停止関連
     const [deactivateStep, setDeactivateStep] = useState<DeactivateStep>("idle");
@@ -179,6 +182,45 @@ export default function SettingsPage() {
                             </div>
                             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                         </Link>
+                    </section>
+
+                    {/* 言語設定 */}
+                    <section className="animate-slide-in-left" style={{ animationDelay: '25ms' }}>
+                        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 px-1">
+                            {t("settings.language")}
+                        </h2>
+                        <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+                            <div className="px-5 py-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                                        <Globe className="w-5 h-5 text-indigo-500" />
+                                    </div>
+                                    <span className="font-bold text-gray-700">{t("settings.language")}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setLocale("ja")}
+                                        className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                                            locale === "ja"
+                                                ? "bg-primary text-white shadow-md shadow-primary/20"
+                                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        🇯🇵 日本語
+                                    </button>
+                                    <button
+                                        onClick={() => setLocale("en")}
+                                        className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                                            locale === "en"
+                                                ? "bg-primary text-white shadow-md shadow-primary/20"
+                                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        🇺🇸 English
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
                     {/* 探している教科書 */}

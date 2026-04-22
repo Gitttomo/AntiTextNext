@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import dynamic from "next/dynamic";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
+import { Providers } from "@/components/providers";
 import LegalFooter from "@/components/legal-footer";
 
 // BottomNavを遅延読み込み（初期表示を高速化）
@@ -45,11 +46,13 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
       <body className={inter.className}>
-        <AuthProvider>
-          <main className="min-h-screen pb-24">{children}</main>
-          <LegalFooter />
-          <BottomNav />
-        </AuthProvider>
+        <Providers>
+          <AuthProvider>
+            <main className="min-h-screen pb-24">{children}</main>
+            <LegalFooter />
+            <BottomNav />
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Search, History, Heart, Bell, Loader2, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n } from "@/lib/i18n";
 
 export type SearchHistory = {
   id: string;
@@ -46,6 +47,7 @@ function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const { t } = useI18n();
 
   const initialQuery = searchParams.get("q") || "";
 
@@ -299,7 +301,7 @@ function SearchContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.length > 0 && setShowSuggestions(true)}
-              placeholder="教科書名を入れてください"
+              placeholder={t('home.search_placeholder')}
               className="w-full py-3 pl-12 pr-4 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>

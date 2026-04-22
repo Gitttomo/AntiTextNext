@@ -1,0 +1,124 @@
+{
+  "nav": {
+    "home": "Home",
+    "notifications": "Notifications",
+    "listing": "List",
+    "mypage": "My Page",
+    "schedule": "Schedule"
+  },
+  "home": {
+    "search_placeholder": "Search textbooks...",
+    "everyones_listings": "Recent Listings",
+    "see_all": "See all",
+    "recommended": "Recommended for You",
+    "load_more": "Load more",
+    "loading": "Loading...",
+    "no_items": "No textbooks listed yet",
+    "pull_to_refresh": "Pull to refresh",
+    "refreshing": "Refreshing..."
+  },
+  "product": {
+    "detail": "Product Detail",
+    "price": "Price",
+    "original_price": "Original Price",
+    "seller": "Seller",
+    "listed_date": "Listed On",
+    "buy": "Buy Now",
+    "sold": "Sold Out",
+    "in_transaction": "In Transaction",
+    "reserved": "Reserved",
+    "own_item": "This is your listing",
+    "edit": "Edit",
+    "pause": "Pause",
+    "resume": "Resume",
+    "delete": "Delete",
+    "favorite": "Favorite"
+  },
+  "auth": {
+    "login": "Log In",
+    "signup": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "login_button": "Log In",
+    "signup_button": "Sign Up",
+    "no_account": "Don't have an account?",
+    "has_account": "Already have an account?",
+    "forgot_password": "Forgot password?"
+  },
+  "profile": {
+    "mypage": "My Page",
+    "edit_profile": "Edit Profile",
+    "settings": "Settings & Support",
+    "history": "History",
+    "past_transactions": "Past Transactions",
+    "listing_items": "My Listings",
+    "favorites": "Favorites",
+    "no_items": "No items",
+    "no_favorites": "No favorite items yet",
+    "items_count": "items"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all read",
+    "no_notifications": "No notifications",
+    "just_now": "Just now",
+    "minutes_ago": "{n}m ago",
+    "hours_ago": "{n}h ago",
+    "days_ago": "{n}d ago"
+  },
+  "transactions": {
+    "title": "Schedule",
+    "upcoming": "Upcoming",
+    "pending": "Pending",
+    "completed": "Completed",
+    "no_upcoming": "No upcoming events",
+    "no_pending": "No pending items",
+    "no_completed": "No completed transactions",
+    "buyer": "Buyer",
+    "seller": "Seller",
+    "chat": "Chat"
+  },
+  "listing": {
+    "title": "List a Textbook",
+    "book_name": "Textbook Name",
+    "original_price": "Original Price (tax incl.)",
+    "selling_price": "Selling Price",
+    "barcode": "ISBN Barcode",
+    "front_cover": "Front Cover Photo",
+    "back_cover": "Back Cover Photo",
+    "submit": "List Item",
+    "confirm": "Confirm"
+  },
+  "chat": {
+    "placeholder": "Type a message...",
+    "complete": "Complete Transaction",
+    "cancel": "Cancel Transaction",
+    "confirmation_title": "Handover Confirmation",
+    "confirmation_message": "Has the handover been completed?",
+    "irreversible_warning": "This action cannot be undone. Please confirm only after the handover.",
+    "confirmed_checkbox": "I confirm the handover is complete",
+    "yes_complete": "Yes, complete and rate",
+    "not_yet": "Not yet, go back to chat"
+  },
+  "settings": {
+    "title": "Settings",
+    "contact": "Contact Us",
+    "language": "Language",
+    "watch_keywords": "Textbook Alerts",
+    "deactivate": "Deactivate Account",
+    "logout": "Log Out"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "back": "Back",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "yes": "Yes",
+    "no": "No"
+  }
+}

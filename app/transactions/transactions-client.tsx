@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { useI18n } from "@/lib/i18n";
 import { TransactionsSkeleton } from "./skeleton";
 
 type Profile = {
@@ -43,6 +44,7 @@ export default function TransactionsClient({
 }: TransactionsClientProps) {
     const router = useRouter();
     const { user, avatarUrl, loading: authLoading } = useAuth();
+    const { t } = useI18n();
     const [profile, setProfile] = useState<Profile | null>(initialProfile);
     const [activeTab, setActiveTab] = useState<"upcoming" | "pending" | "completed">("upcoming");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
@@ -331,7 +333,7 @@ export default function TransactionsClient({
             <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <h1 className="text-4xl font-black text-gray-900 tracking-tight">予定管理</h1>
+                        <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t('transactions.title')}</h1>
                         {totalUnreadCount > 0 && (
                             <span className="bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-lg shadow-red-500/20">
                                 {totalUnreadCount}
@@ -379,7 +381,7 @@ export default function TransactionsClient({
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
-                        今後の予定 ({confirmedItems.length})
+                        {t('transactions.upcoming')} ({confirmedItems.length})
                     </button>
                     <button
                         onClick={() => setActiveTab("pending")}
@@ -388,7 +390,7 @@ export default function TransactionsClient({
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
-                        日程調整中 ({pendingItems.length})
+                        {t('transactions.pending')} ({pendingItems.length})
                     </button>
                     <button
                         onClick={() => setActiveTab("completed")}
@@ -397,7 +399,7 @@ export default function TransactionsClient({
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
-                        完了 ({historyItems.length})
+                        {t('transactions.completed')} ({historyItems.length})
                     </button>
                 </div>
             </div>
@@ -407,7 +409,7 @@ export default function TransactionsClient({
                     sortedDates.length === 0 ? (
                         <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
                             <Package className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-                            <p className="text-gray-400 font-black">確定した予定はありません</p>
+                            <p className="text-gray-400 font-black">{t('transactions.no_upcoming')}</p>
                         </div>
                     ) : (
                         <div className="space-y-10">
@@ -438,7 +440,7 @@ export default function TransactionsClient({
                         {pendingItems.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
                                 <Calendar className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-                                <p className="text-gray-400 font-black">日程調整中の商品はありません</p>
+                                <p className="text-gray-400 font-black">{t('transactions.no_pending')}</p>
                             </div>
                         ) : (
                             pendingItems.map((item, idx) => renderItem(item, idx))
@@ -449,7 +451,7 @@ export default function TransactionsClient({
                         {historyItems.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
                                 <CheckCircle className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-                                <p className="text-gray-400 font-black">完了した取引はありません</p>
+                                <p className="text-gray-400 font-black">{t('transactions.no_completed')}</p>
                             </div>
                         ) : (
                             historyItems.map((item, idx) => renderItem(item, idx))
