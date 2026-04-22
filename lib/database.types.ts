@@ -160,8 +160,16 @@ export interface Database {
                     payment_method: string
                     meetup_time_slots: string[]
                     meetup_locations: string[]
+                    final_meetup_time: string | null
+                    final_meetup_location: string | null
                     status: string
+                    buyer_completed: boolean
+                    seller_completed: boolean
+                    cancellation_reason: string | null
                     created_at: string
+                    schedule_change_requested_by: string | null
+                    previous_final_meetup_time: string | null
+                    previous_final_meetup_location: string | null
                 }
                 Insert: {
                     id?: string
@@ -171,8 +179,16 @@ export interface Database {
                     payment_method: string
                     meetup_time_slots: string[]
                     meetup_locations: string[]
+                    final_meetup_time?: string | null
+                    final_meetup_location?: string | null
                     status?: string
+                    buyer_completed?: boolean
+                    seller_completed?: boolean
+                    cancellation_reason?: string | null
                     created_at?: string
+                    schedule_change_requested_by?: string | null
+                    previous_final_meetup_time?: string | null
+                    previous_final_meetup_location?: string | null
                 }
                 Update: {
                     id?: string
@@ -182,8 +198,16 @@ export interface Database {
                     payment_method?: string
                     meetup_time_slots?: string[]
                     meetup_locations?: string[]
+                    final_meetup_time?: string | null
+                    final_meetup_location?: string | null
                     status?: string
+                    buyer_completed?: boolean
+                    seller_completed?: boolean
+                    cancellation_reason?: string | null
                     created_at?: string
+                    schedule_change_requested_by?: string | null
+                    previous_final_meetup_time?: string | null
+                    previous_final_meetup_location?: string | null
                 }
             }
             watch_keywords: {

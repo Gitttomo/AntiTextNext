@@ -39,6 +39,9 @@ type Transaction = {
   buyer_completed: boolean;
   seller_completed: boolean;
   cancellation_reason: string | null;
+  schedule_change_requested_by: string | null;
+  previous_final_meetup_time: string | null;
+  previous_final_meetup_location: string | null;
 };
 
 type UserProfile = {
@@ -60,6 +63,22 @@ const LOCATION_LABELS: Record<string, string> = {
   taki_plaza: "タキプラザ一階",
   seven_eleven: "セブンイレブン前",
   other: "その他（チャットで相談）",
+};
+
+const formatTimeSlotLabel = (timeSlot: string) => {
+  const [datePart, slotPart] = timeSlot.split("_");
+  const date = new Date(datePart);
+  const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
+};
+
+const formatLocationLabel = (location: string) => LOCATION_LABELS[location] || location;
+
+const formatScheduleCandidates = (slots: string[], locations: string[]) => {
+  const formattedSlots = slots.map((slot) => `・${formatTimeSlotLabel(slot)}`).join("\n");
+  const formattedLocations = locations.map((location) => `・${formatLocationLabel(location)}`).join("\n");
+
+  return `候補日時:\n${formattedSlots}\n\n候補場所:\n${formattedLocations}`;
 };
 
 export default function ChatPage({ params }: { params: { id: string } }) {
@@ -425,17 +444,18 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     setIsFinalizing(true);
 
     try {
-      const [datePart, slotPart] = timeSlot.split("_");
-      const date = new Date(datePart);
-      const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-      const formattedTime = `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
-      const formattedLocation = LOCATION_LABELS[location] || location;
+      const formattedTime = formatTimeSlotLabel(timeSlot);
+      const formattedLocation = formatLocationLabel(location);
+      const isChangeApproval = !!transaction.schedule_change_requested_by;
 
       const { error } = await (supabase.from("transactions") as any)
         .update({
           final_meetup_time: formattedTime,
           final_meetup_location: formattedLocation,
-          status: 'confirmed'
+          status: 'confirmed',
+          schedule_change_requested_by: null,
+          previous_final_meetup_time: null,
+          previous_final_meetup_location: null,
         })
         .eq("id", transaction.id);
 
@@ -446,11 +466,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         ...prev,
         final_meetup_time: formattedTime,
         final_meetup_location: formattedLocation,
-        status: 'confirmed'
+        status: 'confirmed',
+        schedule_change_requested_by: null,
+        previous_final_meetup_time: null,
+        previous_final_meetup_location: null,
       } : prev);
 
       // 自動メッセージを送信
-      await handleSend(`【日程が確定しました】\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\n当日はよろしくお願いいたします！`);
+      await handleSend(`${isChangeApproval ? "【日程変更が承認されました】" : "【受け渡し日時が決まりました】"}\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\n当日はよろしくお願いいたします！`);
 
     } catch (err: any) {
       alert("日程の確定に失敗しました: " + err.message);
@@ -633,6 +656,12 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   }[item.status] || item.status;
 
   const isSeller = user?.id === item.seller_id;
+  const isScheduleChangeRequester = !!transaction?.schedule_change_requested_by && transaction.schedule_change_requested_by === user?.id;
+  const canConfirmSchedule = !!transaction && (
+    transaction.schedule_change_requested_by
+      ? transaction.schedule_change_requested_by !== user?.id
+      : isSeller
+  );
 
   return (
     <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-gray-100 overflow-hidden">
@@ -682,40 +711,93 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth"
         >
+          {/* Sticky Schedule Summary */}
+          {transaction && (
+            <div className="sticky top-0 z-30 -mx-4 mb-4 bg-gray-100/95 px-4 pb-3 pt-2 backdrop-blur-md">
+              {transaction.final_meetup_time ? (
+                <div className="bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
+                    <CheckCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">受け渡し日時</p>
+                    <p className="text-sm font-black text-green-900">{transaction.final_meetup_time}</p>
+                    <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
+                  </div>
+                </div>
+              ) : transaction.schedule_change_requested_by ? (
+                <div className="bg-amber-50 backdrop-blur-sm border-2 border-amber-200 rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-400/20">
+                      <Clock className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">変更提案中</p>
+                      <p className="text-sm font-black text-amber-950">
+                        {isScheduleChangeRequester ? "相手の承認待ちです" : "候補から行ける日時を選んで承認してください"}
+                      </p>
+                    </div>
+                  </div>
+                  {transaction.previous_final_meetup_time && (
+                    <div className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-amber-900">
+                      変更前: {transaction.previous_final_meetup_time}
+                      {transaction.previous_final_meetup_location ? ` / ${transaction.previous_final_meetup_location}` : ""}
+                    </div>
+                  )}
+                </div>
+              ) : transaction.meetup_time_slots && transaction.meetup_time_slots.length > 0 ? (
+                <div className="bg-gray-100/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-400/20">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">受け渡し日時</p>
+                    <p className="text-sm font-bold text-gray-700">候補から日程を決定してください。</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Scheduling Component (Injected at the top like a pinned post) */}
           {transaction && transaction.meetup_time_slots?.length > 0 && !transaction.final_meetup_time && (
             <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="bg-white/90 backdrop-blur-md rounded-3xl p-5 shadow-xl border border-white/20">
                 <div className="flex items-center gap-2 mb-4 text-primary font-black">
                   <Calendar className="w-5 h-5" />
-                  <span className="text-sm uppercase tracking-wider">受け渡し日程調整</span>
+                  <span className="text-sm uppercase tracking-wider">
+                    {transaction.schedule_change_requested_by ? "変更候補の確認" : "受け渡し日程調整"}
+                  </span>
                 </div>
 
-                <p className="text-xs text-gray-500 font-bold mb-4 px-1">募集された候補から都合の良い日時を選択してください：</p>
+                <p className="text-xs text-gray-500 font-bold mb-4 px-1">
+                  {transaction.schedule_change_requested_by
+                    ? isScheduleChangeRequester
+                      ? "相手が承認するまでお待ちください。候補は以下の内容で提案されています。"
+                      : "提案された候補から行けそうな日時を選ぶと、変更が承認されます。"
+                    : "募集された候補から都合の良い日時を選択してください："}
+                </p>
 
                 <div className="space-y-2.5">
                   {transaction.meetup_time_slots.map((slot) => {
-                    const [datePart, slotPart] = slot.split("_");
-                    const date = new Date(datePart);
-                    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-                    const label = `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
+                    const label = formatTimeSlotLabel(slot);
 
                     return (
                       <button
                         key={slot}
                         onClick={() => {
-                          if (isSeller && !transaction.final_meetup_time) {
+                          if (canConfirmSchedule && !transaction.final_meetup_time) {
                             handleFinalizeSchedule(slot, transaction.meetup_locations[0]);
                           }
                         }}
-                        disabled={isFinalizing || !isSeller || !!transaction.final_meetup_time}
-                        className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${isSeller && !transaction.final_meetup_time
+                        disabled={isFinalizing || !canConfirmSchedule || !!transaction.final_meetup_time}
+                        className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${canConfirmSchedule && !transaction.final_meetup_time
                           ? "hover:bg-primary/10 border-primary/20 hover:border-primary/40 cursor-pointer"
                           : "border-primary/10 cursor-default"
                           }`}
                       >
-                        <span className={`text-primary font-black ${isSeller && !transaction.final_meetup_time ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
-                        <Clock className={`w-4 h-4 transition-colors ${isSeller && !transaction.final_meetup_time ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
+                        <span className={`text-primary font-black ${canConfirmSchedule && !transaction.final_meetup_time ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
+                        <Clock className={`w-4 h-4 transition-colors ${canConfirmSchedule && !transaction.final_meetup_time ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
                       </button>
                     );
                   })}
@@ -736,31 +818,6 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           )}
-
-          {/* Finalized Schedule Banner */}
-          {/* 日程確定済みボックス or 日程未設定ボックス */}
-          {transaction && (transaction.final_meetup_time ? (
-            <div className="mb-6 bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
-                <CheckCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">日程確定済み</p>
-                <p className="text-sm font-black text-green-900">{transaction.final_meetup_time}</p>
-                <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
-              </div>
-            </div>
-          ) : transaction.meetup_time_slots && transaction.meetup_time_slots.length > 0 && (
-            <div className="mb-6 bg-gray-100/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-400/20">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">日程未設定</p>
-                <p className="text-sm font-bold text-gray-700">チャットで日程を決定し、入力してください。</p>
-              </div>
-            </div>
-          ))}
 
           {/* Messages List */}
           {messages.length === 0 ? (
@@ -934,8 +991,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         isOpen={isScheduleModalOpen}
         onClose={() => setIsScheduleModalOpen(false)}
         onConfirm={async (slots: string[], locations: string[]) => {
-          if (!transaction) return;
+          if (!transaction || !user) return;
           setIsFinalizing(true);
+          const previousTime = transaction.final_meetup_time;
+          const previousLocation = transaction.final_meetup_location;
           try {
             const { error } = await (supabase.from("transactions") as any)
               .update({
@@ -943,13 +1002,31 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 meetup_locations: locations,
                 final_meetup_time: null,
                 final_meetup_location: null,
-                status: 'pending'
+                status: 'pending',
+                schedule_change_requested_by: user.id,
+                previous_final_meetup_time: previousTime,
+                previous_final_meetup_location: previousLocation,
               })
               .eq("id", transaction.id);
             if (error) throw error;
 
+            setTransaction(prev => prev ? {
+              ...prev,
+              meetup_time_slots: slots,
+              meetup_locations: locations,
+              final_meetup_time: null,
+              final_meetup_location: null,
+              status: 'pending',
+              schedule_change_requested_by: user.id,
+              previous_final_meetup_time: previousTime,
+              previous_final_meetup_location: previousLocation,
+            } : prev);
+
             // Send notification message
-            await handleSend("日程候補が変更されました。ご確認ください。");
+            const previousSchedule = previousTime
+              ? `変更前:\n・日時: ${previousTime}\n・場所: ${previousLocation || "未設定"}`
+              : "変更前:\n・まだ受け渡し日時は決まっていません";
+            await handleSend(`【受け渡し日時の変更提案】\n\n${previousSchedule}\n\n変更後の候補:\n${formatScheduleCandidates(slots, locations)}\n\nこの候補で問題ないか、相手の方はチャット上部の候補から行けそうな日時を選んで承認してください。`);
           } catch (err: any) {
             alert("日程の変更に失敗しました: " + err.message);
           } finally {
