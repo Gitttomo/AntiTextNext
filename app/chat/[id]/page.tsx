@@ -635,7 +635,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const isSeller = user?.id === item.seller_id;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+    <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-gray-100 overflow-hidden">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-white/20 h-16">
         <Link href="/transactions" className="p-1">
@@ -871,7 +871,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Input Area */}
-        <div className="flex-shrink-0 bg-white px-4 py-3 border-t border-gray-200">
+        <div className="flex-shrink-0 bg-white px-4 py-2.5 border-t border-gray-200">
         <form
           onSubmit={(e) => {
             e.preventDefault();
