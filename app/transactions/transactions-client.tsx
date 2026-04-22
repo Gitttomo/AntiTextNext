@@ -44,7 +44,7 @@ export default function TransactionsClient({
     const router = useRouter();
     const { user, avatarUrl, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState<Profile | null>(initialProfile);
-    const [activeTab, setActiveTab] = useState<"upcoming" | "pending">("upcoming");
+    const [activeTab, setActiveTab] = useState<"upcoming" | "pending" | "completed">("upcoming");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
     const [historyItems, setHistoryItems] = useState<TransactionItem[]>(initialHistoryItems);
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
@@ -390,6 +390,15 @@ export default function TransactionsClient({
                     >
                         日程調整中 ({pendingItems.length})
                     </button>
+                    <button
+                        onClick={() => setActiveTab("completed")}
+                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "completed"
+                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            : "text-gray-400 hover:text-gray-600"
+                            }`}
+                    >
+                        完了 ({historyItems.length})
+                    </button>
                 </div>
             </div>
 
@@ -424,7 +433,7 @@ export default function TransactionsClient({
                             })}
                         </div>
                     )
-                ) : (
+                ) : activeTab === "pending" ? (
                     <div className="space-y-4">
                         {pendingItems.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
@@ -433,6 +442,17 @@ export default function TransactionsClient({
                             </div>
                         ) : (
                             pendingItems.map((item, idx) => renderItem(item, idx))
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {historyItems.length === 0 ? (
+                            <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
+                                <CheckCircle className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+                                <p className="text-gray-400 font-black">完了した取引はありません</p>
+                            </div>
+                        ) : (
+                            historyItems.map((item, idx) => renderItem(item, idx))
                         )}
                     </div>
                 )}

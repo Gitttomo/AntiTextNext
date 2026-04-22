@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -1232,6 +1232,13 @@ function CompletionConfirmationModal({
   onConfirm: () => void;
   isSeller: boolean;
 }) {
+  const [confirmed, setConfirmed] = useState(false);
+
+  // Reset on open
+  useEffect(() => {
+    if (isOpen) setConfirmed(false);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -1243,17 +1250,17 @@ function CompletionConfirmationModal({
       <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
         <div className="p-8">
           <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-            <CheckCircle2 className="w-8 h-8 text-primary" />
+            <Package className="w-8 h-8 text-primary" />
           </div>
 
           <h2 className="text-xl font-black text-gray-900 text-center mb-2">
-            取引を完了しますか？
+            受け渡し確認
           </h2>
-          <p className="text-gray-500 text-sm text-center mb-8 font-medium">
-            以下の内容を確認してください
+          <p className="text-gray-500 text-sm text-center mb-6 font-medium">
+            商品の受け渡しは完了しましたか？
           </p>
 
-          <div className="space-y-4 mb-8">
+          <div className="space-y-3 mb-6">
             <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
               <div className="w-5 h-5 mt-0.5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
                 <Check className="w-3 h-3 text-white" strokeWidth={4} />
@@ -1262,20 +1269,60 @@ function CompletionConfirmationModal({
                 {isSeller ? "代金を受け取りましたか？" : "商品を受け取りましたか？"}
               </p>
             </div>
+            <div className="flex items-start gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <div className="w-5 h-5 mt-0.5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                <Check className="w-3 h-3 text-white" strokeWidth={4} />
+              </div>
+              <p className="text-sm font-bold text-gray-700">
+                {isSeller ? "商品を渡しましたか？" : "代金を支払いましたか？"}
+              </p>
+            </div>
           </div>
+
+          {/* 警告 */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3 mb-6">
+            <p className="text-xs font-bold text-yellow-700 flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              この操作は取り消せません。受け渡しが完了してから押してください。
+            </p>
+          </div>
+
+          {/* 確認チェックボックス */}
+          <button
+            onClick={() => setConfirmed(!confirmed)}
+            className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 transition-all mb-6 ${
+              confirmed
+                ? "border-primary bg-primary/5"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+              confirmed ? "bg-primary border-primary" : "bg-white border-gray-300"
+            }`}>
+              {confirmed && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+            </div>
+            <span className={`text-sm font-bold ${confirmed ? "text-primary" : "text-gray-500"}`}>
+              受け渡しが完了したことを確認しました
+            </span>
+          </button>
 
           <div className="space-y-3">
             <button
               onClick={onConfirm}
-              className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-[0.98]"
+              disabled={!confirmed}
+              className={`w-full py-4 rounded-2xl font-black shadow-lg transition-all active:scale-[0.98] ${
+                confirmed
+                  ? "bg-primary text-white shadow-primary/20 hover:bg-primary/90"
+                  : "bg-gray-100 text-gray-400 shadow-none cursor-not-allowed"
+              }`}
             >
-              はい、取引を終了する
+              はい、取引を完了して評価へ
             </button>
             <button
               onClick={onClose}
               className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
             >
-              いいえ、チャットに戻る
+              まだです、チャットに戻る
             </button>
           </div>
         </div>

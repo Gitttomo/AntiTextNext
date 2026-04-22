@@ -175,6 +175,7 @@ export default function MypageClient({
                         >
                             <History className={`w-6 h-6 ${activeTab === "past" ? "text-white" : "text-primary"}`} />
                             <span className="text-sm font-bold">過去の取引</span>
+                            <span className={`text-lg font-extrabold ${activeTab === "past" ? "text-white/90" : "text-primary"}`}>{initialPastItems.length}</span>
                         </button>
                         <button
                             onClick={() => setActiveTab(activeTab === "listing" ? null : "listing")}
@@ -185,6 +186,7 @@ export default function MypageClient({
                         >
                             <Package className={`w-6 h-6 ${activeTab === "listing" ? "text-white" : "text-red-500"}`} />
                             <span className="text-sm font-bold">出品中</span>
+                            <span className={`text-lg font-extrabold ${activeTab === "listing" ? "text-white/90" : "text-red-500"}`}>{initialListingItems.length}</span>
                         </button>
                     </div>
 
@@ -228,10 +230,13 @@ export default function MypageClient({
 
                 {/* Favorites Section */}
                 <section className="space-y-4 pb-4">
-                    <h3 className="text-lg font-extrabold text-gray-800 flex items-center gap-2 px-1">
-                        <Heart className="w-5 h-5 text-red-500 fill-red-500" />
-                        お気に入り一覧
-                    </h3>
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className="text-lg font-extrabold text-gray-800 flex items-center gap-2">
+                            <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+                            お気に入り一覧
+                        </h3>
+                        <span className="text-sm font-bold text-red-500">{initialFavoriteItems.length}件</span>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         {initialFavoriteItems.map((item) => (
                             <div
@@ -239,7 +244,7 @@ export default function MypageClient({
                                 onClick={() => router.push(`/product/${item.id}`)}
                                 className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer group"
                             >
-                                <div className="aspect-square relative flex items-center justify-center bg-gray-50 overflow-hidden">
+                                <div className={`aspect-square relative flex items-center justify-center bg-gray-50 overflow-hidden ${item.status !== "available" ? "opacity-70" : ""}`}>
                                     {item.front_image_url ? (
                                         <Image
                                             src={item.front_image_url}
@@ -251,13 +256,20 @@ export default function MypageClient({
                                     ) : (
                                         <Package className="w-8 h-8 text-gray-200" />
                                     )}
+                                    {item.status !== "available" && (
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                            <span className="bg-red-500 text-white text-xs font-black px-4 py-1.5 rounded-full shadow-lg tracking-wider">
+                                                SOLD
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-1.5 rounded-full shadow-sm">
                                         <Heart className="w-4 h-4 text-red-500 fill-red-500" />
                                     </div>
                                 </div>
                                 <div className="p-3 space-y-1">
-                                    <h4 className="text-sm font-bold text-gray-900 truncate group-hover:text-primary transition-colors">{item.title}</h4>
-                                    <p className="text-sm font-extrabold text-primary">¥{item.selling_price.toLocaleString()}</p>
+                                    <h4 className={`text-sm font-bold truncate group-hover:text-primary transition-colors ${item.status !== "available" ? "text-gray-400" : "text-gray-900"}`}>{item.title}</h4>
+                                    <p className={`text-sm font-extrabold ${item.status !== "available" ? "text-gray-400 line-through" : "text-primary"}`}>¥{item.selling_price.toLocaleString()}</p>
                                 </div>
                             </div>
                         ))}
