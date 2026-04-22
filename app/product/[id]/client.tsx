@@ -35,9 +35,11 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const isLockedRef = useRef(false);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
 
@@ -271,10 +273,21 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   // 他のユーザーが予約中または取引中の商品にアクセスした場合
   const isReservedByOther = (isReserved || isPending) && !isOwnItem;
 
+  const scrollToImage = (index: number) => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+
+    carousel.scrollTo({
+      left: index * carousel.offsetWidth,
+      behavior: "smooth",
+    });
+    setActiveImageIndex(index);
+  };
+
   // If item is reserved by another user, show blocked message
   if (isReservedByOther) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
+      <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center animate-[slideUp_0.3s_ease-out]">
           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ShoppingCart className="w-8 h-8 text-yellow-600" />
@@ -300,18 +313,19 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50" onClick={handleBackdropClick}>
+    <div className="fixed inset-0 z-[70]" onClick={handleBackdropClick}>
       {/* Backdrop */}
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isVisible && !isClosing ? 'opacity-50' : 'opacity-0'
         }`}
+        onClick={handleClose}
       />
       
       {/* Modal Content - Bottom Sheet */}
       <div 
-        className={`absolute inset-x-0 bottom-20 top-14 bg-white rounded-t-3xl shadow-2xl overflow-hidden transition-transform duration-300 ease-out ${
-          isVisible && !isClosing ? 'translate-y-0' : 'translate-y-full'
+        className={`absolute inset-x-0 bottom-24 top-14 bg-white rounded-t-3xl shadow-2xl overflow-hidden transition-transform duration-300 ease-out md:left-1/2 md:right-auto md:top-8 md:bottom-8 md:w-[min(1120px,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-3xl ${
+          isVisible && !isClosing ? 'translate-y-0' : 'translate-y-full md:translate-y-8'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -337,8 +351,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         </div>
         
         {/* Scrollable content */}
-        <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-6">
-          <div className="max-w-4xl mx-auto">
+        <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-6 md:h-[calc(100%-148px)] md:overflow-hidden md:px-8 md:py-6">
+          <div className="max-w-4xl mx-auto md:grid md:h-full md:max-w-none md:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] md:gap-6">
             {/* Images - Swipe Carousel */}
             {(item.front_image_url || item.back_image_url) && (() => {
               const images = [
@@ -347,9 +361,9 @@ export default function ProductDetailClient({ item }: { item: Item }) {
               ].filter(Boolean) as { url: string; label: string }[];
 
               return (
-                <div className="mb-6">
+                <div className="mb-6 md:mb-0 md:min-h-0">
                   <div
-                    className="relative overflow-hidden rounded-2xl bg-gray-100"
+                    className="relative overflow-hidden rounded-2xl bg-gray-100 md:h-full"
                     onTouchStart={(e) => {
                       const t = e.currentTarget as any;
                       t._touchStartX = e.touches[0].clientX;
@@ -374,26 +388,23 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                     }}
                   >
                     <div
+                      ref={carouselRef}
                       data-carousel
-                      className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                      className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide md:h-full"
                       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                       onScroll={(e) => {
                         const el = e.currentTarget;
                         const idx = Math.round(el.scrollLeft / el.offsetWidth);
-                        const dots = el.parentElement?.querySelectorAll('[data-dot]');
-                        dots?.forEach((dot, i) => {
-                          (dot as HTMLElement).style.opacity = i === idx ? '1' : '0.4';
-                          (dot as HTMLElement).style.width = i === idx ? '20px' : '8px';
-                        });
+                        setActiveImageIndex(idx);
                       }}
                     >
                       {images.map((img, idx) => (
                         <div
                           key={idx}
-                          className="flex-none w-full snap-center"
+                          className="flex-none w-full snap-center md:h-full"
                         >
                           <div
-                            className="relative aspect-[3/4] cursor-zoom-in group"
+                            className="relative aspect-[3/4] cursor-zoom-in group md:h-full md:aspect-auto"
                             onClick={() => setZoomedImage(img.url)}
                           >
                             <Image
@@ -418,6 +429,28 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                         </div>
                       ))}
                     </div>
+                    {/* Front/back selector */}
+                    {images.length > 1 && (
+                      <div className="absolute left-3 right-3 top-3 z-10 flex rounded-2xl bg-black/35 p-1 backdrop-blur-md">
+                        {images.map((img, idx) => (
+                          <button
+                            key={img.label}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              scrollToImage(idx);
+                            }}
+                            className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition-all ${
+                              activeImageIndex === idx
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-white/85 hover:bg-white/15"
+                            }`}
+                          >
+                            {img.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {/* Dot Indicators */}
                     {images.length > 1 && (
                       <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
@@ -427,8 +460,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                             data-dot
                             className="h-2 rounded-full bg-white shadow-sm transition-all duration-300"
                             style={{
-                              width: idx === 0 ? '20px' : '8px',
-                              opacity: idx === 0 ? 1 : 0.4,
+                              width: idx === activeImageIndex ? '20px' : '8px',
+                              opacity: idx === activeImageIndex ? 1 : 0.4,
                             }}
                           />
                         ))}
@@ -440,8 +473,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
             })()}
 
             {/* Product Info */}
-            <div className="bg-white rounded-2xl shadow-lg border p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">{item.title}</h2>
+            <div className="bg-white rounded-2xl shadow-lg border p-6 md:min-h-0 md:overflow-y-auto md:p-5">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 md:text-[1.7rem] md:leading-tight">{item.title}</h2>
 
               {(isSold || isPending) && (
                 <div className={`inline-block px-3 py-1 rounded-full text-sm font-semibold mb-4 ${
@@ -539,10 +572,10 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         </div>
 
         {/* Action Buttons - Fixed at bottom of modal */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-[60]">
+        <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-5 py-3 z-[80] md:px-6 md:py-4">
           <div className="max-w-4xl mx-auto flex gap-3">
             {isOwnItem ? (
-              <div className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-semibold text-center">
+              <div className="flex-1 py-3 md:py-4 bg-gray-100 text-gray-600 rounded-xl font-semibold text-center">
                 自分の出品商品です
               </div>
             ) : (
@@ -550,7 +583,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 <button
                   onClick={toggleFavorite}
                   disabled={favoriteLoading || !user}
-                  className={`w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
+                  className={`w-12 h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
                     isFavorite
                       ? "border-red-200 bg-red-50"
                       : "border-gray-200 bg-white hover:border-red-200 hover:bg-red-50"
@@ -568,7 +601,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 <button
                   onClick={handleOpenPurchaseModal}
                   disabled={!isAvailable}
-                  className="flex-1 py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 py-3 md:py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="w-5 h-5" />
                   {isSold ? "売り切れ" : isPending ? "取引中" : "購入する"}
