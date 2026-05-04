@@ -516,6 +516,62 @@
   perspective: 1000px;
 }
 
-.backface-hidden {
-  backface-visibility: hidden;
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+.open-book-loader {
+  display: flex;
+  height: 64px;
+  width: 64px;
+  align-items: center;
+  justify-content: center;
+  animation: openBookFloat 1.15s ease-in-out infinite;
+}
+
+.book-loading-dot {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #9ca3af;
+  animation: loadingDot 1s ease-in-out infinite;
+}
+
+.book-loading-dot--two {
+  animation-delay: 0.15s;
+}
+
+.book-loading-dot--three {
+  animation-delay: 0.3s;
+}
+
+@keyframes openBookFloat {
+  0% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+@keyframes loadingDot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
 }

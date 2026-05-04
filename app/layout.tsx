@@ -7,6 +7,7 @@ import { Providers } from "@/components/providers";
 import LegalFooter from "@/components/legal-footer";
 import TrialNoticeBanner from "@/components/trial-notice-banner";
 import SwipeTabNavigation from "@/components/swipe-tab-navigation";
+import NavigationLoadingOverlay from "@/components/navigation-loading-overlay";
 
 // BottomNavを遅延読み込み（初期表示を高速化）
 const BottomNav = dynamic(() => import("@/components/bottom-nav").then(mod => ({ default: mod.BottomNav })), {
@@ -61,6 +62,7 @@ export default function RootLayout({
           <AuthProvider>
             <TrialNoticeBanner />
             <SwipeTabNavigation />
+            <NavigationLoadingOverlay />
             <main className="min-h-screen pb-24">{children}</main>
             <LegalFooter />
             <BottomNav />

@@ -54,6 +54,7 @@ export default function SwipeTabNavigation() {
       const nextRoute = TAB_ROUTES[nextIndex];
       if (nextRoute) {
         suppressClickUntilRef.current = Date.now() + 500;
+        window.dispatchEvent(new Event("textnext:navigation-start"));
         router.push(nextRoute);
       }
     };
