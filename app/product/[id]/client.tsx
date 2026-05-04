@@ -5,14 +5,12 @@ import Image from "next/image";
 import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap, Heart, Pencil, Pause, Play, Trash2, Loader2, AlertTriangle, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
-import dynamic from 'next/dynamic';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
+import PurchaseModal from "@/components/PurchaseModal";
 import { PurchaseData, generatePurchaseMessage } from "@/components/purchase-utils";
 import { calculateSellingPrice } from "@/lib/utils";
-
-const PurchaseModal = dynamic(() => import('@/components/PurchaseModal'), { ssr: false });
 
 export type Item = {
   id: string;

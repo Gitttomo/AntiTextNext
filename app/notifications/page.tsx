@@ -107,7 +107,7 @@ export default function NotificationsPage() {
 
         // Navigate based on link_type
         if (notification.link_type === "chat" && notification.link_id) {
-            router.push(`/chat/${notification.link_id}`);
+            router.push(`/chat/${notification.link_id}?from=notifications`);
         } else if (notification.link_type === "transaction" && notification.link_id) {
             router.push(`/transactions`);
         } else if (notification.link_type === "profile") {

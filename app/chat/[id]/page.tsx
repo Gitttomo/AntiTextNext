@@ -100,6 +100,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [isCancellationReasonModalOpen, setIsCancellationReasonModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showCancellationSection, setShowCancellationSection] = useState(false);
+  const [backHref, setBackHref] = useState("/transactions");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -108,16 +109,40 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const userScrolledUpRef = useRef(false);
   const previousMessagesLengthRef = useRef(0);
 
+  useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get("from");
+    setBackHref(from === "notifications" ? "/notifications" : "/transactions");
+  }, []);
+
   // 未読メッセージを既読にする
   const markMessagesAsRead = useCallback(async () => {
     if (!user || !params.id) return;
 
     try {
-      await (supabase.from("messages") as any)
+      const { error: messagesError } = await (supabase.from("messages") as any)
         .update({ is_read: true })
         .eq("item_id", params.id)
         .eq("receiver_id", user.id)
         .eq("is_read", false);
+
+      if (messagesError) throw messagesError;
+
+      const { error: notificationsError } = await (supabase.from("notifications") as any)
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .eq("link_type", "chat")
+        .eq("link_id", params.id)
+        .eq("is_read", false);
+
+      if (notificationsError) {
+        console.error("Error marking chat notifications as read:", notificationsError);
+      }
+
+      setMessages(current =>
+        current.map(message =>
+          message.receiver_id === user.id ? { ...message, is_read: true } : message
+        )
+      );
     } catch (err) {
       console.error("Error marking messages as read:", err);
     }
@@ -454,8 +479,6 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           final_meetup_location: formattedLocation,
           status: 'confirmed',
           schedule_change_requested_by: null,
-          previous_final_meetup_time: null,
-          previous_final_meetup_location: null,
         })
         .eq("id", transaction.id);
 
@@ -662,12 +685,11 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       ? transaction.schedule_change_requested_by !== user?.id
       : isSeller
   );
-
   return (
     <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-gray-100 overflow-hidden">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-white/20 h-16">
-        <Link href="/transactions" className="p-1">
+        <Link href={backHref} className="p-1">
           <ArrowLeft className="w-6 h-6 text-black" />
         </Link>
         <div className="flex-1 min-w-0">
@@ -1005,7 +1027,6 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 status: 'pending',
                 schedule_change_requested_by: user.id,
                 previous_final_meetup_time: previousTime,
-                previous_final_meetup_location: previousLocation,
               })
               .eq("id", transaction.id);
             if (error) throw error;

@@ -191,6 +191,54 @@ export default function TransactionsClient({
     useEffect(() => {
         if (!user || !initialCheckDone) return;
 
+        loadData();
+
+        const refreshWhenVisible = () => {
+            if (document.visibilityState === "visible") {
+                loadData();
+            }
+        };
+
+        window.addEventListener("focus", loadData);
+        window.addEventListener("pageshow", loadData);
+        document.addEventListener("visibilitychange", refreshWhenVisible);
+
+        return () => {
+            window.removeEventListener("focus", loadData);
+            window.removeEventListener("pageshow", loadData);
+            document.removeEventListener("visibilitychange", refreshWhenVisible);
+        };
+    }, [user, initialCheckDone, loadData]);
+
+    const clearUnreadForItem = useCallback(async (itemId: string) => {
+        if (!user) return;
+
+        setActiveItems(current =>
+            current.map(item =>
+                item.id === itemId ? { ...item, unreadCount: 0 } : item
+            )
+        );
+        setHistoryItems(current =>
+            current.map(item =>
+                item.id === itemId ? { ...item, unreadCount: 0 } : item
+            )
+        );
+
+        const { error } = await (supabase.from("messages") as any)
+            .update({ is_read: true })
+            .eq("item_id", itemId)
+            .eq("receiver_id", user.id)
+            .eq("is_read", false);
+
+        if (error) {
+            console.error("Error clearing unread messages before opening chat:", error);
+            loadData();
+        }
+    }, [user, loadData]);
+
+    useEffect(() => {
+        if (!user || !initialCheckDone) return;
+
         pollingRef.current = setInterval(() => {
             loadData();
         }, 5000);
@@ -291,8 +339,9 @@ export default function TransactionsClient({
                         {item.hasTransaction && (
                             <div className="relative">
                                 <button
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                         e.stopPropagation();
+                                        await clearUnreadForItem(item.id);
                                         router.push(`/chat/${item.id}`);
                                     }}
                                     className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-2xl font-black hover:bg-primary/90 transition-all text-xs shadow-lg shadow-primary/20"
@@ -462,4 +511,3 @@ export default function TransactionsClient({
         </div>
     );
 }
-
