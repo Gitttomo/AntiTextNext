@@ -44,6 +44,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const favoriteStateRef = useRef(false);
+  const favoriteSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 出品者管理用 state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -62,30 +64,55 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         .eq("item_id", item.id)
         .maybeSingle();
       setIsFavorite(!!data);
+      favoriteStateRef.current = !!data;
     };
     checkFavorite();
   }, [user, item]);
 
-  const toggleFavorite = async () => {
-    if (!user || favoriteLoading) return;
-    setFavoriteLoading(true);
-    try {
-      if (isFavorite) {
-        await (supabase.from("favorites") as any)
-          .delete()
-          .eq("user_id", user.id)
-          .eq("item_id", item.id);
-        setIsFavorite(false);
-      } else {
-        await (supabase.from("favorites") as any)
-          .insert({ user_id: user.id, item_id: item.id });
-        setIsFavorite(true);
+  useEffect(() => {
+    return () => {
+      if (favoriteSyncTimerRef.current) {
+        clearTimeout(favoriteSyncTimerRef.current);
       }
-    } catch (err) {
-      console.error("Error toggling favorite:", err);
-    } finally {
-      setFavoriteLoading(false);
+    };
+  }, []);
+
+  const toggleFavorite = async () => {
+    if (!user) return;
+
+    const previous = favoriteStateRef.current;
+    const next = !previous;
+    favoriteStateRef.current = next;
+    setIsFavorite(next);
+    setFavoriteLoading(true);
+
+    if (favoriteSyncTimerRef.current) {
+      clearTimeout(favoriteSyncTimerRef.current);
     }
+
+    favoriteSyncTimerRef.current = setTimeout(async () => {
+      try {
+        if (next) {
+          await (supabase.from("favorites") as any)
+            .upsert({ user_id: user.id, item_id: item.id }, { onConflict: "user_id,item_id" });
+        } else {
+          await (supabase.from("favorites") as any)
+            .delete()
+            .eq("user_id", user.id)
+            .eq("item_id", item.id);
+        }
+      } catch (err) {
+        console.error("Error toggling favorite:", err);
+        if (favoriteStateRef.current === next) {
+          favoriteStateRef.current = previous;
+          setIsFavorite(previous);
+        }
+      } finally {
+        if (favoriteStateRef.current === next) {
+          setFavoriteLoading(false);
+        }
+      }
+    }, 220);
   };
 
   useEffect(() => {
@@ -584,7 +611,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
               <>
                 <button
                   onClick={toggleFavorite}
-                  disabled={favoriteLoading || !user}
+                  disabled={!user}
                   className={`w-12 h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
                     isFavorite
                       ? "border-red-200 bg-red-50"

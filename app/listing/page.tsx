@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import Quagga from "@ericblade/quagga2";
 import ListingTutorial from "@/components/ListingTutorial";
 import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
+import { uploadItemImageVariants } from "@/lib/image-storage";
 
 type ListingStep = "form" | "confirm" | "success";
 
@@ -114,23 +115,6 @@ export default function ListingPage() {
     }
   };
 
-  const uploadImage = async (file: File, fileName: string): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${user!.id}/${fileName}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('item-images')
-      .upload(filePath, file);
-
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('item-images')
-      .getPublicUrl(filePath);
-
-    return publicUrl;
-  };
-
   const canSubmit = Boolean(
     formData.bookName &&
     formData.originalPrice &&
@@ -152,13 +136,27 @@ export default function ListingPage() {
         // Upload images
         let frontImageUrl = null;
         let backImageUrl = null;
+        let frontThumbnailUrl = null;
+        let backThumbnailUrl = null;
+        let frontImageStoragePath = null;
+        let backImageStoragePath = null;
+        let frontThumbnailStoragePath = null;
+        let backThumbnailStoragePath = null;
 
         if (formData.frontCover) {
-          frontImageUrl = await uploadImage(formData.frontCover, `front-${Date.now()}`);
+          const frontImage = await uploadItemImageVariants(formData.frontCover, `${user!.id}/front-${Date.now()}`);
+          frontImageUrl = frontImage.detail.publicUrl;
+          frontThumbnailUrl = frontImage.thumbnail.publicUrl;
+          frontImageStoragePath = frontImage.detail.path;
+          frontThumbnailStoragePath = frontImage.thumbnail.path;
         }
 
         if (formData.backCover) {
-          backImageUrl = await uploadImage(formData.backCover, `back-${Date.now()}`);
+          const backImage = await uploadItemImageVariants(formData.backCover, `${user!.id}/back-${Date.now()}`);
+          backImageUrl = backImage.detail.publicUrl;
+          backThumbnailUrl = backImage.thumbnail.publicUrl;
+          backImageStoragePath = backImage.detail.path;
+          backThumbnailStoragePath = backImage.thumbnail.path;
         }
 
         // Create item in database
@@ -171,6 +169,13 @@ export default function ListingPage() {
           status: "available",
           front_image_url: frontImageUrl,
           back_image_url: backImageUrl,
+          front_thumbnail_url: frontThumbnailUrl,
+          back_thumbnail_url: backThumbnailUrl,
+          front_image_storage_path: frontImageStoragePath,
+          back_image_storage_path: backImageStoragePath,
+          front_thumbnail_storage_path: frontThumbnailStoragePath,
+          back_thumbnail_storage_path: backThumbnailStoragePath,
+          image_storage_provider: "supabase",
         })
         .select("id")
         .single();

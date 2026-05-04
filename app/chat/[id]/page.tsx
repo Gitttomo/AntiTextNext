@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { uploadChatImage } from "@/lib/image-storage";
 
 type Message = {
   id: string;
@@ -448,19 +449,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
     setIsUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${item.id}/${fileName}`;
-
-      const { data, error } = await supabase.storage
-        .from('chat-images')
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-images')
-        .getPublicUrl(filePath);
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const publicUrl = await uploadChatImage(file, `${item.id}/${fileName}`);
 
       await handleSend("[画像]", publicUrl);
 

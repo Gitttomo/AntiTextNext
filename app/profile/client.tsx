@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { ProfileSkeleton } from "./edit/skeleton";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 type Profile = {
     nickname: string;
@@ -31,6 +32,7 @@ type Item = {
     title: string;
     selling_price: number;
     front_image_url: string | null;
+    front_thumbnail_url?: string | null;
     status: string;
 };
 
@@ -211,8 +213,8 @@ export default function MypageClient({
                                         className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                                     >
                                         <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                                            {item.front_image_url && (
-                                                <Image src={item.front_image_url} alt={item.title} width={48} height={48} className="w-full h-full object-cover" />
+                                            {getItemImageUrl(item, "front", "thumbnail") && (
+                                                <Image src={getItemImageUrl(item, "front", "thumbnail")!} alt={item.title} width={48} height={48} className="w-full h-full object-cover" quality={55} />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -247,13 +249,14 @@ export default function MypageClient({
                                 className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer group"
                             >
                                 <div className={`aspect-square relative flex items-center justify-center bg-gray-50 overflow-hidden ${item.status !== "available" ? "opacity-70" : ""}`}>
-                                    {item.front_image_url ? (
+                                    {getItemImageUrl(item, "front", "thumbnail") ? (
                                         <Image
-                                            src={item.front_image_url}
+                                            src={getItemImageUrl(item, "front", "thumbnail")!}
                                             alt={item.title}
                                             fill
                                             className="object-cover group-hover:scale-110 transition-transform duration-500"
-                                            unoptimized
+                                            sizes="50vw"
+                                            quality={55}
                                         />
                                     ) : (
                                         <BookOpen className="w-8 h-8 text-gray-200" />

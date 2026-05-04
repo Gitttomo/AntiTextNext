@@ -10,6 +10,7 @@ type TransactionItem = {
     selling_price: number;
     status: string;
     front_image_url: string | null;
+    front_thumbnail_url?: string | null;
     isBuyer: boolean;
     hasTransaction: boolean;
     unreadCount: number;
@@ -84,12 +85,12 @@ export default async function TransactionsPage() {
                 item_id,
                 final_meetup_time,
                 final_meetup_location,
-                items(id, title, selling_price, status, front_image_url)
+                items(id, title, selling_price, status, front_image_url, front_thumbnail_url)
             `)
             .eq("buyer_id", userId),
         supabase
             .from("items")
-            .select("id, title, selling_price, status, seller_id, front_image_url")
+            .select("id, title, selling_price, status, seller_id, front_image_url, front_thumbnail_url")
             .eq("seller_id", userId),
         supabase
             .from("transactions")
@@ -128,6 +129,7 @@ export default async function TransactionsPage() {
             selling_price: item.selling_price,
             status: item.status,
             front_image_url: item.front_image_url || null,
+            front_thumbnail_url: item.front_thumbnail_url || null,
             isBuyer: true,
             hasTransaction: true,
             unreadCount: unreadCountMap.get(item.id) || 0,
@@ -162,6 +164,7 @@ export default async function TransactionsPage() {
             selling_price: item.selling_price,
             status: item.status,
             front_image_url: item.front_image_url || null,
+            front_thumbnail_url: item.front_thumbnail_url || null,
             isBuyer: false,
             hasTransaction: !!txInfo,
             unreadCount: unreadCountMap.get(item.id) || 0,

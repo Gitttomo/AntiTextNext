@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { TransactionsSkeleton } from "./skeleton";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 type Profile = {
     nickname: string;
@@ -21,6 +22,7 @@ type TransactionItem = {
     selling_price: number;
     status: string;
     front_image_url: string | null;
+    front_thumbnail_url?: string | null;
     isBuyer: boolean;
     hasTransaction: boolean;
     unreadCount: number;
@@ -85,12 +87,12 @@ export default function TransactionsClient({
                         item_id,
                         final_meetup_time,
                         final_meetup_location,
-                        items(id, title, selling_price, status, front_image_url)
+                        items(id, title, selling_price, status, front_image_url, front_thumbnail_url)
                     `)
                     .eq("buyer_id", user.id),
                 supabase
                     .from("items")
-                    .select("id, title, selling_price, status, seller_id, front_image_url")
+                    .select("id, title, selling_price, status, seller_id, front_image_url, front_thumbnail_url")
                     .eq("seller_id", user.id),
                 supabase
                     .from("transactions")
@@ -130,6 +132,7 @@ export default function TransactionsClient({
                     selling_price: item.selling_price,
                     status: item.status,
                     front_image_url: item.front_image_url || null,
+                    front_thumbnail_url: item.front_thumbnail_url || null,
                     isBuyer: true,
                     hasTransaction: true,
                     unreadCount: unreadCountMap.get(item.id) || 0,
@@ -164,6 +167,7 @@ export default function TransactionsClient({
                     selling_price: item.selling_price,
                     status: item.status,
                     front_image_url: item.front_image_url || null,
+                    front_thumbnail_url: item.front_thumbnail_url || null,
                     isBuyer: false,
                     hasTransaction: !!txInfo,
                     unreadCount: unreadCountMap.get(item.id) || 0,
@@ -276,13 +280,15 @@ export default function TransactionsClient({
         >
             <div className="flex items-start gap-4">
                 <div className="w-20 h-20 flex-shrink-0 bg-gray-50 rounded-2xl overflow-hidden group-hover:scale-105 transition-transform">
-                    {item.front_image_url ? (
+                    {getItemImageUrl(item, "front", "thumbnail") ? (
                         <Image
-                            src={item.front_image_url}
+                            src={getItemImageUrl(item, "front", "thumbnail")!}
                             alt={item.title}
                             width={80}
                             height={80}
                             className="w-full h-full object-cover"
+                            loading="lazy"
+                            quality={55}
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-300">
@@ -386,7 +392,7 @@ export default function TransactionsClient({
                     <Link href="/profile" className="mt-6 block group">
                         <div className="flex items-center gap-4 bg-gray-50 rounded-[28px] p-4 transition-all hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98]">
                             <div className="w-14 h-14 rounded-full overflow-hidden border-4 border-white shadow-md">
-                                {avatarUrl ? (
+                                        {avatarUrl ? (
                                     <Image
                                         src={avatarUrl}
                                         alt="プロフィール"
