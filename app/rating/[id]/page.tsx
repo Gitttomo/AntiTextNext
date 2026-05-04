@@ -30,10 +30,15 @@ export default function RatingPage({ params }: { params: { id: string } }) {
           .single();
 
         if (txError) throw txError;
+        const typedTx = tx as any;
+        const isParticipant = typedTx.buyer_id === user.id || typedTx.seller_id === user.id;
+        if (!isParticipant || typedTx.status !== "awaiting_rating") {
+          router.push("/transactions");
+          return;
+        }
         setTransaction(tx);
 
         // Determine who to rate (if I am buyer, rate seller. if I am seller, rate buyer)
-        const typedTx = tx as any;
         const ratedUserId = typedTx.buyer_id === user.id ? typedTx.seller_id : typedTx.buyer_id;
         
         const { data: profile, error: pError } = await supabase
@@ -67,6 +72,11 @@ export default function RatingPage({ params }: { params: { id: string } }) {
 
   const handleSubmit = async () => {
     if (!user || !transaction || !ratedUser || rating === 0) return;
+    const isParticipant = transaction.buyer_id === user.id || transaction.seller_id === user.id;
+    const expectedRatedUserId = transaction.buyer_id === user.id ? transaction.seller_id : transaction.buyer_id;
+    if (!isParticipant || transaction.status !== "awaiting_rating" || ratedUser.user_id !== expectedRatedUserId) {
+      return;
+    }
 
     setSubmitting(true);
     try {
