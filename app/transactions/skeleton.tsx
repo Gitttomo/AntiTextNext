@@ -1,7 +1,5 @@
 "use client";
 
-import { Package } from "lucide-react";
-
 export function TransactionsSkeleton() {
     return (
         <div className="min-h-screen bg-white pb-24 animate-pulse">

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
-import { ArrowLeft, Upload, Loader2, Camera, X, Scan, AlertCircle, CheckCircle } from "lucide-react";
+import { Upload, Loader2, Camera, X, Scan, AlertCircle, CheckCircle } from "lucide-react";
 import { calculateSellingPrice } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -222,8 +221,8 @@ export default function ListingPage() {
   if (step === "confirm") {
     return (
       <div className="min-h-screen bg-white">
-        <header className="bg-white px-6 pt-8 pb-6 border-b">
-          <h1 className="text-3xl font-bold text-primary">
+        <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight">
             出品内容の確認
           </h1>
         </header>
@@ -330,15 +329,10 @@ export default function ListingPage() {
         <ListingTutorial onClose={handleCloseTutorial} />
       )}
 
-      <header className="bg-white px-6 pt-8 pb-6 border-b">
-        <div className="flex items-center gap-4">
-          <Link href="/">
-            <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
-          </Link>
-          <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
-            教科書の出品
-          </h1>
-        </div>
+      <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
+        <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+          教科書の出品
+        </h1>
       </header>
 
       <div className="px-6 py-8">

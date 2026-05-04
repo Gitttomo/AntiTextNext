@@ -141,7 +141,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 z-50 safe-area-bottom shadow-[0_-10px_32px_rgba(15,23,42,0.14)] [.hide-bottom-nav_&]:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-b from-sky-50/95 via-cyan-50/95 to-blue-100/95 backdrop-blur-xl border-t border-sky-100 z-50 safe-area-bottom shadow-[0_-10px_32px_rgba(14,116,144,0.16)] [.hide-bottom-nav_&]:hidden">
       <div className="flex items-end justify-around h-20 max-w-screen-lg mx-auto px-2 pb-2">
         {navItems.map((item) => {
           const Icon = item.icon;

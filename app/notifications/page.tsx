@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bell, Inbox, MessageCircle, Star, XCircle, CheckCircle2, Loader2, ShoppingBag, CheckCheck } from "lucide-react";
+import { Bell, Inbox, MessageCircle, Star, XCircle, CheckCircle2, Loader2, ShoppingBag, CheckCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -163,18 +162,12 @@ export default function NotificationsPage() {
     return (
         <div className="min-h-screen bg-white pb-24">
             {/* Header */}
-            <header className="bg-white px-6 pt-8 pb-6 border-b sticky top-0 z-10">
+            <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href="/">
-                            <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
-                        </Link>
-                        <div className="flex items-center gap-2">
-                            <Bell className="w-6 h-6 text-primary" />
-                            <h1 className="text-2xl font-bold text-gray-900">
-                                {t("notifications.title")}
-                            </h1>
-                        </div>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+                            {t("notifications.title")}
+                        </h1>
                     </div>
                     {notifications.some(n => !n.is_read) && (
                         <button

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
 
 const STORAGE_KEY = "textnext-trial-notice-collapsed";
 
 export default function TrialNoticeBanner() {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -20,7 +22,7 @@ export default function TrialNoticeBanner() {
     localStorage.setItem(STORAGE_KEY, String(next));
   };
 
-  if (!ready) return null;
+  if (!ready || pathname?.startsWith("/chat/")) return null;
 
   return (
     <div className="sticky top-0 z-[70] border-b border-amber-200 bg-amber-50/95 px-4 py-2 backdrop-blur-md">

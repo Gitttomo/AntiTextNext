@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, Ban, ClipboardList, FileWarning, Inbox, Package, Users } from "lucide-react";
+import { Activity, Ban, BookOpen, ClipboardList, FileWarning, Inbox, Users } from "lucide-react";
 import { AdminPageHeader, StatusBadge } from "./_components/admin-shell";
 import { formatAdminDate, requireAdmin } from "@/lib/admin-utils";
 
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const cards = [
   { key: "users", label: "登録ユーザー数", href: "/admin/users", icon: Users, tone: "border-blue-100 bg-blue-50 text-blue-700" },
-  { key: "items", label: "出品数", href: "/admin/items", icon: Package, tone: "border-emerald-100 bg-emerald-50 text-emerald-700" },
+  { key: "items", label: "出品数", href: "/admin/items", icon: BookOpen, tone: "border-emerald-100 bg-emerald-50 text-emerald-700" },
   { key: "activeTransactions", label: "取引中の件数", href: "/admin/transactions?status=active", icon: ClipboardList, tone: "border-amber-100 bg-amber-50 text-amber-700" },
   { key: "completedTransactions", label: "完了取引数", href: "/admin/transactions?status=completed", icon: ClipboardList, tone: "border-violet-100 bg-violet-50 text-violet-700" },
   { key: "reports", label: "通報件数", href: "/admin/reports", icon: FileWarning, tone: "border-red-100 bg-red-50 text-red-700" },

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { User, GraduationCap, MessageCircle, Package, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
+import { User, GraduationCap, MessageCircle, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -31,14 +31,12 @@ type TransactionItem = {
 
 type TransactionsClientProps = {
     initialActiveItems: TransactionItem[];
-    initialHistoryItems: TransactionItem[];
     initialProfile: Profile | null;
     serverSession?: boolean;
 };
 
 export default function TransactionsClient({
     initialActiveItems,
-    initialHistoryItems,
     initialProfile,
     serverSession = true
 }: TransactionsClientProps) {
@@ -46,9 +44,8 @@ export default function TransactionsClient({
     const { user, avatarUrl, loading: authLoading } = useAuth();
     const { t } = useI18n();
     const [profile, setProfile] = useState<Profile | null>(initialProfile);
-    const [activeTab, setActiveTab] = useState<"upcoming" | "pending" | "completed">("upcoming");
+    const [activeTab, setActiveTab] = useState<"upcoming" | "pending">("upcoming");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
-    const [historyItems, setHistoryItems] = useState<TransactionItem[]>(initialHistoryItems);
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -119,11 +116,13 @@ export default function TransactionsClient({
             }
 
             const active: TransactionItem[] = [];
-            const history: TransactionItem[] = [];
-
             for (const tx of (buyerTransactions || []) as any[]) {
                 const item = tx.items;
                 if (!item) continue;
+
+                if (tx.status === "completed" || item.status === "sold") {
+                    continue;
+                }
 
                 const txItem: TransactionItem = {
                     id: item.id,
@@ -139,12 +138,8 @@ export default function TransactionsClient({
                     transactionStatus: tx.status,
                 };
 
-                if (tx.status === "completed" || item.status === "sold") {
-                    history.push(txItem);
-                } else {
-                    // Include pending, confirmed, and awaiting_rating in active
-                    active.push(txItem);
-                }
+                // Include pending, confirmed, and awaiting_rating in active
+                active.push(txItem);
             }
 
             const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }>();
@@ -159,6 +154,10 @@ export default function TransactionsClient({
 
             for (const item of (sellerItems || []) as any[]) {
                 const txInfo = sellerTxMap.get(item.id);
+                if (item.status === "sold" || txInfo?.txStatus === "completed") {
+                    continue;
+                }
+
                 const txItem: TransactionItem = {
                     id: item.id,
                     title: item.title,
@@ -173,16 +172,13 @@ export default function TransactionsClient({
                     transactionStatus: txInfo?.txStatus,
                 };
 
-                if (item.status === "sold" || txInfo?.txStatus === "completed") {
-                    history.push(txItem);
-                } else if (item.status === "transaction_pending" || txInfo) {
+                if (item.status === "transaction_pending" || txInfo) {
                     // Include pending, confirmed, and awaiting_rating in active
                     active.push(txItem);
                 }
             }
 
             setActiveItems(active);
-            setHistoryItems(history);
         } catch (err) {
             console.error("Error loading transactions:", err);
         }
@@ -214,11 +210,6 @@ export default function TransactionsClient({
         if (!user) return;
 
         setActiveItems(current =>
-            current.map(item =>
-                item.id === itemId ? { ...item, unreadCount: 0 } : item
-            )
-        );
-        setHistoryItems(current =>
             current.map(item =>
                 item.id === itemId ? { ...item, unreadCount: 0 } : item
             )
@@ -441,15 +432,6 @@ export default function TransactionsClient({
                     >
                         {t('transactions.pending')} ({pendingItems.length})
                     </button>
-                    <button
-                        onClick={() => setActiveTab("completed")}
-                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "completed"
-                            ? "gradient-btn-tab"
-                            : "text-gray-400 hover:text-gray-600"
-                            }`}
-                    >
-                        {t('transactions.completed')} ({historyItems.length})
-                    </button>
                 </div>
             </div>
 
@@ -457,7 +439,7 @@ export default function TransactionsClient({
                 {activeTab === "upcoming" ? (
                     sortedDates.length === 0 ? (
                         <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
-                            <Package className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+                            <BookOpen className="w-20 h-20 text-gray-100 mx-auto mb-4" />
                             <p className="text-gray-400 font-black">{t('transactions.no_upcoming')}</p>
                         </div>
                     ) : (
@@ -495,18 +477,7 @@ export default function TransactionsClient({
                             pendingItems.map((item, idx) => renderItem(item, idx))
                         )}
                     </div>
-                ) : (
-                    <div className="space-y-4">
-                        {historyItems.length === 0 ? (
-                            <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
-                                <CheckCircle className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-                                <p className="text-gray-400 font-black">{t('transactions.no_completed')}</p>
-                            </div>
-                        ) : (
-                            historyItems.map((item, idx) => renderItem(item, idx))
-                        )}
-                    </div>
-                )}
+                ) : null}
             </div>
         </div>
     );

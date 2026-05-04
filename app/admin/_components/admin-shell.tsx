@@ -3,11 +3,11 @@ import { ReactNode } from "react";
 import {
   Activity,
   Ban,
+  BookOpen,
   ClipboardList,
   FileWarning,
   Gauge,
   Inbox,
-  Package,
   ScrollText,
   Users,
 } from "lucide-react";
@@ -15,7 +15,7 @@ import {
 const navItems = [
   { href: "/admin", label: "ダッシュボード", icon: Gauge },
   { href: "/admin/users", label: "ユーザー管理", icon: Users },
-  { href: "/admin/items", label: "出品管理", icon: Package },
+  { href: "/admin/items", label: "出品管理", icon: BookOpen },
   { href: "/admin/transactions", label: "取引管理", icon: ClipboardList },
   { href: "/admin/reports", label: "通報管理", icon: FileWarning },
   { href: "/admin/inquiries", label: "問い合わせ管理", icon: Inbox },

@@ -9,7 +9,7 @@ import {
     Settings,
     Star,
     History,
-    Package,
+    BookOpen,
     Heart,
     ChevronRight,
     ArrowRight,
@@ -79,13 +79,13 @@ export default function MypageClient({
     return (
         <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32 font-gentle">
             {/* Header */}
-            <header className="px-6 pt-12 pb-6">
-                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+            <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
+                <h1 className="text-4xl font-black text-gray-900 tracking-tight">
                     {t('profile.mypage')}
                 </h1>
             </header>
 
-            <div className="px-6 space-y-8">
+            <div className="px-6 pt-8 space-y-8">
                 {/* Profile Section */}
                 <div className="relative bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-md border border-white/50 flex items-center gap-5 transition-transform hover:scale-[1.01]">
                     {isAdmin && (
@@ -186,7 +186,7 @@ export default function MypageClient({
                                     : "bg-white text-gray-700 border-gray-100 shadow-sm hover:border-red-500/20"
                                 }`}
                         >
-                            <Package className={`w-6 h-6 ${activeTab === "listing" ? "text-white" : "text-red-500"}`} />
+                            <BookOpen className={`w-6 h-6 ${activeTab === "listing" ? "text-white" : "text-red-500"}`} />
                             <span className="text-sm font-bold">{t('profile.listing_items')}</span>
                             <span className={`text-lg font-extrabold ${activeTab === "listing" ? "text-white/90" : "text-red-500"}`}>{initialListingItems.length}</span>
                         </button>
@@ -256,7 +256,7 @@ export default function MypageClient({
                                             unoptimized
                                         />
                                     ) : (
-                                        <Package className="w-8 h-8 text-gray-200" />
+                                        <BookOpen className="w-8 h-8 text-gray-200" />
                                     )}
                                     {item.status !== "available" && (
                                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
