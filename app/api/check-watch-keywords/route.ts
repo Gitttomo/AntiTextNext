@@ -6,9 +6,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { itemTitle, sellerId } = body;
+        const { itemId } = body;
 
-        if (!itemTitle || !sellerId) {
+        if (!itemId) {
             return NextResponse.json({ error: 'パラメータ不足' }, { status: 400 });
         }
 
@@ -25,49 +25,21 @@ export async function POST(request: NextRequest) {
             }
         );
 
-        // 全ユーザーのウォッチキーワードを取得（出品者自身を除く）
-        const { data: watchKeywords, error } = await supabase
-            .from("watch_keywords")
-            .select("user_id, keyword")
-            .neq("user_id", sellerId);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            return NextResponse.json({ error: '未認証' }, { status: 401 });
+        }
 
-        if (error || !watchKeywords) {
-            console.error("Watch keywords fetch error:", error);
+        const { data, error } = await (supabase as any).rpc("notify_watch_keyword_matches", {
+            target_item_id: itemId,
+        });
+
+        if (error) {
+            console.error("Watch keyword notification error:", error);
             return NextResponse.json({ matched: 0 });
         }
 
-        // タイトルに対してキーワードマッチング（部分一致、大文字小文字区別なし）
-        const titleLower = itemTitle.toLowerCase();
-        const matchedUserIds = new Set<string>();
-
-        for (const wk of watchKeywords) {
-            if (titleLower.includes(wk.keyword.toLowerCase())) {
-                matchedUserIds.add(wk.user_id);
-            }
-        }
-
-        // マッチしたユーザーに通知を送信
-        if (matchedUserIds.size > 0) {
-            const notifications = Array.from(matchedUserIds).map(userId => ({
-                user_id: userId,
-                type: "watch_match",
-                title: "探していた教科書が出品されました！",
-                message: `「${itemTitle}」が出品されました。早めにチェックしてみてください！`,
-                link_type: "search",
-                link_id: itemTitle,
-                is_read: false,
-            }));
-
-            const { error: notifError } = await (supabase
-                .from("notifications") as any)
-                .insert(notifications);
-
-            if (notifError) {
-                console.error("Notification insert error:", notifError);
-            }
-        }
-
-        return NextResponse.json({ matched: matchedUserIds.size });
+        return NextResponse.json({ matched: data ?? 0 });
     } catch (err: any) {
         console.error("Check watch keywords error:", err);
         return NextResponse.json({ error: err.message }, { status: 500 });

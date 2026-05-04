@@ -162,7 +162,7 @@ export default function ListingPage() {
         }
 
         // Create item in database
-        const { error } = await (supabase.from("items") as any).insert({
+        const { data: insertedItem, error } = await (supabase.from("items") as any).insert({
           seller_id: user!.id,
           title: formData.bookName,
           original_price: Number(formData.originalPrice),
@@ -171,7 +171,9 @@ export default function ListingPage() {
           status: "available",
           front_image_url: frontImageUrl,
           back_image_url: backImageUrl,
-        });
+        })
+        .select("id")
+        .single();
 
         if (error) throw error;
 
@@ -180,8 +182,7 @@ export default function ListingPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            itemTitle: formData.bookName,
-            sellerId: user!.id,
+            itemId: insertedItem?.id,
           }),
         }).catch(() => {}); // 失敗しても出品自体はブロックしない
 

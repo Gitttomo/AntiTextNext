@@ -201,18 +201,6 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
       if (transactionError) throw transactionError;
 
-      // Update item status and release lock
-      const { error: updateError } = await (supabase
-        .from("items") as any)
-        .update({ 
-          status: "transaction_pending",
-          locked_by: null,
-          locked_until: null
-        })
-        .eq("id", item.id);
-
-      if (updateError) throw updateError;
-
       const autoMessage = generatePurchaseMessage(data);
       const { error: messageError } = await (supabase
         .from("messages") as any)
@@ -599,7 +587,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                       const newStatus = currentStatus === 'paused' ? 'available' : 'paused';
                       const { error } = await (supabase.from('items') as any)
                         .update({ status: newStatus })
-                        .eq('id', item.id);
+                        .eq('id', item.id)
+                        .eq('seller_id', user?.id);
                       if (error) throw error;
                       setCurrentStatus(newStatus);
                     } catch (err: any) {
@@ -717,7 +706,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                   original_price: originalPrice,
                   selling_price: sellingPrice,
                 })
-                .eq('id', item.id);
+                .eq('id', item.id)
+                .eq('seller_id', user?.id);
               if (error) throw error;
               // Refresh page to show updated data
               window.location.reload();
@@ -740,7 +730,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
             try {
               const { error } = await (supabase.from('items') as any)
                 .update({ status: 'deleted' })
-                .eq('id', item.id);
+                .eq('id', item.id)
+                .eq('seller_id', user?.id);
               if (error) throw error;
               router.push('/');
             } catch (err: any) {
