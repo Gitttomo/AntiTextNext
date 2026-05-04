@@ -21,11 +21,11 @@ import {
 import { CONTACT_NOTICE_ITEMS } from "@/lib/legal";
 
 const CATEGORIES = [
-    { value: "bug", label: "不具合・バグ報告", icon: "🐛" },
-    { value: "report", label: "通報（ユーザー・出品物）", icon: "🚨" },
-    { value: "feature", label: "機能リクエスト・改善要望", icon: "💡" },
-    { value: "account", label: "アカウントに関する問題", icon: "👤" },
-    { value: "other", label: "その他", icon: "📝" },
+    { value: "bug", label: "不具合・バグ報告", icon: ""},
+    { value: "report", label: "通報（ユーザー・出品物）", icon: "" },
+    { value: "feature", label: "機能リクエスト・改善要望", icon: "" },
+    { value: "account", label: "アカウントに関する問題", icon: "" },
+    { value: "other", label: "その他", icon: "" },
 ];
 
 type Step = "input" | "confirm" | "done" | "error";
