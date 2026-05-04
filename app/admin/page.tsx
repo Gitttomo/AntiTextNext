@@ -1,265 +1,116 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Shield, Users, Package, ClipboardList, ArrowRight, AlertCircle } from "lucide-react";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { isCurrentUserAdmin } from "@/lib/admin";
+import { Activity, Ban, ClipboardList, FileWarning, Inbox, Package, Users } from "lucide-react";
+import { AdminPageHeader, StatusBadge } from "./_components/admin-shell";
+import { formatAdminDate, requireAdmin } from "@/lib/admin-utils";
 
 export const dynamic = "force-dynamic";
 
-type DashboardSummary = {
-  totalUsers: number;
-  totalItems: number;
-  totalTransactions: number;
-};
-
-const statCards = (summary: DashboardSummary) => [
-  {
-    label: "登録ユーザー",
-    value: summary.totalUsers,
-    icon: Users,
-    tone: "bg-blue-50 text-blue-700 border-blue-100",
-  },
-  {
-    label: "出品数",
-    value: summary.totalItems,
-    icon: Package,
-    tone: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  },
-  {
-    label: "取引数",
-    value: summary.totalTransactions,
-    icon: ClipboardList,
-    tone: "bg-amber-50 text-amber-700 border-amber-100",
-  },
+const cards = [
+  { key: "users", label: "登録ユーザー数", href: "/admin/users", icon: Users, tone: "border-blue-100 bg-blue-50 text-blue-700" },
+  { key: "items", label: "出品数", href: "/admin/items", icon: Package, tone: "border-emerald-100 bg-emerald-50 text-emerald-700" },
+  { key: "activeTransactions", label: "取引中の件数", href: "/admin/transactions?status=active", icon: ClipboardList, tone: "border-amber-100 bg-amber-50 text-amber-700" },
+  { key: "completedTransactions", label: "完了取引数", href: "/admin/transactions?status=completed", icon: ClipboardList, tone: "border-violet-100 bg-violet-50 text-violet-700" },
+  { key: "reports", label: "通報件数", href: "/admin/reports", icon: FileWarning, tone: "border-red-100 bg-red-50 text-red-700" },
+  { key: "openInquiries", label: "未対応のお問い合わせ数", href: "/admin/inquiries?status=open", icon: Inbox, tone: "border-cyan-100 bg-cyan-50 text-cyan-700" },
+  { key: "restrictedUsers", label: "BAN中のユーザー数", href: "/admin/users?restriction=restricted", icon: Ban, tone: "border-rose-100 bg-rose-50 text-rose-700" },
+  { key: "errors", label: "エラー件数", href: "/admin/errors", icon: Activity, tone: "border-slate-200 bg-slate-100 text-slate-700" },
 ];
 
-export default async function AdminPage() {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.user) {
-    redirect("/auth/login?redirectTo=/admin");
-  }
-
-  const isAdmin = await isCurrentUserAdmin(supabase);
-
-  if (!isAdmin) {
-    redirect("/profile");
-  }
+export default async function AdminDashboardPage() {
+  const { supabase } = await requireAdmin();
+  const now = new Date().toISOString();
 
   const [
-    usersCountResult,
-    itemsCountResult,
-    transactionsCountResult,
-    recentUsersResult,
-    recentItemsResult,
-    recentTransactionsResult,
+    users,
+    items,
+    activeTransactions,
+    completedTransactions,
+    reports,
+    openInquiries,
+    restrictedUsers,
+    recentUsers,
+    recentReports,
+    recentInquiries,
   ] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("items").select("*", { count: "exact", head: true }),
-    supabase.from("transactions").select("*", { count: "exact", head: true }),
-    supabase
-      .from("profiles")
-      .select("user_id, nickname, department, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("items")
-      .select("id, title, selling_price, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("transactions")
-      .select("id, item_id, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5),
+    supabase.from("transactions").select("*", { count: "exact", head: true }).in("status", ["pending", "confirmed", "awaiting_rating"]),
+    supabase.from("transactions").select("*", { count: "exact", head: true }).eq("status", "completed"),
+    (supabase as any).from("reports").select("*", { count: "exact", head: true }),
+    (supabase as any).from("inquiries").select("*", { count: "exact", head: true }).in("status", ["open", "checking"]),
+    (supabase as any).from("user_restrictions").select("*", { count: "exact", head: true }).is("lifted_at", null).or(`ends_at.is.null,ends_at.gt.${now}`),
+    supabase.from("profiles").select("user_id, nickname, department, created_at").order("created_at", { ascending: false }).limit(5),
+    (supabase as any).from("reports").select("id, reason, status, created_at").order("created_at", { ascending: false }).limit(5),
+    (supabase as any).from("inquiries").select("id, sender_name, category, status, created_at").order("created_at", { ascending: false }).limit(5),
   ]);
 
-  const errors = [
-    usersCountResult.error,
-    itemsCountResult.error,
-    transactionsCountResult.error,
-    recentUsersResult.error,
-    recentItemsResult.error,
-    recentTransactionsResult.error,
-  ].filter(Boolean);
-
-  const summary: DashboardSummary = {
-    totalUsers: usersCountResult.count ?? 0,
-    totalItems: itemsCountResult.count ?? 0,
-    totalTransactions: transactionsCountResult.count ?? 0,
+  const counts: Record<string, number> = {
+    users: users.count ?? 0,
+    items: items.count ?? 0,
+    activeTransactions: activeTransactions.count ?? 0,
+    completedTransactions: completedTransactions.count ?? 0,
+    reports: reports.count ?? 0,
+    openInquiries: openInquiries.count ?? 0,
+    restrictedUsers: restrictedUsers.count ?? 0,
+    errors: 0,
   };
 
-  const recentUsers = (recentUsersResult.data ?? []) as Array<{
-    user_id: string;
-    nickname: string;
-    department: string;
-    created_at: string;
-  }>;
-
-  const recentItems = (recentItemsResult.data ?? []) as Array<{
-    id: string;
-    title: string;
-    selling_price: number;
-    status: string;
-    created_at: string;
-  }>;
-
-  const recentTransactions = (recentTransactionsResult.data ?? []) as Array<{
-    id: string;
-    item_id: string;
-    status: string;
-    created_at: string;
-  }>;
-
   return (
-    <div className="min-h-screen bg-slate-50 pb-32">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur px-6 pt-10 pb-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-slate-600">
-            <Shield className="h-3.5 w-3.5" />
-            Admin Console
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900">
-                管理ダッシュボード
-              </h1>
-              <p className="mt-2 text-sm text-slate-600">
-                ユーザー、出品、取引の状況をまとめて確認できます。
-              </p>
-            </div>
-            <Link
-              href="/profile"
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-primary/30 hover:text-primary"
-            >
-              マイページへ戻る
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        {errors.length > 0 && (
-          <div className="mb-6 flex items-start gap-3 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <div>
-              一部の集計を取得できませんでした。Supabase の RLS または権限設定を確認してください。
-            </div>
-          </div>
-        )}
-
-        <section className="grid gap-4 md:grid-cols-3">
-          {statCards(summary).map((card) => {
+    <>
+      <AdminPageHeader title="管理者ダッシュボード" description="運営対応に必要な件数と最近の動きを確認します。" />
+      <main className="space-y-8 p-6">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {cards.map((card) => {
             const Icon = card.icon;
-
             return (
-              <div
-                key={card.label}
-                className={`rounded-3xl border p-6 shadow-sm ${card.tone}`}
-              >
+              <Link key={card.key} href={card.href} className={`rounded-2xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${card.tone}`}>
                 <div className="mb-4 flex items-center justify-between">
-                  <span className="text-sm font-bold">{card.label}</span>
+                  <span className="text-sm font-black">{card.label}</span>
                   <Icon className="h-5 w-5" />
                 </div>
-                <p className="text-3xl font-black tracking-tight">
-                  {card.value.toLocaleString()}
-                </p>
-              </div>
+                <p className="text-3xl font-black">{counts[card.key].toLocaleString()}</p>
+              </Link>
             );
           })}
         </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-3">
-          <DashboardPanel
-            title="新規ユーザー"
-            emptyLabel="ユーザー情報がありません"
-            rows={recentUsers.map((user) => ({
-              key: user.user_id,
-              title: user.nickname,
-              meta: user.department,
-              submeta: formatDate(user.created_at),
-            }))}
-          />
-
-          <DashboardPanel
-            title="最新の出品"
-            emptyLabel="出品情報がありません"
-            rows={recentItems.map((item) => ({
-              key: item.id,
-              title: item.title,
-              meta: `¥${item.selling_price.toLocaleString()}`,
-              submeta: `${item.status} / ${formatDate(item.created_at)}`,
-            }))}
-          />
-
-          <DashboardPanel
-            title="最新の取引"
-            emptyLabel="取引情報がありません"
-            rows={recentTransactions.map((transaction) => ({
-              key: transaction.id,
-              title: `取引 ${transaction.id.slice(0, 8)}`,
-              meta: transaction.status,
-              submeta: formatDate(transaction.created_at),
-            }))}
-          />
+        <section className="grid gap-6 xl:grid-cols-3">
+          <Panel title="最近登録したユーザー">
+            {(recentUsers.data ?? []).map((user: any) => (
+              <Row key={user.user_id} title={user.nickname} meta={user.department} sub={formatAdminDate(user.created_at)} />
+            ))}
+          </Panel>
+          <Panel title="最近の通報">
+            {((recentReports.data ?? []) as any[]).map((report) => (
+              <Row key={report.id} title={report.reason} meta={<StatusBadge value={report.status} />} sub={formatAdminDate(report.created_at)} />
+            ))}
+          </Panel>
+          <Panel title="最近の問い合わせ">
+            {((recentInquiries.data ?? []) as any[]).map((inquiry) => (
+              <Row key={inquiry.id} title={inquiry.sender_name || "匿名"} meta={`${inquiry.category} / ${inquiry.status}`} sub={formatAdminDate(inquiry.created_at)} />
+            ))}
+          </Panel>
         </section>
       </main>
-    </div>
+    </>
   );
 }
 
-function DashboardPanel({
-  title,
-  rows,
-  emptyLabel,
-}: {
-  title: string;
-  rows: Array<{
-    key: string;
-    title: string;
-    meta: string;
-    submeta: string;
-  }>;
-  emptyLabel: string;
-}) {
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-black text-slate-900">{title}</h2>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
-          {rows.length}件
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.key} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-            <p className="truncate font-bold text-slate-900">{row.title}</p>
-            <p className="mt-1 text-sm font-medium text-slate-700">{row.meta}</p>
-            <p className="mt-1 text-xs text-slate-500">{row.submeta}</p>
-          </div>
-        ))}
-
-        {rows.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-            {emptyLabel}
-          </div>
-        )}
-      </div>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-lg font-black">{title}</h2>
+      <div className="space-y-3">{children}</div>
     </section>
   );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+function Row({ title, meta, sub }: { title: string; meta: React.ReactNode; sub: string }) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+      <p className="truncate text-sm font-black">{title}</p>
+      <div className="mt-1 text-xs font-bold text-slate-600">{meta}</div>
+      <p className="mt-1 text-xs text-slate-500">{sub}</p>
+    </div>
+  );
 }

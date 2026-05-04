@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
     try {
@@ -21,6 +22,15 @@ export async function POST(request: NextRequest) {
         }
 
         const gasUrl = process.env.CONTACT_FORM_GAS_URL;
+        const supabase = createSupabaseServerClient();
+
+        await (supabase as any).from('inquiries').insert({
+            sender_name: username,
+            email,
+            category,
+            content,
+            status: 'open',
+        });
 
         if (!gasUrl) {
             console.error('CONTACT_FORM_GAS_URL is not set');

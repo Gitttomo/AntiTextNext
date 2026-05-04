@@ -14,6 +14,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const { t } = useI18n();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   // 未読通知数の取得
   const fetchUnreadCount = useCallback(async () => {
@@ -30,6 +31,27 @@ export function BottomNav() {
 
       if (!error && count !== null) {
         setUnreadCount(count);
+      }
+    } catch {
+      // エラー時は無視
+    }
+  }, [user]);
+
+  // 未読チャット有無の取得
+  const fetchUnreadMessages = useCallback(async () => {
+    if (!user) {
+      setHasUnreadMessages(false);
+      return;
+    }
+    try {
+      const { count, error } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver_id", user.id)
+        .eq("is_read", false);
+
+      if (!error) {
+        setHasUnreadMessages((count ?? 0) > 0);
       }
     } catch {
       // エラー時は無視
@@ -63,6 +85,32 @@ export function BottomNav() {
     };
   }, [user, fetchUnreadCount]);
 
+  useEffect(() => {
+    fetchUnreadMessages();
+
+    if (!user) return;
+
+    const channel = supabase
+      .channel('bottom-nav-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${user.id}`
+        },
+        () => {
+          fetchUnreadMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchUnreadMessages]);
+
   // おしらせページに移動した時にカウントをリフレッシュ
   useEffect(() => {
     if (pathname === "/notifications") {
@@ -71,6 +119,13 @@ export function BottomNav() {
       return () => clearTimeout(timer);
     }
   }, [pathname, fetchUnreadCount]);
+
+  useEffect(() => {
+    if (pathname === "/transactions") {
+      const timer = setTimeout(fetchUnreadMessages, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [pathname, fetchUnreadMessages]);
 
   // チャットページでは非表示
   if (pathname?.startsWith("/chat/")) {
@@ -82,7 +137,7 @@ export function BottomNav() {
     { href: "/notifications", label: t("nav.notifications"), icon: Bell, badge: unreadCount },
     { href: "/listing", label: t("nav.listing"), icon: Camera, special: true },
     { href: "/profile" , label: t("nav.mypage"), icon: User },
-    { href: "/transactions", label: t("nav.schedule"), icon: ClipboardList },
+    { href: "/transactions", label: t("nav.schedule"), icon: ClipboardList, dot: hasUnreadMessages },
   ];
 
   return (
@@ -141,6 +196,9 @@ export function BottomNav() {
                     {item.badge > 99 ? "99+" : item.badge}
                   </span>
                 )}
+                {item.dot && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white shadow-sm animate-in zoom-in-50 duration-200" />
+                )}
               </div>
               <span className={cn(
                 "text-[10px] font-bold tracking-tight",
@@ -156,4 +214,3 @@ export function BottomNav() {
     </nav>
   );
 }
-
