@@ -7,6 +7,7 @@ import { useState, useCallback, memo, useMemo, useEffect, useRef, TouchEvent as 
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 type Item = {
   id: string;
@@ -14,6 +15,7 @@ type Item = {
   selling_price: number;
   //condition: string;
   front_image_url: string | null;
+  front_thumbnail_url?: string | null;
   favorite_count?: number;
   seller_id?: string;
 };
@@ -45,14 +47,15 @@ const ItemCard = memo(function ItemCard({
         <div className="flex items-start gap-4">
           {/* サムネイル画像 */}
           <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
-            {item.front_image_url ? (
+            {getItemImageUrl(item, "front", "thumbnail") ? (
               <Image
-                src={item.front_image_url}
+                src={getItemImageUrl(item, "front", "thumbnail")!}
                 alt={item.title}
                 width={80}
                 height={80}
                 className="w-full h-full object-cover"
                 loading="lazy"
+                quality={55}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -71,7 +74,7 @@ const ItemCard = memo(function ItemCard({
             <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
               {item.title}
             </h3>
-            <p className="text-xl font-bold text-primary">
+            <p className="text-xl font-bold gradient-text-price">
               ¥{item.selling_price.toLocaleString()}
             </p>
           </div>
@@ -247,7 +250,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         
         let query = supabase
           .from("items")
-          .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
+          .select("id, title, selling_price, front_image_url, front_thumbnail_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
           .eq("status", "available")
           .neq("seller_id", user.id)
           .eq("profiles.department", department);
@@ -285,24 +288,39 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     };
   }, [user, initialRecommendedItems]); // userが変わった時（ログイン/ログアウト）に再実行
 
-  const toggleFavorite = useCallback(async (id: string) => {
+  const favoriteStateRef = useRef<Set<string>>(new Set(favorites));
+  const favoriteSyncTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    favoriteStateRef.current = new Set(favorites);
+  }, [favorites]);
+
+  const toggleFavorite = useCallback((id: string) => {
     if (!user) return;
 
-    const isFav = favoriteSet.has(id);
-    
-    // 状態が既に遷移中（連打防止）などのためのガードは特になし（Setなので重複はしない）
-    
+    const wasFavorite = favoriteStateRef.current.has(id);
+    const shouldFavorite = !wasFavorite;
+
+    if (shouldFavorite) {
+      favoriteStateRef.current.add(id);
+    } else {
+      favoriteStateRef.current.delete(id);
+    }
+
     // 楽観的UI更新
     setFavorites(prev => 
-      isFav ? prev.filter(favId => favId !== id) : [...prev, id]
+      shouldFavorite
+        ? (prev.includes(id) ? prev : [...prev, id])
+        : prev.filter(favId => favId !== id)
     );
 
     // カウントの見た目上の調整
+    const delta = shouldFavorite ? 1 : -1;
     const updateCount = (prev: Item[]) => prev.map(item => {
       if (item.id === id) {
         return {
           ...item,
-          favorite_count: Math.max(0, (item.favorite_count || 0) + (isFav ? -1 : 1))
+          favorite_count: Math.max(0, (item.favorite_count || 0) + delta)
         };
       }
       return item;
@@ -311,27 +329,52 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     setRecommendedItems(prev => updateCount(prev));
     setPopularItems(prev => updateCount(prev));
 
-    // バックエンド同期
-    try {
-      if (isFav) {
-        await (supabase
-          .from("favorites") as any)
-          .delete()
-          .match({ user_id: user.id, item_id: id });
-      } else {
-        // 重複挿入エラーを避けるために一応チェック（DBにはUNIQUE制約がある）
-        await (supabase
-          .from("favorites") as any)
-          .upsert({ user_id: user.id, item_id: id }, { onConflict: 'user_id,item_id' });
-      }
-    } catch (err) {
-      console.error("Favorite sync failed:", err);
-      // 失敗時はロールバックするのが丁寧
-      setFavorites(prev => 
-        isFav ? [...prev, id] : prev.filter(favId => favId !== id)
-      );
+    const existingTimer = favoriteSyncTimersRef.current.get(id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
     }
-  }, [user, favoriteSet]);
+
+    const timer = setTimeout(async () => {
+      try {
+        if (shouldFavorite) {
+          await (supabase
+            .from("favorites") as any)
+            .upsert({ user_id: user.id, item_id: id }, { onConflict: 'user_id,item_id' });
+        } else {
+          await (supabase
+            .from("favorites") as any)
+            .delete()
+            .match({ user_id: user.id, item_id: id });
+        }
+      } catch (err) {
+        console.error("Favorite sync failed:", err);
+        if (favoriteStateRef.current.has(id) === shouldFavorite) {
+          if (wasFavorite) {
+            favoriteStateRef.current.add(id);
+          } else {
+            favoriteStateRef.current.delete(id);
+          }
+          setFavorites(prev =>
+            wasFavorite
+              ? (prev.includes(id) ? prev : [...prev, id])
+              : prev.filter(favId => favId !== id)
+          );
+          const rollbackDelta = wasFavorite ? 1 : -1;
+          const rollbackCount = (prev: Item[]) => prev.map(item =>
+            item.id === id
+              ? { ...item, favorite_count: Math.max(0, (item.favorite_count || 0) + rollbackDelta) }
+              : item
+          );
+          setRecommendedItems(prev => rollbackCount(prev));
+          setPopularItems(prev => rollbackCount(prev));
+        }
+      } finally {
+        favoriteSyncTimersRef.current.delete(id);
+      }
+    }, 220);
+
+    favoriteSyncTimersRef.current.set(id, timer);
+  }, [user]);
 
   const loadMoreRecommended = async () => {
     if (loadingMoreRecommended || !hasMoreRecommended || !user) return;
@@ -350,7 +393,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       if (profile) {
         let query = supabase
           .from("items")
-          .select("id, title, selling_price, front_image_url, favorites(count), profiles!inner(department, major)")
+          .select("id, title, selling_price, front_image_url, front_thumbnail_url, favorites(count), profiles!inner(department, major)")
           .eq("status", "available")
           .neq("seller_id", user.id)
           .eq("profiles.department", (profile as any).department);
@@ -389,7 +432,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       const currentLength = popularItems.length;
       const { data, error } = await supabase
         .from("items")
-        .select("id, title, selling_price, front_image_url, seller_id, favorites(count)")
+        .select("id, title, selling_price, front_image_url, front_thumbnail_url, seller_id, favorites(count)")
         .eq("status", "available")
         .order("created_at", { ascending: false })
         .range(currentLength, currentLength + 14);
@@ -439,7 +482,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         // みんなの出品を再取得
         const { data: freshPopular } = await supabase
           .from("items")
-          .select("id, title, selling_price, front_image_url, seller_id, favorites(count)")
+          .select("id, title, selling_price, front_image_url, front_thumbnail_url, seller_id, favorites(count)")
           .eq("status", "available")
           .order("created_at", { ascending: false })
           .range(0, 14);
@@ -465,7 +508,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
 
   return (
     <div
-      className="min-h-screen bg-white pb-24"
+      className="min-h-screen bg-white pb-24 font-gentle"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -511,7 +554,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       <header className="bg-white px-6 pt-8 pb-6 border-b">
         <div className="flex items-end justify-between mb-6">
           <div className="flex flex-col">
-            <h1 className="text-3xl font-bold text-primary leading-none tracking-tight">
+            <h1 className="text-3xl font-bold gradient-text-blue leading-none tracking-tight">
               TextNext
             </h1>
             <div className="flex items-center gap-1 text-primary/80 mt-1">
@@ -587,22 +630,25 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
               <p className="text-gray-500 mb-4">同じ所属の出品はまだありません</p>
               <Link
                 href="/listing"
-                className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all"
+                className="inline-block px-6 py-3 gradient-btn-blue rounded-xl font-semibold transition-all"
               >
                 最初の出品者になる
               </Link>
             </div>
           ) : (
             <>
-              <div className="space-y-4">
+              <div className="relative ml-2 space-y-4 border-l border-sky-200/80 pl-5">
                 {recommendedItems.map((item, index) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    isFavorite={favoriteSet.has(item.id)}
-                    onToggleFavorite={toggleFavorite}
-                    index={index}
-                  />
+                  <div key={item.id} className="relative">
+                    <div className="absolute -left-5 top-8 h-px w-4 bg-sky-200" />
+                    <div className="absolute -left-[25px] top-7 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-sky-200" />
+                    <ItemCard
+                      item={item}
+                      isFavorite={favoriteSet.has(item.id)}
+                      onToggleFavorite={toggleFavorite}
+                      index={index}
+                    />
+                  </div>
                 ))}
               </div>
 
@@ -642,15 +688,18 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             </h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="relative ml-2 space-y-4 border-l border-emerald-200/80 pl-5">
             {displayedPopularItems.map((item, index) => (
-              <ItemCard
-                key={`popular-${item.id}`}
-                item={item}
-                isFavorite={favoriteSet.has(item.id)}
-                onToggleFavorite={toggleFavorite}
-                index={index}
-              />
+              <div key={`popular-${item.id}`} className="relative">
+                <div className="absolute -left-5 top-8 h-px w-4 bg-emerald-200" />
+                <div className="absolute -left-[25px] top-7 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-emerald-200" />
+                <ItemCard
+                  item={item}
+                  isFavorite={favoriteSet.has(item.id)}
+                  onToggleFavorite={toggleFavorite}
+                  index={index}
+                />
+              </div>
             ))}
           </div>
 

@@ -9,7 +9,7 @@ import {
     Settings,
     Star,
     History,
-    Package,
+    BookOpen,
     Heart,
     ChevronRight,
     ArrowRight,
@@ -19,6 +19,8 @@ import {
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { ProfileSkeleton } from "./edit/skeleton";
+import { getItemImageUrl } from "@/lib/image-storage";
+import { supabase } from "@/lib/supabase";
 
 type Profile = {
     nickname: string;
@@ -31,6 +33,7 @@ type Item = {
     title: string;
     selling_price: number;
     front_image_url: string | null;
+    front_thumbnail_url?: string | null;
     status: string;
 };
 
@@ -58,6 +61,24 @@ export default function MypageClient({
     const { user, loading: authLoading } = useAuth();
     const { t } = useI18n();
     const [activeTab, setActiveTab] = useState<"past" | "listing" | null>(null);
+    const [favoriteItems, setFavoriteItems] = useState<Item[]>(initialFavoriteItems);
+
+    useEffect(() => {
+        setFavoriteItems(initialFavoriteItems);
+    }, [initialFavoriteItems]);
+
+    const refreshFavoriteItems = async () => {
+        if (!user) return;
+
+        const { data, error } = await supabase
+            .from("favorites")
+            .select("item_id, items(*)")
+            .eq("user_id", user.id);
+
+        if (!error && data) {
+            setFavoriteItems((data as any[]).map(f => f.items).filter(Boolean));
+        }
+    };
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -65,6 +86,36 @@ export default function MypageClient({
             router.refresh();
         }
     }, [authLoading, user, router]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        refreshFavoriteItems();
+        const delayedRefresh = setTimeout(refreshFavoriteItems, 450);
+
+        const refreshWhenVisible = () => {
+            if (document.visibilityState === "visible") {
+                refreshFavoriteItems();
+                setTimeout(refreshFavoriteItems, 450);
+            }
+        };
+
+        const refreshTwice = () => {
+            refreshFavoriteItems();
+            setTimeout(refreshFavoriteItems, 450);
+        };
+
+        window.addEventListener("focus", refreshTwice);
+        window.addEventListener("pageshow", refreshTwice);
+        document.addEventListener("visibilitychange", refreshWhenVisible);
+
+        return () => {
+            clearTimeout(delayedRefresh);
+            window.removeEventListener("focus", refreshTwice);
+            window.removeEventListener("pageshow", refreshTwice);
+            document.removeEventListener("visibilitychange", refreshWhenVisible);
+        };
+    }, [user]);
 
     if (authLoading) {
         return <ProfileSkeleton />;
@@ -77,15 +128,15 @@ export default function MypageClient({
     const ratingStars = Math.round(averageRating);
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32">
+        <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32 font-gentle">
             {/* Header */}
-            <header className="px-6 pt-12 pb-6">
-                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+            <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
+                <h1 className="text-4xl font-black text-gray-900 tracking-tight">
                     {t('profile.mypage')}
                 </h1>
             </header>
 
-            <div className="px-6 space-y-8">
+            <div className="px-6 pt-8 space-y-8">
                 {/* Profile Section */}
                 <div className="relative bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-md border border-white/50 flex items-center gap-5 transition-transform hover:scale-[1.01]">
                     {isAdmin && (
@@ -186,7 +237,7 @@ export default function MypageClient({
                                     : "bg-white text-gray-700 border-gray-100 shadow-sm hover:border-red-500/20"
                                 }`}
                         >
-                            <Package className={`w-6 h-6 ${activeTab === "listing" ? "text-white" : "text-red-500"}`} />
+                            <BookOpen className={`w-6 h-6 ${activeTab === "listing" ? "text-white" : "text-red-500"}`} />
                             <span className="text-sm font-bold">{t('profile.listing_items')}</span>
                             <span className={`text-lg font-extrabold ${activeTab === "listing" ? "text-white/90" : "text-red-500"}`}>{initialListingItems.length}</span>
                         </button>
@@ -211,13 +262,13 @@ export default function MypageClient({
                                         className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                                     >
                                         <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                                            {item.front_image_url && (
-                                                <Image src={item.front_image_url} alt={item.title} width={48} height={48} className="w-full h-full object-cover" />
+                                            {getItemImageUrl(item, "front", "thumbnail") && (
+                                                <Image src={getItemImageUrl(item, "front", "thumbnail")!} alt={item.title} width={48} height={48} className="w-full h-full object-cover" quality={55} />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-bold text-gray-900 truncate group-hover:text-primary transition-colors">{item.title}</p>
-                                            <p className="text-xs font-bold text-primary">¥{item.selling_price.toLocaleString()}</p>
+                                            <p className="text-xs font-bold gradient-text-price">¥{item.selling_price.toLocaleString()}</p>
                                         </div>
                                         <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                     </div>
@@ -237,26 +288,27 @@ export default function MypageClient({
                             <Heart className="w-5 h-5 text-red-500 fill-red-500" />
                             お気に入り一覧
                         </h3>
-                        <span className="text-sm font-bold text-red-500">{initialFavoriteItems.length}件</span>
+                        <span className="text-sm font-bold text-red-500">{favoriteItems.length}件</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        {initialFavoriteItems.map((item) => (
+                        {favoriteItems.map((item) => (
                             <div
                                 key={item.id}
                                 onClick={() => router.push(`/product/${item.id}`)}
                                 className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer group"
                             >
                                 <div className={`aspect-square relative flex items-center justify-center bg-gray-50 overflow-hidden ${item.status !== "available" ? "opacity-70" : ""}`}>
-                                    {item.front_image_url ? (
+                                    {getItemImageUrl(item, "front", "thumbnail") ? (
                                         <Image
-                                            src={item.front_image_url}
+                                            src={getItemImageUrl(item, "front", "thumbnail")!}
                                             alt={item.title}
                                             fill
                                             className="object-cover group-hover:scale-110 transition-transform duration-500"
-                                            unoptimized
+                                            sizes="50vw"
+                                            quality={55}
                                         />
                                     ) : (
-                                        <Package className="w-8 h-8 text-gray-200" />
+                                        <BookOpen className="w-8 h-8 text-gray-200" />
                                     )}
                                     {item.status !== "available" && (
                                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -271,11 +323,11 @@ export default function MypageClient({
                                 </div>
                                 <div className="p-3 space-y-1">
                                     <h4 className={`text-sm font-bold truncate group-hover:text-primary transition-colors ${item.status !== "available" ? "text-gray-400" : "text-gray-900"}`}>{item.title}</h4>
-                                    <p className={`text-sm font-extrabold ${item.status !== "available" ? "text-gray-400 line-through" : "text-primary"}`}>¥{item.selling_price.toLocaleString()}</p>
+                                    <p className={`text-sm font-extrabold ${item.status !== "available" ? "text-gray-400 line-through" : "gradient-text-price"}`}>¥{item.selling_price.toLocaleString()}</p>
                                 </div>
                             </div>
                         ))}
-                        {initialFavoriteItems.length === 0 && (
+                        {favoriteItems.length === 0 && (
                             <div className="col-span-2 py-12 text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
                                 <Heart className="w-10 h-10 text-gray-200 mx-auto mb-2" />
                                 <p className="text-sm text-gray-400">お気に入りのアイテムはありません</p>

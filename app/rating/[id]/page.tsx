@@ -71,7 +71,7 @@ export default function RatingPage({ params }: { params: { id: string } }) {
   }, [user, params.id]);
 
   const handleSubmit = async () => {
-    if (!user || !transaction || !ratedUser || rating === 0) return;
+    if (submitting || alreadyRated || !user || !transaction || !ratedUser || rating === 0) return;
     const isParticipant = transaction.buyer_id === user.id || transaction.seller_id === user.id;
     const expectedRatedUserId = transaction.buyer_id === user.id ? transaction.seller_id : transaction.buyer_id;
     if (!isParticipant || transaction.status !== "awaiting_rating" || ratedUser.user_id !== expectedRatedUserId) {
@@ -80,94 +80,13 @@ export default function RatingPage({ params }: { params: { id: string } }) {
 
     setSubmitting(true);
     try {
-      // Insert rating
-      const { error } = await (supabase
-        .from("ratings") as any)
-        .insert({
-          transaction_id: transaction.id,
-          rater_id: user.id,
-          rated_id: ratedUser.user_id,
-          score: rating,
-          comment: comment
-        });
+      const { error } = await (supabase as any).rpc("submit_transaction_rating", {
+        target_transaction_id: transaction.id,
+        score_value: rating,
+        comment_text: comment,
+      });
 
       if (error) throw error;
-
-      // Check if the other party has already rated
-      const { data: otherRating, error: otherRatingError } = await supabase
-        .from("ratings")
-        .select("*")
-        .eq("transaction_id", transaction.id)
-        .eq("rater_id", ratedUser.user_id)
-        .single();
-
-      // If both parties have now rated, ensure transaction is marked as completed
-      if (otherRating && !otherRatingError) {
-        const { error: statusError } = await (supabase.from("transactions") as any)
-          .update({ status: 'completed' })
-          .eq("id", transaction.id);
-
-        if (!statusError) {
-          const { error: itemError } = await (supabase.from("items") as any)
-            .update({ status: 'sold' })
-            .eq("id", transaction.item_id);
-
-          if (itemError) console.error("Failed to update item status:", itemError);
-        } else {
-          console.error("Failed to update transaction status:", statusError);
-        }
-
-        // Send notification message to chat that rating is complete
-        await (supabase.from("messages") as any).insert({
-          item_id: transaction.item_id,
-          sender_id: user.id,
-          receiver_id: ratedUser.user_id,
-          message: "【評価が送信されました】\n\n双方の評価が完了したため、取引が正式に完了しました。ご利用ありがとうございました!",
-          is_read: false,
-        });
-
-        // Create notification for transaction completion - Send to BOTH users
-        await (supabase.from("notifications") as any).insert([
-          {
-            user_id: ratedUser.user_id,
-            type: "transaction_completed",
-            title: "取引が完了しました",
-            message: "双方の評価が完了したため、取引が正式に完了しました。",
-            link_type: "chat",
-            link_id: transaction.item_id,
-            is_read: false,
-          },
-          {
-            user_id: user.id,
-            type: "transaction_completed",
-            title: "取引が完了しました",
-            message: "双方の評価が完了したため、取引が正式に完了しました。",
-            link_type: "chat",
-            link_id: transaction.item_id,
-            is_read: false,
-          }
-        ]);
-      } else {
-        // Only current user rated - send message to other party
-        await (supabase.from("messages") as any).insert({
-          item_id: transaction.item_id,
-          sender_id: user.id,
-          receiver_id: ratedUser.user_id,
-          message: "【評価が送信されました】\n\n取引完了ボタンより、取引完了及び評価を行ってください。",
-          is_read: false,
-        });
-
-        // Create notification for rating request
-        await (supabase.from("notifications") as any).insert({
-          user_id: ratedUser.user_id,
-          type: "rating_received",
-          title: "評価をしてください",
-          message: "取引相手から評価が送信されました。取引完了ボタンより、取引完了及び評価を行ってください。",
-          link_type: "chat",
-          link_id: transaction.item_id,
-          is_read: false,
-        });
-      }
 
       router.push("/profile");
     } catch (err) {

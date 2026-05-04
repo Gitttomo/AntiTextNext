@@ -49,6 +49,15 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        sans: ["var(--font-inter)", "sans-serif"],
+        gentle: ["var(--font-mplus-rounded)", "sans-serif"],
+      },
+      backgroundImage: {
+        "gradient-primary": "linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(210 83% 65%) 100%)",
+        "gradient-soft": "linear-gradient(135deg, hsl(221 83% 60%) 0%, hsl(210 40% 80%) 100%)",
+        "gradient-text-blue": "linear-gradient(90deg, hsl(221 83% 53%) 0%, hsl(210 83% 65%) 100%)",
+      },
     },
   },
   plugins: [],

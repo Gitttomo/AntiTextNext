@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import TransactionsClient from "./transactions-client";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +10,13 @@ type TransactionItem = {
     selling_price: number;
     status: string;
     front_image_url: string | null;
+    front_thumbnail_url?: string | null;
     isBuyer: boolean;
     hasTransaction: boolean;
     unreadCount: number;
     final_meetup_time?: string | null;
     final_meetup_location?: string | null;
+    transactionStatus?: string;
 };
 
 export default async function TransactionsPage() {
@@ -55,7 +56,6 @@ export default async function TransactionsPage() {
         return (
             <TransactionsClient
                 initialActiveItems={[]}
-                initialHistoryItems={[]}
                 initialProfile={null}
                 serverSession={false}
             />
@@ -85,12 +85,12 @@ export default async function TransactionsPage() {
                 item_id,
                 final_meetup_time,
                 final_meetup_location,
-                items(id, title, selling_price, status, front_image_url)
+                items(id, title, selling_price, status, front_image_url, front_thumbnail_url)
             `)
             .eq("buyer_id", userId),
         supabase
             .from("items")
-            .select("id, title, selling_price, status, seller_id, front_image_url")
+            .select("id, title, selling_price, status, seller_id, front_image_url, front_thumbnail_url")
             .eq("seller_id", userId),
         supabase
             .from("transactions")
@@ -113,12 +113,15 @@ export default async function TransactionsPage() {
     }
 
     const active: TransactionItem[] = [];
-    const history: TransactionItem[] = [];
 
     // Process Buyer Transactions
     for (const tx of (buyerTransactions || []) as any[]) {
         const item = tx.items;
         if (!item) continue;
+
+        if (tx.status === "completed" || item.status === "sold") {
+            continue;
+        }
 
         const txItem: TransactionItem = {
             id: item.id,
@@ -126,18 +129,16 @@ export default async function TransactionsPage() {
             selling_price: item.selling_price,
             status: item.status,
             front_image_url: item.front_image_url || null,
+            front_thumbnail_url: item.front_thumbnail_url || null,
             isBuyer: true,
             hasTransaction: true,
             unreadCount: unreadCountMap.get(item.id) || 0,
             final_meetup_time: tx.final_meetup_time,
             final_meetup_location: tx.final_meetup_location,
+            transactionStatus: tx.status,
         };
 
-        if (tx.status === "completed" || item.status === "sold") {
-            history.push(txItem);
-        } else {
-            active.push(txItem);
-        }
+        active.push(txItem);
     }
 
     // Process Seller Items & Transactions
@@ -153,22 +154,26 @@ export default async function TransactionsPage() {
 
     for (const item of (sellerItems || []) as any[]) {
         const txInfo = sellerTxMap.get(item.id);
+        if (item.status === "sold" || txInfo?.txStatus === "completed") {
+            continue;
+        }
+
         const txItem: TransactionItem = {
             id: item.id,
             title: item.title,
             selling_price: item.selling_price,
             status: item.status,
             front_image_url: item.front_image_url || null,
+            front_thumbnail_url: item.front_thumbnail_url || null,
             isBuyer: false,
             hasTransaction: !!txInfo,
             unreadCount: unreadCountMap.get(item.id) || 0,
             final_meetup_time: txInfo?.final_meetup_time,
             final_meetup_location: txInfo?.final_meetup_location,
+            transactionStatus: txInfo?.txStatus,
         };
 
-        if (item.status === "sold" || txInfo?.txStatus === "completed") {
-            history.push(txItem);
-        } else if (item.status === "transaction_pending" || txInfo) {
+        if (item.status === "transaction_pending" || txInfo) {
             active.push(txItem);
         }
     }
@@ -176,7 +181,6 @@ export default async function TransactionsPage() {
     return (
         <TransactionsClient
             initialActiveItems={active}
-            initialHistoryItems={history}
             initialProfile={profileData as any}
         />
     );

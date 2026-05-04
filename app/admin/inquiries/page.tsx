@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../_components/admin-shell";
 import { formatAdminDate, getStringParam, maskEmail, requireAdmin, type AdminSearchParams } from "@/lib/admin-utils";
 
@@ -34,12 +35,16 @@ export default async function AdminInquiriesPage({ searchParams }: { searchParam
             <tbody className="divide-y divide-slate-100">
               {((data ?? []) as any[]).map((inq) => (
                 <tr key={inq.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-mono text-xs font-black">{inq.id.slice(0, 8)}</td>
+                  <td className="px-4 py-3 font-mono text-xs font-black">
+                    <Link className="text-primary hover:underline" href={`/admin/inquiries/${inq.id}`}>{inq.id.slice(0, 8)}</Link>
+                  </td>
                   <td className="px-4 py-3 font-bold">{formatAdminDate(inq.created_at)}</td>
                   <td className="px-4 py-3 font-bold">{inq.sender_name || inq.sender_user_id || "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs font-bold">{maskEmail(inq.email)}</td>
                   <td className="px-4 py-3 font-bold">{inq.category}</td>
-                  <td className="max-w-sm truncate px-4 py-3 font-bold">{inq.content}</td>
+                  <td className="max-w-sm truncate px-4 py-3 font-bold">
+                    <Link className="hover:text-primary hover:underline" href={`/admin/inquiries/${inq.id}`}>{inq.content}</Link>
+                  </td>
                   <td className="px-4 py-3"><StatusBadge value={inq.status} /></td>
                   <td className="px-4 py-3 font-bold">{inq.assignee_id?.slice(0, 8) || "-"}</td>
                   <td className="px-4 py-3 font-bold">{formatAdminDate(inq.updated_at)}</td>

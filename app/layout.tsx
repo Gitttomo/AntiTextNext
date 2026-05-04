@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, M_PLUS_Rounded_1c } from "next/font/google";
 import dynamic from "next/dynamic";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { Providers } from "@/components/providers";
 import LegalFooter from "@/components/legal-footer";
 import TrialNoticeBanner from "@/components/trial-notice-banner";
+import SwipeTabNavigation from "@/components/swipe-tab-navigation";
+import NavigationLoadingOverlay from "@/components/navigation-loading-overlay";
 
 // BottomNavを遅延読み込み（初期表示を高速化）
 const BottomNav = dynamic(() => import("@/components/bottom-nav").then(mod => ({ default: mod.BottomNav })), {
@@ -14,8 +16,17 @@ const BottomNav = dynamic(() => import("@/components/bottom-nav").then(mod => ({
 
 const inter = Inter({
   subsets: ["latin"],
-  display: "swap", // フォント読み込み中もテキスト表示
+  display: "swap",
   preload: true,
+  variable: "--font-inter",
+});
+
+const mplusRounded = M_PLUS_Rounded_1c({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+  preload: true,
+  variable: "--font-mplus-rounded",
 });
 
 export const metadata: Metadata = {
@@ -46,10 +57,12 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${mplusRounded.variable} ${inter.className}`}>
         <Providers>
           <AuthProvider>
             <TrialNoticeBanner />
+            <SwipeTabNavigation />
+            <NavigationLoadingOverlay />
             <main className="min-h-screen pb-24">{children}</main>
             <LegalFooter />
             <BottomNav />

@@ -1,5 +1,5 @@
-import { ProfileSkeleton } from "./skeleton";
+import PageTurnLoader from "@/components/page-turn-loader";
 
 export default function Loading() {
-    return <ProfileSkeleton />;
+    return <PageTurnLoader />;
 }

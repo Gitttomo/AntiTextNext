@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package } from "lucide-react";
+import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, BookOpen } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { uploadChatImage } from "@/lib/image-storage";
 
 type Message = {
   id: string;
@@ -109,6 +110,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const userScrolledUpRef = useRef(false);
   const previousMessagesLengthRef = useRef(0);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const from = new URLSearchParams(window.location.search).get("from");
@@ -433,7 +435,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user || !item || !otherUserId) return;
+    if (!file || !user || !item || !otherUserId || isUploadingImage || sending) return;
 
     // ファイル形式・サイズチェック（例: 5MB以下）
     if (!file.type.startsWith('image/')) {
@@ -447,19 +449,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
     setIsUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${item.id}/${fileName}`;
-
-      const { data, error } = await supabase.storage
-        .from('chat-images')
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-images')
-        .getPublicUrl(filePath);
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const publicUrl = await uploadChatImage(file, `${item.id}/${fileName}`);
 
       await handleSend("[画像]", publicUrl);
 
@@ -547,7 +538,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleCompleteTransaction = async () => {
-    if (!item || !transaction || !user) return;
+    if (isFinalizing || !item || !transaction || !user) return;
     if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
     setIsFinalizing(true);
     try {
@@ -591,7 +582,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleCancelTransaction = async (reason: string) => {
-    if (!item || !transaction || !user) return;
+    if (isFinalizing || !item || !transaction || !user) return;
     if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
     setIsFinalizing(true);
     try {
@@ -697,8 +688,32 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       ? transaction.schedule_change_requested_by !== user?.id
       : isSeller
   );
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start || start.x > 56) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+
+    if (deltaX > 90 && Math.abs(deltaY) < 70) {
+      router.push(backHref);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-white overflow-hidden">
+    <div
+      className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-white overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-gray-100 h-16">
         <Link href={backHref} className="p-1">
@@ -1318,6 +1333,7 @@ function ScheduleAdjustmentModal({
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-xl border-t border-gray-100">
           <button
             onClick={() => {
+              if (isSubmitting) return;
               setIsSubmitting(true);
               onConfirm(selectedTimeSlots, selectedLocations).finally(() => setIsSubmitting(false));
             }}
@@ -1372,7 +1388,7 @@ function CompletionConfirmationModal({
       <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
         <div className="p-8">
           <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-            <Package className="w-8 h-8 text-primary" />
+            <BookOpen className="w-8 h-8 text-primary" />
           </div>
 
           <h2 className="text-xl font-black text-gray-900 text-center mb-2">

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { User, GraduationCap, MessageCircle, Package, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
+import { User, GraduationCap, MessageCircle, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { TransactionsSkeleton } from "./skeleton";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 type Profile = {
     nickname: string;
@@ -21,6 +22,7 @@ type TransactionItem = {
     selling_price: number;
     status: string;
     front_image_url: string | null;
+    front_thumbnail_url?: string | null;
     isBuyer: boolean;
     hasTransaction: boolean;
     unreadCount: number;
@@ -31,14 +33,12 @@ type TransactionItem = {
 
 type TransactionsClientProps = {
     initialActiveItems: TransactionItem[];
-    initialHistoryItems: TransactionItem[];
     initialProfile: Profile | null;
     serverSession?: boolean;
 };
 
 export default function TransactionsClient({
     initialActiveItems,
-    initialHistoryItems,
     initialProfile,
     serverSession = true
 }: TransactionsClientProps) {
@@ -46,9 +46,8 @@ export default function TransactionsClient({
     const { user, avatarUrl, loading: authLoading } = useAuth();
     const { t } = useI18n();
     const [profile, setProfile] = useState<Profile | null>(initialProfile);
-    const [activeTab, setActiveTab] = useState<"upcoming" | "pending" | "completed">("upcoming");
+    const [activeTab, setActiveTab] = useState<"upcoming" | "pending">("upcoming");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
-    const [historyItems, setHistoryItems] = useState<TransactionItem[]>(initialHistoryItems);
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -88,12 +87,12 @@ export default function TransactionsClient({
                         item_id,
                         final_meetup_time,
                         final_meetup_location,
-                        items(id, title, selling_price, status, front_image_url)
+                        items(id, title, selling_price, status, front_image_url, front_thumbnail_url)
                     `)
                     .eq("buyer_id", user.id),
                 supabase
                     .from("items")
-                    .select("id, title, selling_price, status, seller_id, front_image_url")
+                    .select("id, title, selling_price, status, seller_id, front_image_url, front_thumbnail_url")
                     .eq("seller_id", user.id),
                 supabase
                     .from("transactions")
@@ -119,11 +118,13 @@ export default function TransactionsClient({
             }
 
             const active: TransactionItem[] = [];
-            const history: TransactionItem[] = [];
-
             for (const tx of (buyerTransactions || []) as any[]) {
                 const item = tx.items;
                 if (!item) continue;
+
+                if (tx.status === "completed" || item.status === "sold") {
+                    continue;
+                }
 
                 const txItem: TransactionItem = {
                     id: item.id,
@@ -131,6 +132,7 @@ export default function TransactionsClient({
                     selling_price: item.selling_price,
                     status: item.status,
                     front_image_url: item.front_image_url || null,
+                    front_thumbnail_url: item.front_thumbnail_url || null,
                     isBuyer: true,
                     hasTransaction: true,
                     unreadCount: unreadCountMap.get(item.id) || 0,
@@ -139,12 +141,8 @@ export default function TransactionsClient({
                     transactionStatus: tx.status,
                 };
 
-                if (tx.status === "completed" || item.status === "sold") {
-                    history.push(txItem);
-                } else {
-                    // Include pending, confirmed, and awaiting_rating in active
-                    active.push(txItem);
-                }
+                // Include pending, confirmed, and awaiting_rating in active
+                active.push(txItem);
             }
 
             const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }>();
@@ -159,12 +157,17 @@ export default function TransactionsClient({
 
             for (const item of (sellerItems || []) as any[]) {
                 const txInfo = sellerTxMap.get(item.id);
+                if (item.status === "sold" || txInfo?.txStatus === "completed") {
+                    continue;
+                }
+
                 const txItem: TransactionItem = {
                     id: item.id,
                     title: item.title,
                     selling_price: item.selling_price,
                     status: item.status,
                     front_image_url: item.front_image_url || null,
+                    front_thumbnail_url: item.front_thumbnail_url || null,
                     isBuyer: false,
                     hasTransaction: !!txInfo,
                     unreadCount: unreadCountMap.get(item.id) || 0,
@@ -173,16 +176,13 @@ export default function TransactionsClient({
                     transactionStatus: txInfo?.txStatus,
                 };
 
-                if (item.status === "sold" || txInfo?.txStatus === "completed") {
-                    history.push(txItem);
-                } else if (item.status === "transaction_pending" || txInfo) {
+                if (item.status === "transaction_pending" || txInfo) {
                     // Include pending, confirmed, and awaiting_rating in active
                     active.push(txItem);
                 }
             }
 
             setActiveItems(active);
-            setHistoryItems(history);
         } catch (err) {
             console.error("Error loading transactions:", err);
         }
@@ -214,11 +214,6 @@ export default function TransactionsClient({
         if (!user) return;
 
         setActiveItems(current =>
-            current.map(item =>
-                item.id === itemId ? { ...item, unreadCount: 0 } : item
-            )
-        );
-        setHistoryItems(current =>
             current.map(item =>
                 item.id === itemId ? { ...item, unreadCount: 0 } : item
             )
@@ -285,13 +280,15 @@ export default function TransactionsClient({
         >
             <div className="flex items-start gap-4">
                 <div className="w-20 h-20 flex-shrink-0 bg-gray-50 rounded-2xl overflow-hidden group-hover:scale-105 transition-transform">
-                    {item.front_image_url ? (
+                    {getItemImageUrl(item, "front", "thumbnail") ? (
                         <Image
-                            src={item.front_image_url}
+                            src={getItemImageUrl(item, "front", "thumbnail")!}
                             alt={item.title}
                             width={80}
                             height={80}
                             className="w-full h-full object-cover"
+                            loading="lazy"
+                            quality={55}
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-300">
@@ -332,7 +329,7 @@ export default function TransactionsClient({
                     </h3>
 
                     <div className="flex items-center justify-between mt-1">
-                        <p className="text-xl font-black text-primary">
+                        <p className="text-xl font-black gradient-text-price">
                             ¥{item.selling_price.toLocaleString()}
                         </p>
 
@@ -344,7 +341,7 @@ export default function TransactionsClient({
                                         await clearUnreadForItem(item.id);
                                         router.push(`/chat/${item.id}`);
                                     }}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-2xl font-black hover:bg-primary/90 transition-all text-xs shadow-lg shadow-primary/20"
+                                    className="flex items-center gap-1.5 px-4 py-2 gradient-btn-blue rounded-2xl font-black transition-all text-xs shadow-lg shadow-primary/20"
                                 >
                                     <MessageCircle className="w-3.5 h-3.5" />
                                     チャット
@@ -378,7 +375,7 @@ export default function TransactionsClient({
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-24">
+        <div className="min-h-screen bg-gray-50 pb-24 font-gentle">
             <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -395,7 +392,7 @@ export default function TransactionsClient({
                     <Link href="/profile" className="mt-6 block group">
                         <div className="flex items-center gap-4 bg-gray-50 rounded-[28px] p-4 transition-all hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98]">
                             <div className="w-14 h-14 rounded-full overflow-hidden border-4 border-white shadow-md">
-                                {avatarUrl ? (
+                                        {avatarUrl ? (
                                     <Image
                                         src={avatarUrl}
                                         alt="プロフィール"
@@ -426,7 +423,7 @@ export default function TransactionsClient({
                     <button
                         onClick={() => setActiveTab("upcoming")}
                         className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] relative ${activeTab === "upcoming"
-                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            ? "gradient-btn-tab"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
@@ -435,20 +432,11 @@ export default function TransactionsClient({
                     <button
                         onClick={() => setActiveTab("pending")}
                         className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "pending"
-                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            ? "gradient-btn-tab"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
                         {t('transactions.pending')} ({pendingItems.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("completed")}
-                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "completed"
-                            ? "bg-primary text-white shadow-lg shadow-primary/30"
-                            : "text-gray-400 hover:text-gray-600"
-                            }`}
-                    >
-                        {t('transactions.completed')} ({historyItems.length})
                     </button>
                 </div>
             </div>
@@ -457,7 +445,7 @@ export default function TransactionsClient({
                 {activeTab === "upcoming" ? (
                     sortedDates.length === 0 ? (
                         <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
-                            <Package className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+                            <BookOpen className="w-20 h-20 text-gray-100 mx-auto mb-4" />
                             <p className="text-gray-400 font-black">{t('transactions.no_upcoming')}</p>
                         </div>
                     ) : (
@@ -495,18 +483,7 @@ export default function TransactionsClient({
                             pendingItems.map((item, idx) => renderItem(item, idx))
                         )}
                     </div>
-                ) : (
-                    <div className="space-y-4">
-                        {historyItems.length === 0 ? (
-                            <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
-                                <CheckCircle className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-                                <p className="text-gray-400 font-black">{t('transactions.no_completed')}</p>
-                            </div>
-                        ) : (
-                            historyItems.map((item, idx) => renderItem(item, idx))
-                        )}
-                    </div>
-                )}
+                ) : null}
             </div>
         </div>
     );

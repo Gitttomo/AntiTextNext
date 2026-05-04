@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, Ban, ClipboardList, FileWarning, Inbox, Package, Users } from "lucide-react";
+import { Activity, Ban, BookOpen, ClipboardList, FileWarning, Inbox, Users } from "lucide-react";
 import { AdminPageHeader, StatusBadge } from "./_components/admin-shell";
 import { formatAdminDate, requireAdmin } from "@/lib/admin-utils";
 
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const cards = [
   { key: "users", label: "登録ユーザー数", href: "/admin/users", icon: Users, tone: "border-blue-100 bg-blue-50 text-blue-700" },
-  { key: "items", label: "出品数", href: "/admin/items", icon: Package, tone: "border-emerald-100 bg-emerald-50 text-emerald-700" },
+  { key: "items", label: "出品数", href: "/admin/items", icon: BookOpen, tone: "border-emerald-100 bg-emerald-50 text-emerald-700" },
   { key: "activeTransactions", label: "取引中の件数", href: "/admin/transactions?status=active", icon: ClipboardList, tone: "border-amber-100 bg-amber-50 text-amber-700" },
   { key: "completedTransactions", label: "完了取引数", href: "/admin/transactions?status=completed", icon: ClipboardList, tone: "border-violet-100 bg-violet-50 text-violet-700" },
   { key: "reports", label: "通報件数", href: "/admin/reports", icon: FileWarning, tone: "border-red-100 bg-red-50 text-red-700" },
@@ -87,7 +87,13 @@ export default async function AdminDashboardPage() {
           </Panel>
           <Panel title="最近の問い合わせ">
             {((recentInquiries.data ?? []) as any[]).map((inquiry) => (
-              <Row key={inquiry.id} title={inquiry.sender_name || "匿名"} meta={`${inquiry.category} / ${inquiry.status}`} sub={formatAdminDate(inquiry.created_at)} />
+              <Row
+                key={inquiry.id}
+                title={inquiry.sender_name || "匿名"}
+                meta={`${inquiry.category} / ${inquiry.status}`}
+                sub={formatAdminDate(inquiry.created_at)}
+                href={`/admin/inquiries/${inquiry.id}`}
+              />
             ))}
           </Panel>
         </section>
@@ -105,12 +111,15 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function Row({ title, meta, sub }: { title: string; meta: React.ReactNode; sub: string }) {
-  return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+function Row({ title, meta, sub, href }: { title: string; meta: React.ReactNode; sub: string; href?: string }) {
+  const className = "block rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-white";
+  const content = (
+    <>
       <p className="truncate text-sm font-black">{title}</p>
       <div className="mt-1 text-xs font-bold text-slate-600">{meta}</div>
       <p className="mt-1 text-xs text-slate-500">{sub}</p>
-    </div>
+    </>
   );
+
+  return href ? <Link href={href} className={className}>{content}</Link> : <div className={className}>{content}</div>;
 }
