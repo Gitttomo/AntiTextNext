@@ -434,7 +434,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user || !item || !otherUserId) return;
+    if (!file || !user || !item || !otherUserId || isUploadingImage || sending) return;
 
     // ファイル形式・サイズチェック（例: 5MB以下）
     if (!file.type.startsWith('image/')) {
@@ -548,7 +548,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleCompleteTransaction = async () => {
-    if (!item || !transaction || !user) return;
+    if (isFinalizing || !item || !transaction || !user) return;
     if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
     setIsFinalizing(true);
     try {
@@ -592,7 +592,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleCancelTransaction = async (reason: string) => {
-    if (!item || !transaction || !user) return;
+    if (isFinalizing || !item || !transaction || !user) return;
     if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
     setIsFinalizing(true);
     try {
@@ -1343,6 +1343,7 @@ function ScheduleAdjustmentModal({
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-xl border-t border-gray-100">
           <button
             onClick={() => {
+              if (isSubmitting) return;
               setIsSubmitting(true);
               onConfirm(selectedTimeSlots, selectedLocations).finally(() => setIsSubmitting(false));
             }}

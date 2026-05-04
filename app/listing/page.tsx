@@ -141,6 +141,7 @@ export default function ListingPage() {
   );
 
   const handleSubmit = async () => {
+    if (uploading) return;
     if (step === "form") {
       if (!canSubmit) return;
       setStep("confirm");

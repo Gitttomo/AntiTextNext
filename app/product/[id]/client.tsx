@@ -32,6 +32,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const { user } = useAuth();
   const { t } = useI18n();
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -139,14 +140,15 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   };
 
   const handleOpenPurchaseModal = async () => {
+    if (isAcquiringLock || isPurchaseModalOpen || isSubmitting || !isAvailable) return;
     if (!user) {
       router.push("/auth/login");
       return;
     }
 
-    const now = new Date().toISOString();
     const tenMinutesLater = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     
+    setIsAcquiringLock(true);
     try {
       // Attempt to acquire lock via RPC (more secure & bypasses RLS issues)
       const { data: success, error } = await (supabase as any).rpc("acquire_item_lock", {
@@ -172,6 +174,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
       } else {
         alert("購入手続きの開始に失敗しました。時間をおいて再度お試しください。");
       }
+    } finally {
+      setIsAcquiringLock(false);
     }
   };
 
@@ -181,65 +185,21 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   };
 
   const handlePurchaseSubmit = async (data: PurchaseData) => {
-    if (!user || !item) return;
+    if (!user || !item || isSubmitting) return;
 
     setIsSubmitting(true);
 
     try {
-      // Create transaction
-      const { error: transactionError } = await (supabase
-        .from("transactions") as any)
-        .insert({
-          item_id: item.id,
-          buyer_id: user.id,
-          seller_id: item.seller_id,
-          payment_method: data.paymentMethod,
-          meetup_time_slots: data.timeSlots,
-          meetup_locations: data.locations,
-          status: "pending",
-        });
-
-      if (transactionError) throw transactionError;
-
       const autoMessage = generatePurchaseMessage(data);
-      const { error: messageError } = await (supabase
-        .from("messages") as any)
-        .insert({
-          item_id: item.id,
-          sender_id: user.id,
-          receiver_id: item.seller_id,
-          message: autoMessage,
-          is_read: false,
-        });
+      const { error: purchaseError } = await (supabase as any).rpc("submit_purchase_request", {
+        target_item_id: item.id,
+        payment_method: data.paymentMethod,
+        meetup_time_slots: data.timeSlots,
+        meetup_locations: data.locations,
+        auto_message: autoMessage,
+      });
 
-      if (messageError) throw messageError;
-
-      // Get buyer's nickname for notification
-      const { data: buyerProfile } = await supabase
-        .from("profiles")
-        .select("nickname")
-        .eq("user_id", user.id)
-        .single();
-
-      const buyerNickname = (buyerProfile as any)?.nickname || "購入者";
-
-      // Send notification to seller
-      const { error: notificationError } = await (supabase
-        .from("notifications") as any)
-        .insert({
-          user_id: item.seller_id,
-          type: "purchase_request",
-          title: "新しい購入リクエスト",
-          message: `${buyerNickname}さんから購入リクエストが届きました。チャットで日程を調整してください。`,
-          link_type: "chat",
-          link_id: item.id,
-          is_read: false,
-        });
-
-      if (notificationError) {
-        console.error("Failed to send notification:", notificationError);
-        // Don't block the flow if notification fails
-      }
+      if (purchaseError) throw purchaseError;
 
       setIsPurchaseModalOpen(false);
       // チャットはitem_idベースに変更
@@ -642,11 +602,11 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 </button>
                 <button
                   onClick={handleOpenPurchaseModal}
-                  disabled={!isAvailable}
+                  disabled={!isAvailable || isAcquiringLock || isSubmitting}
                   className="flex-1 py-3 md:py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  {isSold ? t('product.sold') : isPending ? t('product.in_transaction') : t('product.buy')}
+                  {isAcquiringLock ? "確認中..." : isSold ? t('product.sold') : isPending ? t('product.in_transaction') : t('product.buy')}
                 </button>
               </>
             )}
