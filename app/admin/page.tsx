@@ -87,7 +87,13 @@ export default async function AdminDashboardPage() {
           </Panel>
           <Panel title="最近の問い合わせ">
             {((recentInquiries.data ?? []) as any[]).map((inquiry) => (
-              <Row key={inquiry.id} title={inquiry.sender_name || "匿名"} meta={`${inquiry.category} / ${inquiry.status}`} sub={formatAdminDate(inquiry.created_at)} />
+              <Row
+                key={inquiry.id}
+                title={inquiry.sender_name || "匿名"}
+                meta={`${inquiry.category} / ${inquiry.status}`}
+                sub={formatAdminDate(inquiry.created_at)}
+                href={`/admin/inquiries/${inquiry.id}`}
+              />
             ))}
           </Panel>
         </section>
@@ -105,12 +111,15 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function Row({ title, meta, sub }: { title: string; meta: React.ReactNode; sub: string }) {
-  return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+function Row({ title, meta, sub, href }: { title: string; meta: React.ReactNode; sub: string; href?: string }) {
+  const className = "block rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-white";
+  const content = (
+    <>
       <p className="truncate text-sm font-black">{title}</p>
       <div className="mt-1 text-xs font-bold text-slate-600">{meta}</div>
       <p className="mt-1 text-xs text-slate-500">{sub}</p>
-    </div>
+    </>
   );
+
+  return href ? <Link href={href} className={className}>{content}</Link> : <div className={className}>{content}</div>;
 }

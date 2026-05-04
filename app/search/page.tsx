@@ -72,13 +72,6 @@ function SearchContent() {
     favoriteStateRef.current = new Set(favorites);
   }, [favorites]);
 
-  useEffect(() => {
-    return () => {
-      favoriteSyncTimersRef.current.forEach((timer) => clearTimeout(timer));
-      favoriteSyncTimersRef.current.clear();
-    };
-  }, []);
-
   // 検索実�?
   const executeSearch = async (query: string) => {
     if (!query.trim()) return;

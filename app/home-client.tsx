@@ -295,13 +295,6 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     favoriteStateRef.current = new Set(favorites);
   }, [favorites]);
 
-  useEffect(() => {
-    return () => {
-      favoriteSyncTimersRef.current.forEach((timer) => clearTimeout(timer));
-      favoriteSyncTimersRef.current.clear();
-    };
-  }, []);
-
   const toggleFavorite = useCallback((id: string) => {
     if (!user) return;
 

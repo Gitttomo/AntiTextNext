@@ -69,14 +69,6 @@ export default function ProductDetailClient({ item }: { item: Item }) {
     checkFavorite();
   }, [user, item]);
 
-  useEffect(() => {
-    return () => {
-      if (favoriteSyncTimerRef.current) {
-        clearTimeout(favoriteSyncTimerRef.current);
-      }
-    };
-  }, []);
-
   const toggleFavorite = async () => {
     if (!user) return;
 

@@ -20,6 +20,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { ProfileSkeleton } from "./edit/skeleton";
 import { getItemImageUrl } from "@/lib/image-storage";
+import { supabase } from "@/lib/supabase";
 
 type Profile = {
     nickname: string;
@@ -60,6 +61,24 @@ export default function MypageClient({
     const { user, loading: authLoading } = useAuth();
     const { t } = useI18n();
     const [activeTab, setActiveTab] = useState<"past" | "listing" | null>(null);
+    const [favoriteItems, setFavoriteItems] = useState<Item[]>(initialFavoriteItems);
+
+    useEffect(() => {
+        setFavoriteItems(initialFavoriteItems);
+    }, [initialFavoriteItems]);
+
+    const refreshFavoriteItems = async () => {
+        if (!user) return;
+
+        const { data, error } = await supabase
+            .from("favorites")
+            .select("item_id, items(*)")
+            .eq("user_id", user.id);
+
+        if (!error && data) {
+            setFavoriteItems((data as any[]).map(f => f.items).filter(Boolean));
+        }
+    };
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -67,6 +86,36 @@ export default function MypageClient({
             router.refresh();
         }
     }, [authLoading, user, router]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        refreshFavoriteItems();
+        const delayedRefresh = setTimeout(refreshFavoriteItems, 450);
+
+        const refreshWhenVisible = () => {
+            if (document.visibilityState === "visible") {
+                refreshFavoriteItems();
+                setTimeout(refreshFavoriteItems, 450);
+            }
+        };
+
+        const refreshTwice = () => {
+            refreshFavoriteItems();
+            setTimeout(refreshFavoriteItems, 450);
+        };
+
+        window.addEventListener("focus", refreshTwice);
+        window.addEventListener("pageshow", refreshTwice);
+        document.addEventListener("visibilitychange", refreshWhenVisible);
+
+        return () => {
+            clearTimeout(delayedRefresh);
+            window.removeEventListener("focus", refreshTwice);
+            window.removeEventListener("pageshow", refreshTwice);
+            document.removeEventListener("visibilitychange", refreshWhenVisible);
+        };
+    }, [user]);
 
     if (authLoading) {
         return <ProfileSkeleton />;
@@ -239,10 +288,10 @@ export default function MypageClient({
                             <Heart className="w-5 h-5 text-red-500 fill-red-500" />
                             お気に入り一覧
                         </h3>
-                        <span className="text-sm font-bold text-red-500">{initialFavoriteItems.length}件</span>
+                        <span className="text-sm font-bold text-red-500">{favoriteItems.length}件</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        {initialFavoriteItems.map((item) => (
+                        {favoriteItems.map((item) => (
                             <div
                                 key={item.id}
                                 onClick={() => router.push(`/product/${item.id}`)}
@@ -278,7 +327,7 @@ export default function MypageClient({
                                 </div>
                             </div>
                         ))}
-                        {initialFavoriteItems.length === 0 && (
+                        {favoriteItems.length === 0 && (
                             <div className="col-span-2 py-12 text-center bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
                                 <Heart className="w-10 h-10 text-gray-200 mx-auto mb-2" />
                                 <p className="text-sm text-gray-400">お気に入りのアイテムはありません</p>

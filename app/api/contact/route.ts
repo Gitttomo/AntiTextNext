@@ -23,8 +23,17 @@ export async function POST(request: NextRequest) {
 
         const gasUrl = process.env.CONTACT_FORM_GAS_URL;
         const supabase = createSupabaseServerClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-        await (supabase as any).from('inquiries').insert({
+        if (!user) {
+            return NextResponse.json(
+                { success: false, error: 'ログインが必要です' },
+                { status: 401 }
+            );
+        }
+
+        const { error: inquiryError } = await (supabase as any).from('inquiries').insert({
+            sender_user_id: user.id,
             sender_name: username,
             email,
             category,
@@ -32,12 +41,17 @@ export async function POST(request: NextRequest) {
             status: 'open',
         });
 
+        if (inquiryError) {
+            console.error('Inquiry insert error:', inquiryError);
+        }
+
         if (!gasUrl) {
-            console.error('CONTACT_FORM_GAS_URL is not set');
-            return NextResponse.json(
-                { success: false, error: 'サーバー設定エラー' },
-                { status: 500 }
-            );
+            if (!inquiryError) {
+                return NextResponse.json({ success: true, storage: 'inquiries' });
+            }
+
+            console.error('CONTACT_FORM_GAS_URL is not set and inquiry insert failed');
+            return NextResponse.json({ success: false, error: 'サーバー設定エラー' }, { status: 500 });
         }
 
         // Google Apps Script に送信
@@ -56,17 +70,18 @@ export async function POST(request: NextRequest) {
 
         // GAS は redirect (302) を返すことがあるので、リダイレクト先もフォローする
         if (gasResponse.ok || gasResponse.redirected) {
-            return NextResponse.json({ success: true });
+            return NextResponse.json({ success: true, storage: inquiryError ? 'gas_only' : 'inquiries_and_gas' });
         }
 
         // GAS からのレスポンスを取得
         const gasText = await gasResponse.text().catch(() => 'Unknown error');
         console.error('GAS response error:', gasResponse.status, gasText);
 
-        return NextResponse.json(
-            { success: false, error: 'スプレッドシートへの記録に失敗しました' },
-            { status: 502 }
-        );
+        if (!inquiryError) {
+            return NextResponse.json({ success: true, storage: 'inquiries', warning: 'gas_failed' });
+        }
+
+        return NextResponse.json({ success: false, error: 'お問い合わせの記録に失敗しました' }, { status: 502 });
     } catch (err: any) {
         console.error('Contact form error:', err);
         return NextResponse.json(
