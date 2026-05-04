@@ -698,9 +698,9 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       : isSeller
   );
   return (
-    <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-gray-100 overflow-hidden">
+    <div className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-white overflow-hidden">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-white/20 h-16">
+      <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-gray-100 h-16">
         <Link href={backHref} className="p-1">
           <ArrowLeft className="w-6 h-6 text-black" />
         </Link>
@@ -715,7 +715,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       </header>
 
       {/* Action Bar (Below Header) */}
-      <div className="fixed top-16 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-white/10">
+      <div className="fixed top-16 left-0 right-0 bg-white/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-gray-100">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
           disabled={transaction?.status === 'awaiting_rating' || transaction?.status === 'completed'}
@@ -747,7 +747,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         >
           {/* Sticky Schedule Summary */}
           {transaction && (
-            <div className="sticky top-0 z-30 -mx-4 mb-4 bg-gray-100/95 px-4 pb-3 pt-2 backdrop-blur-md">
+            <div className="sticky top-0 z-30 -mx-4 mb-4 bg-white/95 px-4 pb-3 pt-2 backdrop-blur-md">
               {transaction.final_meetup_time ? (
                 <div className="bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
                   <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
@@ -893,9 +893,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                     {/* メッセージバブル */}
                     <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%]`}>
                       <div
-                        className={`w-fit min-w-[50px] px-4 py-2.5 rounded-2xl shadow-sm bg-white ${isOwnMessage ? "rounded-br-sm" : "rounded-bl-sm"
+                        className={`w-fit min-w-[50px] px-4 py-2.5 rounded-2xl shadow-sm border ${isOwnMessage
+                          ? "rounded-br-sm bg-sky-50 border-sky-200"
+                          : "rounded-bl-sm bg-sky-100 border-sky-300"
                           }`}
-                        style={{ border: "2px solid #3B5998" }}
                       >
                         {msg.image_url && (
                           <div className="mb-2 -mx-2 -mt-1 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
@@ -909,7 +910,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                             />
                           </div>
                         )}
-                        <p className="whitespace-pre-wrap break-all text-[15px] leading-relaxed text-[#3B5998] font-medium">
+                        <p className="whitespace-pre-wrap break-all text-[15px] leading-relaxed text-slate-800 font-medium">
                           {msg.message}
                         </p>
                       </div>
