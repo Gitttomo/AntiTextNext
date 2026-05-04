@@ -86,7 +86,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom shadow-[0_-4px_20px_rgba(0,0,0,0.03)] [.hide-bottom-nav_&]:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 z-50 safe-area-bottom shadow-[0_-10px_32px_rgba(15,23,42,0.14)] [.hide-bottom-nav_&]:hidden">
       <div className="flex items-end justify-around h-20 max-w-screen-lg mx-auto px-2 pb-2">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -103,12 +103,12 @@ export function BottomNav() {
                 className="flex flex-col items-center justify-center -mb-2"
               >
                 <div className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 -translate-y-4",
+                  "w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 -translate-y-4 bg-emerald-50 ring-4 ring-emerald-100",
                   isActive
-                    ? "bg-primary scale-110 shadow-primary/40 ring-4 ring-primary/10"
-                    : "bg-primary/90 hover:bg-primary hover:scale-105 shadow-primary/20"
+                    ? "scale-110 shadow-emerald-100"
+                    : "hover:bg-emerald-100 hover:scale-105 shadow-emerald-100"
                 )}>
-                  <Icon className="w-8 h-8 text-white" strokeWidth={2.5} />
+                  <Icon className={cn("w-8 h-8 transition-colors", isActive ? "text-primary" : "text-gray-400")} strokeWidth={2.5} />
                 </div>
                 <span className={cn(
                   "text-[10px] font-bold -mt-3 transition-colors",
@@ -156,4 +156,3 @@ export function BottomNav() {
     </nav>
   );
 }
-

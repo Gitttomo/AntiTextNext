@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, M_PLUS_Rounded_1c } from "next/font/google";
 import dynamic from "next/dynamic";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
@@ -13,8 +13,17 @@ const BottomNav = dynamic(() => import("@/components/bottom-nav").then(mod => ({
 
 const inter = Inter({
   subsets: ["latin"],
-  display: "swap", // フォント読み込み中もテキスト表示
+  display: "swap",
   preload: true,
+  variable: "--font-inter",
+});
+
+const mplusRounded = M_PLUS_Rounded_1c({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+  preload: true,
+  variable: "--font-mplus-rounded",
 });
 
 export const metadata: Metadata = {
@@ -45,7 +54,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${mplusRounded.variable} ${inter.className}`}>
         <Providers>
           <AuthProvider>
             <main className="min-h-screen pb-24">{children}</main>

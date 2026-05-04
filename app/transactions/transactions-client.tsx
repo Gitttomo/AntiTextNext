@@ -332,7 +332,7 @@ export default function TransactionsClient({
                     </h3>
 
                     <div className="flex items-center justify-between mt-1">
-                        <p className="text-xl font-black text-primary">
+                        <p className="text-xl font-black gradient-text-price">
                             ¥{item.selling_price.toLocaleString()}
                         </p>
 
@@ -344,7 +344,7 @@ export default function TransactionsClient({
                                         await clearUnreadForItem(item.id);
                                         router.push(`/chat/${item.id}`);
                                     }}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-2xl font-black hover:bg-primary/90 transition-all text-xs shadow-lg shadow-primary/20"
+                                    className="flex items-center gap-1.5 px-4 py-2 gradient-btn-blue rounded-2xl font-black transition-all text-xs shadow-lg shadow-primary/20"
                                 >
                                     <MessageCircle className="w-3.5 h-3.5" />
                                     チャット
@@ -378,7 +378,7 @@ export default function TransactionsClient({
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-24">
+        <div className="min-h-screen bg-gray-50 pb-24 font-gentle">
             <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -426,7 +426,7 @@ export default function TransactionsClient({
                     <button
                         onClick={() => setActiveTab("upcoming")}
                         className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] relative ${activeTab === "upcoming"
-                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            ? "gradient-btn-tab"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
@@ -435,7 +435,7 @@ export default function TransactionsClient({
                     <button
                         onClick={() => setActiveTab("pending")}
                         className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "pending"
-                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            ? "gradient-btn-tab"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
@@ -444,7 +444,7 @@ export default function TransactionsClient({
                     <button
                         onClick={() => setActiveTab("completed")}
                         className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "completed"
-                            ? "bg-primary text-white shadow-lg shadow-primary/30"
+                            ? "gradient-btn-tab"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >

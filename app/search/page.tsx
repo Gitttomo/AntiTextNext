@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Search, History, Heart, Bell, Loader2, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -20,6 +21,7 @@ export type Item = {
   id: string;
   title: string;
   selling_price: number;
+  front_image_url: string | null;
   //condition: string;
   favorite_count?: number;
 };
@@ -84,7 +86,7 @@ function SearchContent() {
         searches.map(async (searchTerm) => {
           const { data, error } = await supabase
             .from("items")
-            .select("id, title, selling_price, favorites(count)")
+            .select("id, title, selling_price, front_image_url, favorites(count)")
             .eq("status", "available")
             .ilike("title", `%${searchTerm}%`)
             .order("created_at", { ascending: false })
@@ -369,11 +371,27 @@ function SearchContent() {
             <h3 className="text-sm font-semibold text-gray-700 mb-4">
               {results.length}件の結果
             </h3>
-            <div className="space-y-4">
+            <div className="relative ml-2 space-y-4 border-l-2 border-primary/15 pl-5">
               {results.map((item) => (
                 <Link key={item.id} href={`/product/${item.id}`} prefetch={false}>
-                  <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
+                  <div className="relative bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
+                    <div className="absolute -left-[31px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white bg-primary/30 shadow-sm" />
                     <div className="flex items-center justify-between gap-4">
+                      <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 border border-gray-100 shadow-sm">
+                        {item.front_image_url ? (
+                          <Image
+                            src={item.front_image_url}
+                            alt={item.title}
+                            width={56}
+                            height={80}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Search className="h-5 w-5 text-gray-300" />
+                          </div>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         {/* <div className="text-xs font-medium text-gray-500 mb-1">
                           {item.condition}

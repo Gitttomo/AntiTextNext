@@ -77,7 +77,7 @@ export default function MypageClient({
     const ratingStars = Math.round(averageRating);
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32">
+        <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32 font-gentle">
             {/* Header */}
             <header className="px-6 pt-12 pb-6">
                 <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
@@ -217,7 +217,7 @@ export default function MypageClient({
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-bold text-gray-900 truncate group-hover:text-primary transition-colors">{item.title}</p>
-                                            <p className="text-xs font-bold text-primary">¥{item.selling_price.toLocaleString()}</p>
+                                            <p className="text-xs font-bold gradient-text-price">¥{item.selling_price.toLocaleString()}</p>
                                         </div>
                                         <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                     </div>
@@ -271,7 +271,7 @@ export default function MypageClient({
                                 </div>
                                 <div className="p-3 space-y-1">
                                     <h4 className={`text-sm font-bold truncate group-hover:text-primary transition-colors ${item.status !== "available" ? "text-gray-400" : "text-gray-900"}`}>{item.title}</h4>
-                                    <p className={`text-sm font-extrabold ${item.status !== "available" ? "text-gray-400 line-through" : "text-primary"}`}>¥{item.selling_price.toLocaleString()}</p>
+                                    <p className={`text-sm font-extrabold ${item.status !== "available" ? "text-gray-400 line-through" : "gradient-text-price"}`}>¥{item.selling_price.toLocaleString()}</p>
                                 </div>
                             </div>
                         ))}

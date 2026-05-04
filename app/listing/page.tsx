@@ -323,7 +323,7 @@ export default function ListingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white font-gentle">
       {/* Listing Tutorial for first-time visitors */}
       {showTutorial && (
         <ListingTutorial onClose={handleCloseTutorial} />
@@ -622,11 +622,9 @@ export default function ListingPage() {
                 <button
                   onClick={captureAndScan}
                   disabled={scanStatus === "detected"}
-                  className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
+                  className="w-16 h-16 bg-gradient-btn-blue rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
                 >
-                  <div className="w-14 h-14 border-2 border-black rounded-full flex items-center justify-center">
-                    <Camera className="w-6 h-6 text-gray-700" />
-                  </div>
+                  <Camera className="w-6 h-6 text-white" />
                 </button>
               </div>
             </div>

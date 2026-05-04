@@ -71,7 +71,7 @@ const ItemCard = memo(function ItemCard({
             <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
               {item.title}
             </h3>
-            <p className="text-xl font-bold text-primary">
+            <p className="text-xl font-bold gradient-text-price">
               ¥{item.selling_price.toLocaleString()}
             </p>
           </div>
@@ -465,7 +465,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
 
   return (
     <div
-      className="min-h-screen bg-white pb-24"
+      className="min-h-screen bg-white pb-24 font-gentle"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -511,7 +511,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       <header className="bg-white px-6 pt-8 pb-6 border-b">
         <div className="flex items-end justify-between mb-6">
           <div className="flex flex-col">
-            <h1 className="text-3xl font-bold text-primary leading-none tracking-tight">
+            <h1 className="text-3xl font-bold gradient-text-blue leading-none tracking-tight">
               TextNext
             </h1>
             <div className="flex items-center gap-1 text-primary/80 mt-1">
@@ -587,22 +587,25 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
               <p className="text-gray-500 mb-4">同じ所属の出品はまだありません</p>
               <Link
                 href="/listing"
-                className="inline-block px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all"
+                className="inline-block px-6 py-3 gradient-btn-blue rounded-xl font-semibold transition-all"
               >
                 最初の出品者になる
               </Link>
             </div>
           ) : (
             <>
-              <div className="space-y-4">
+              <div className="relative ml-2 space-y-4 border-l border-sky-200/80 pl-5">
                 {recommendedItems.map((item, index) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    isFavorite={favoriteSet.has(item.id)}
-                    onToggleFavorite={toggleFavorite}
-                    index={index}
-                  />
+                  <div key={item.id} className="relative">
+                    <div className="absolute -left-5 top-8 h-px w-4 bg-sky-200" />
+                    <div className="absolute -left-[25px] top-7 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-sky-200" />
+                    <ItemCard
+                      item={item}
+                      isFavorite={favoriteSet.has(item.id)}
+                      onToggleFavorite={toggleFavorite}
+                      index={index}
+                    />
+                  </div>
                 ))}
               </div>
 
@@ -642,15 +645,18 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             </h2>
           </div>
 
-          <div className="space-y-4">
+          <div className="relative ml-2 space-y-4 border-l border-emerald-200/80 pl-5">
             {displayedPopularItems.map((item, index) => (
-              <ItemCard
-                key={`popular-${item.id}`}
-                item={item}
-                isFavorite={favoriteSet.has(item.id)}
-                onToggleFavorite={toggleFavorite}
-                index={index}
-              />
+              <div key={`popular-${item.id}`} className="relative">
+                <div className="absolute -left-5 top-8 h-px w-4 bg-emerald-200" />
+                <div className="absolute -left-[25px] top-7 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-emerald-200" />
+                <ItemCard
+                  item={item}
+                  isFavorite={favoriteSet.has(item.id)}
+                  onToggleFavorite={toggleFavorite}
+                  index={index}
+                />
+              </div>
             ))}
           </div>
 
