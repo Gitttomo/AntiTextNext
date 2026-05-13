@@ -343,13 +343,13 @@ export default function ListingPage() {
 
       <div className="px-6 py-8">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl border shadow-lg p-8">
+          <div className="bg-white rounded-2xl border shadow-lg p-5 sm:p-8">
             <div className="space-y-6">
               <div className="animate-slide-in-bottom">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   バーコード (ISBN) <span className="text-gray-400 text-xs ml-1">※任意</span>
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
                     placeholder="978から始まる13桁の数字"
@@ -357,12 +357,12 @@ export default function ListingPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, barcode: e.target.value })
                     }
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    className="min-w-0 flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                   />
                   <button
                     onClick={handleBarcodeSearch}
                     disabled={searching || !formData.barcode}
-                    className="px-3 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap"
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap sm:w-auto"
                   >
                     {searching ? (
                       <Loader2 className="w-5 h-5 animate-spin" />

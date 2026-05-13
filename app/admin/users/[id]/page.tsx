@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../../_components/admin-shell";
 import { RevealEmailButton } from "../../_components/reveal-email-button";
 import { formatAdminDate, maskEmail, requireAdmin } from "@/lib/admin-utils";
+import RestrictionActions from "./restriction-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,11 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
   const profile = profileResult.data as any;
   const userSummary = ((listResult.data ?? []) as any[]).find((user) => user.user_id === userId);
   const maskedEmail = userSummary?.masked_email ?? maskEmail(null);
+  const activeRestriction = ((restrictionsResult.data ?? []) as any[]).find((restriction) => {
+    if (restriction.lifted_at) return false;
+    if (!restriction.ends_at) return true;
+    return new Date(restriction.ends_at).getTime() > Date.now();
+  });
 
   return (
     <>
@@ -53,6 +59,8 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
             </div>
           </div>
         </section>
+
+        <RestrictionActions userId={userId} activeRestriction={activeRestriction?.restriction_type ?? userSummary?.restriction_status} />
 
         <Grid>
           <List title="出品一覧" rows={(itemsResult.data ?? []).map((item: any) => ({ href: `/admin/items?item=${item.id}`, title: item.title, meta: `${item.status} / ${formatAdminDate(item.created_at)}` }))} />

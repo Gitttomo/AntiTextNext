@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../_components/admin-shell";
+import { AdminUserLink } from "../_components/admin-user-link";
 import { formatAdminDate, getStringParam, maskEmail, requireAdmin, type AdminSearchParams } from "@/lib/admin-utils";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,11 @@ export default async function AdminInquiriesPage({ searchParams }: { searchParam
   let query = (supabase as any).from("inquiries").select("*").order("updated_at", { ascending: false }).limit(200);
   if (status) query = query.eq("status", status);
   const { data, error } = await query;
+  const userIds = Array.from(
+    new Set(((data ?? []) as any[]).flatMap((inquiry) => [inquiry.sender_user_id, inquiry.assignee_id]).filter(Boolean))
+  );
+  const { data: profiles } = userIds.length ? await supabase.from("profiles").select("user_id,nickname").in("user_id", userIds) : { data: [] };
+  const profileMap = new Map(((profiles ?? []) as any[]).map((profile) => [profile.user_id, profile.nickname]));
 
   return (
     <>
@@ -39,14 +45,16 @@ export default async function AdminInquiriesPage({ searchParams }: { searchParam
                     <Link className="text-primary hover:underline" href={`/admin/inquiries/${inq.id}`}>{inq.id.slice(0, 8)}</Link>
                   </td>
                   <td className="px-4 py-3 font-bold">{formatAdminDate(inq.created_at)}</td>
-                  <td className="px-4 py-3 font-bold">{inq.sender_name || inq.sender_user_id || "-"}</td>
+                  <td className="px-4 py-3 font-bold">
+                    {inq.sender_user_id ? <AdminUserLink id={inq.sender_user_id} name={profileMap.get(inq.sender_user_id) as string | undefined} /> : inq.sender_name || "-"}
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs font-bold">{maskEmail(inq.email)}</td>
                   <td className="px-4 py-3 font-bold">{inq.category}</td>
                   <td className="max-w-sm truncate px-4 py-3 font-bold">
                     <Link className="hover:text-primary hover:underline" href={`/admin/inquiries/${inq.id}`}>{inq.content}</Link>
                   </td>
                   <td className="px-4 py-3"><StatusBadge value={inq.status} /></td>
-                  <td className="px-4 py-3 font-bold">{inq.assignee_id?.slice(0, 8) || "-"}</td>
+                  <td className="px-4 py-3 font-bold"><AdminUserLink id={inq.assignee_id} name={profileMap.get(inq.assignee_id) as string | undefined} /></td>
                   <td className="px-4 py-3 font-bold">{formatAdminDate(inq.updated_at)}</td>
                 </tr>
               ))}

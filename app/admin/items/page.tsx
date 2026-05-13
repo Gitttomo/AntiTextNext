@@ -1,6 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../_components/admin-shell";
+import { AdminUserLink } from "../_components/admin-user-link";
 import { formatAdminDate, getStringParam, requireAdmin, type AdminSearchParams } from "@/lib/admin-utils";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export default async function AdminItemsPage({ searchParams }: { searchParams: A
                   <td className="px-4 py-3 font-black">{item.title}</td>
                   <td className="px-4 py-3"><Thumb src={item.front_image_url} /></td>
                   <td className="px-4 py-3"><Thumb src={item.back_image_url} /></td>
-                  <td className="px-4 py-3"><Link href={`/admin/users/${item.seller_id}`} className="font-bold text-primary">{profileMap.get(item.seller_id) ?? item.seller_id.slice(0, 8)}</Link></td>
+                  <td className="px-4 py-3"><AdminUserLink id={item.seller_id} name={profileMap.get(item.seller_id) as string | undefined} /></td>
                   <td className="px-4 py-3 font-bold text-slate-600">{formatAdminDate(item.created_at)}</td>
                   <td className="px-4 py-3"><StatusBadge value={item.status} /></td>
                   <td className="px-4 py-3"><StatusBadge value={item.transactions?.[0]?.status ?? "未取引"} /></td>

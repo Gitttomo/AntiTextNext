@@ -105,7 +105,9 @@ export default function NotificationsPage() {
         }
 
         // Navigate based on link_type
-        if (notification.link_type === "chat" && notification.link_id) {
+        if (notification.type === "admin_inquiry_reply" || notification.type === "admin_restriction_notice") {
+            router.push(`/notifications/${notification.id}`);
+        } else if (notification.link_type === "chat" && notification.link_id) {
             router.push(`/chat/${notification.link_id}?from=notifications`);
         } else if (notification.link_type === "transaction" && notification.link_id) {
             router.push(`/transactions`);
@@ -130,6 +132,10 @@ export default function NotificationsPage() {
                 return <XCircle className="w-5 h-5 text-red-500" />;
             case "watch_match":
                 return <Bell className="w-5 h-5 text-primary" />;
+            case "admin_inquiry_reply":
+                return <Inbox className="w-5 h-5 text-primary" />;
+            case "admin_restriction_notice":
+                return <Bell className="w-5 h-5 text-red-500" />;
             default:
                 return <Bell className="w-5 h-5 text-gray-500" />;
         }

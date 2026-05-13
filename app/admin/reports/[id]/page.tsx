@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../../_components/admin-shell";
+import { AdminUserLink } from "../../_components/admin-user-link";
 import { formatAdminDate, requireAdmin } from "@/lib/admin-utils";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,9 @@ export const dynamic = "force-dynamic";
 export default async function AdminReportDetailPage({ params }: { params: { id: string } }) {
   const { supabase } = await requireAdmin();
   const { data: report, error } = await (supabase as any).from("reports").select("*").eq("id", params.id).single();
+  const userIds = [report?.reporter_id, report?.reported_user_id].filter(Boolean);
+  const { data: profiles } = userIds.length ? await supabase.from("profiles").select("user_id,nickname").in("user_id", userIds) : { data: [] };
+  const profileMap = new Map(((profiles ?? []) as any[]).map((profile) => [profile.user_id, profile.nickname]));
 
   return (
     <>
@@ -17,8 +21,8 @@ export default async function AdminReportDetailPage({ params }: { params: { id: 
           <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
             <Field label="通報ID" value={report.id} />
             <Field label="状態" value={<StatusBadge value={report.status} />} />
-            <Field label="通報者" value={report.reporter_id ? <Link className="text-primary" href={`/admin/users/${report.reporter_id}`}>{report.reporter_id}</Link> : "-"} />
-            <Field label="通報されたユーザー" value={report.reported_user_id ? <Link className="text-primary" href={`/admin/users/${report.reported_user_id}`}>{report.reported_user_id}</Link> : "-"} />
+            <Field label="通報者" value={<AdminUserLink id={report.reporter_id} name={profileMap.get(report.reporter_id) as string | undefined} />} />
+            <Field label="通報されたユーザー" value={<AdminUserLink id={report.reported_user_id} name={profileMap.get(report.reported_user_id) as string | undefined} />} />
             <Field label="対象出品" value={report.item_id || "-"} />
             <Field label="対象取引" value={report.transaction_id ? <Link className="text-primary" href={`/admin/transactions/${report.transaction_id}`}>{report.transaction_id}</Link> : "-"} />
             <Field label="理由" value={report.reason} />

@@ -253,7 +253,7 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
         <div className="min-h-screen bg-white pb-24">
             <header className="bg-white px-6 pt-8 pb-6 border-b">
                 <div className="flex items-center gap-4 mb-6">
-                    <Link href="/">
+                    <Link href="/profile">
                         <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
                     </Link>
                     <h1 className="text-3xl font-bold text-primary">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../_components/admin-shell";
+import { AdminUserLink } from "../_components/admin-user-link";
 import { formatAdminDate, getStringParam, requireAdmin, type AdminSearchParams } from "@/lib/admin-utils";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,15 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
   let query = (supabase as any).from("reports").select("*").order("updated_at", { ascending: false }).limit(200);
   if (status) query = query.eq("status", status);
   const { data, error } = await query;
+  const userIds = Array.from(
+    new Set(
+      ((data ?? []) as any[])
+        .flatMap((report) => [report.reporter_id, report.reported_user_id, report.assignee_id])
+        .filter(Boolean)
+    )
+  );
+  const { data: profiles } = userIds.length ? await supabase.from("profiles").select("user_id,nickname").in("user_id", userIds) : { data: [] };
+  const profileMap = new Map(((profiles ?? []) as any[]).map((profile) => [profile.user_id, profile.nickname]));
 
   return (
     <>
@@ -33,13 +43,13 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
           rows={((data ?? []) as any[]).map((report) => [
             <Link key="id" href={`/admin/reports/${report.id}`} className="font-mono text-xs font-black text-primary">{report.id}</Link>,
             formatAdminDate(report.created_at),
-            userLink(report.reporter_id),
-            userLink(report.reported_user_id),
+            userLink(report.reporter_id, profileMap),
+            userLink(report.reported_user_id, profileMap),
             report.item_id || "-",
             report.transaction_id || "-",
             report.reason,
             <StatusBadge key="status" value={report.status} />,
-            report.assignee_id ? userLink(report.assignee_id) : "-",
+            report.assignee_id ? userLink(report.assignee_id, profileMap) : "-",
             formatAdminDate(report.updated_at),
           ])}
           headers={["通報ID", "通報日時", "通報者", "通報されたユーザー", "対象出品", "対象取引", "理由", "状態", "担当者", "最終更新"]}
@@ -49,8 +59,8 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
   );
 }
 
-function userLink(id?: string | null) {
-  return id ? <Link href={`/admin/users/${id}`} className="font-mono text-xs font-bold text-primary">{id.slice(0, 8)}</Link> : "-";
+function userLink(id: string | null | undefined, profileMap: Map<any, any>) {
+  return <AdminUserLink id={id} name={id ? profileMap.get(id) : null} />;
 }
 
 function AdminTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) {

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../../_components/admin-shell";
+import { AdminUserLink } from "../../_components/admin-user-link";
 import { formatAdminDate, maskEmail, requireAdmin } from "@/lib/admin-utils";
+import InquiryActions from "./inquiry-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,10 @@ export default async function AdminInquiryDetailPage({ params }: { params: { id:
     .order("created_at", { ascending: false })
     .limit(30);
 
+  const { data: senderProfile } = inquiry?.sender_user_id
+    ? await supabase.from("profiles").select("user_id,nickname").eq("user_id", inquiry.sender_user_id).single()
+    : { data: null };
+
   return (
     <>
       <AdminPageHeader title="問い合わせ詳細" description="内容全文、対応状態、管理者メモを確認できます。" />
@@ -32,11 +38,18 @@ export default async function AdminInquiryDetailPage({ params }: { params: { id:
 
         {inquiry && (
           <>
+            <InquiryActions
+              inquiryId={inquiry.id}
+              initialStatus={inquiry.status}
+              initialAdminNote={inquiry.admin_note}
+              senderUserId={inquiry.sender_user_id}
+            />
+
             <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
               <Field label="問い合わせID" value={inquiry.id} />
               <Field label="状態" value={<StatusBadge value={inquiry.status} />} />
               <Field label="送信者" value={inquiry.sender_name || "-"} />
-              <Field label="送信者ユーザーID" value={inquiry.sender_user_id ? <Link className="text-primary hover:underline" href={`/admin/users/${inquiry.sender_user_id}`}>{inquiry.sender_user_id}</Link> : "-"} />
+              <Field label="送信者ユーザー" value={<AdminUserLink id={inquiry.sender_user_id} name={(senderProfile as any)?.nickname || inquiry.sender_name} />} />
               <Field label="メールアドレス" value={maskEmail(inquiry.email)} />
               <Field label="種別" value={inquiry.category} />
               <Field label="担当者" value={inquiry.assignee_id || "-"} />

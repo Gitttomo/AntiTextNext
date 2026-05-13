@@ -76,7 +76,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: A
               {users.map((user) => (
                 <tr key={user.user_id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/users/${user.user_id}`} className="flex items-center gap-3 font-black text-slate-900 hover:text-primary">
+                    <Link href={`/admin/users/${user.user_id}`} title={`管理ID: ${user.user_id}`} className="flex items-center gap-3 font-black text-slate-900 hover:text-primary">
                       <Avatar src={user.avatar_url} alt={user.nickname} />
                       <span>{user.nickname}</span>
                     </Link>

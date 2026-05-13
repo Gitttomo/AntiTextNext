@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../../_components/admin-shell";
+import { AdminUserLink } from "../../_components/admin-user-link";
 import { RevealChatButton } from "../../_components/reveal-chat-button";
 import { formatAdminDate, requireAdmin } from "@/lib/admin-utils";
 
@@ -12,6 +12,9 @@ export default async function AdminTransactionDetailPage({ params }: { params: {
     .select("*, items(id,title,status,front_image_url), ratings(*)")
     .eq("id", params.id)
     .single();
+  const userIds = [tx?.seller_id, tx?.buyer_id].filter(Boolean);
+  const { data: profiles } = userIds.length ? await supabase.from("profiles").select("user_id,nickname").in("user_id", userIds) : { data: [] };
+  const profileMap = new Map(((profiles ?? []) as any[]).map((profile) => [profile.user_id, profile.nickname]));
 
   return (
     <>
@@ -23,8 +26,8 @@ export default async function AdminTransactionDetailPage({ params }: { params: {
             <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
               <Field label="商品" value={tx.items?.title ?? tx.item_id} />
               <Field label="取引ステータス" value={<StatusBadge value={tx.status} />} />
-              <Field label="出品者" value={<Link className="text-primary" href={`/admin/users/${tx.seller_id}`}>{tx.seller_id}</Link>} />
-              <Field label="購入者" value={<Link className="text-primary" href={`/admin/users/${tx.buyer_id}`}>{tx.buyer_id}</Link>} />
+              <Field label="出品者" value={<AdminUserLink id={tx.seller_id} name={profileMap.get(tx.seller_id) as string | undefined} />} />
+              <Field label="購入者" value={<AdminUserLink id={tx.buyer_id} name={profileMap.get(tx.buyer_id) as string | undefined} />} />
               <Field label="購入日時" value={formatAdminDate(tx.created_at)} />
               <Field label="受け渡し日時" value={`${tx.final_meetup_time || "未確定"} / ${tx.final_meetup_location || "-"}`} />
               <Field label="候補日時" value={(tx.meetup_time_slots ?? []).join(", ") || "-"} />

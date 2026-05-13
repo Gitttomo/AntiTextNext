@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../_components/admin-shell";
+import { AdminUserLink } from "../_components/admin-user-link";
 import { formatAdminDate, getStringParam, requireAdmin, type AdminSearchParams } from "@/lib/admin-utils";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +21,14 @@ export default async function AdminTransactionsPage({ searchParams }: { searchPa
   const { data, error } = await query;
   const txIds = ((data ?? []) as any[]).map((tx) => tx.id);
   const itemIds = ((data ?? []) as any[]).map((tx) => tx.item_id);
+  const userIds = Array.from(new Set(((data ?? []) as any[]).flatMap((tx) => [tx.seller_id, tx.buyer_id]).filter(Boolean)));
   const { data: reports } = txIds.length ? await (supabase as any).from("reports").select("transaction_id").in("transaction_id", txIds) : { data: [] };
+  const { data: profiles } = userIds.length ? await supabase.from("profiles").select("user_id,nickname").in("user_id", userIds) : { data: [] };
   const { data: lastMessages } = itemIds.length
     ? await (supabase as any).from("messages").select("item_id, created_at").in("item_id", itemIds).order("created_at", { ascending: false })
     : { data: [] };
   const reportedIds = new Set(((reports ?? []) as any[]).map((report) => report.transaction_id));
+  const profileMap = new Map(((profiles ?? []) as any[]).map((profile) => [profile.user_id, profile.nickname]));
   const lastMessageMap = new Map<string, string>();
   for (const message of (lastMessages ?? []) as any[]) {
     if (!lastMessageMap.has(message.item_id)) {
@@ -67,8 +71,8 @@ export default async function AdminTransactionsPage({ searchParams }: { searchPa
                   <tr key={tx.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3"><Link href={`/admin/transactions/${tx.id}`} className="font-mono text-xs font-black text-primary">{tx.id}</Link></td>
                     <td className="px-4 py-3 font-black">{tx.items?.title ?? tx.item_id}</td>
-                    <td className="px-4 py-3"><Link className="font-bold text-primary" href={`/admin/users/${tx.seller_id}`}>{tx.seller_id.slice(0, 8)}</Link></td>
-                    <td className="px-4 py-3"><Link className="font-bold text-primary" href={`/admin/users/${tx.buyer_id}`}>{tx.buyer_id.slice(0, 8)}</Link></td>
+                    <td className="px-4 py-3"><AdminUserLink id={tx.seller_id} name={profileMap.get(tx.seller_id) as string | undefined} /></td>
+                    <td className="px-4 py-3"><AdminUserLink id={tx.buyer_id} name={profileMap.get(tx.buyer_id) as string | undefined} /></td>
                     <td className="px-4 py-3"><StatusBadge value={tx.status} /></td>
                     <td className="px-4 py-3 font-bold text-slate-600">{formatAdminDate(tx.created_at)}</td>
                     <td className="px-4 py-3 font-bold text-slate-600">{formatAdminDate(lastMessageMap.get(tx.item_id))}</td>
