@@ -43,7 +43,7 @@ export default function TrialNoticeBanner() {
           </div>
           {!collapsed && (
             <p className="mt-1 text-xs font-medium leading-relaxed text-amber-800">
-              TextNext は現在サイト作成中のため、試験運用として公開しています。表示や動作に不具合がある場合があります。
+              TextNext は現在、ベータ版として公開しています。表示や動作に不具合が見られた場合、「マイページ」→「お問い合わせ」からご報告いただけますと幸いです。
             </p>
           )}
         </div>
