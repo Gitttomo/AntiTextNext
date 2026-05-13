@@ -21,11 +21,11 @@ import {
 import { CONTACT_NOTICE_ITEMS } from "@/lib/legal";
 
 const CATEGORIES = [
-    { value: "bug", label: "不具合・バグ報告", icon: "🐛" },
-    { value: "report", label: "通報（ユーザー・出品物）", icon: "🚨" },
-    { value: "feature", label: "機能リクエスト・改善要望", icon: "💡" },
-    { value: "account", label: "アカウントに関する問題", icon: "👤" },
-    { value: "other", label: "その他", icon: "📝" },
+    { value: "bug", label: "不具合・バグ報告", icon: ""},
+    { value: "report", label: "通報（ユーザー・出品物）", icon: "" },
+    { value: "feature", label: "機能リクエスト・改善要望", icon: "" },
+    { value: "account", label: "アカウントに関する問題", icon: "" },
+    { value: "other", label: "その他", icon: "" },
 ];
 
 type Step = "input" | "confirm" | "done" | "error";
@@ -99,6 +99,7 @@ export default function ContactPage() {
     };
 
     const handleSubmit = async () => {
+        if (sending || !contactNoticeConfirmed) return;
         setSending(true);
         try {
             const res = await fetch("/api/contact", {
@@ -118,9 +119,11 @@ export default function ContactPage() {
             if (data.success) {
                 setStep("done");
             } else {
+                console.error("Contact submit failed:", data.error);
                 setStep("error");
             }
-        } catch {
+        } catch (error) {
+            console.error("Contact submit error:", error);
             setStep("error");
         } finally {
             setSending(false);
@@ -144,7 +147,7 @@ export default function ContactPage() {
             <div className="min-h-screen bg-white">
                 <header className="bg-white px-6 pt-8 pb-6 border-b">
                     <div className="flex items-center gap-4">
-                        <Link href="/profile/edit">
+                        <Link href="/settings">
                             <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
                         </Link>
                         <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
@@ -168,7 +171,7 @@ export default function ContactPage() {
                             しばらくお待ちください。
                         </p>
                         <Link
-                            href="/profile/edit"
+                            href="/profile"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-all shadow-md animate-slide-in-left"
                             style={{ animationDelay: '200ms' }}
                         >
@@ -186,7 +189,7 @@ export default function ContactPage() {
             <div className="min-h-screen bg-white">
                 <header className="bg-white px-6 pt-8 pb-6 border-b">
                     <div className="flex items-center gap-4">
-                        <Link href="/profile/edit">
+                        <Link href="/settings">
                             <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
                         </Link>
                         <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
@@ -362,7 +365,7 @@ export default function ContactPage() {
         <div className="min-h-screen bg-white">
             <header className="bg-white px-6 pt-8 pb-6 border-b">
                 <div className="flex items-center gap-4">
-                    <Link href="/profile/edit">
+                    <Link href="/settings">
                         <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
                     </Link>
                     <h1 className="text-3xl font-bold text-primary animate-slide-in-left">

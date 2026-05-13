@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
-import { ArrowLeft, Upload, Loader2, Camera, X, Scan, AlertCircle, CheckCircle } from "lucide-react";
+import { Upload, Loader2, Camera, X, Scan, AlertCircle, CheckCircle } from "lucide-react";
 import { calculateSellingPrice } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import Quagga from "@ericblade/quagga2";
 import ListingTutorial from "@/components/ListingTutorial";
 import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
+import { uploadItemImageVariants } from "@/lib/image-storage";
 
 type ListingStep = "form" | "confirm" | "success";
 
@@ -115,23 +115,6 @@ export default function ListingPage() {
     }
   };
 
-  const uploadImage = async (file: File, fileName: string): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${user!.id}/${fileName}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('item-images')
-      .upload(filePath, file);
-
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('item-images')
-      .getPublicUrl(filePath);
-
-    return publicUrl;
-  };
-
   const canSubmit = Boolean(
     formData.bookName &&
     formData.originalPrice &&
@@ -142,6 +125,7 @@ export default function ListingPage() {
   );
 
   const handleSubmit = async () => {
+    if (uploading) return;
     if (step === "form") {
       if (!canSubmit) return;
       setStep("confirm");
@@ -152,17 +136,31 @@ export default function ListingPage() {
         // Upload images
         let frontImageUrl = null;
         let backImageUrl = null;
+        let frontThumbnailUrl = null;
+        let backThumbnailUrl = null;
+        let frontImageStoragePath = null;
+        let backImageStoragePath = null;
+        let frontThumbnailStoragePath = null;
+        let backThumbnailStoragePath = null;
 
         if (formData.frontCover) {
-          frontImageUrl = await uploadImage(formData.frontCover, `front-${Date.now()}`);
+          const frontImage = await uploadItemImageVariants(formData.frontCover, `${user!.id}/front-${Date.now()}`);
+          frontImageUrl = frontImage.detail.publicUrl;
+          frontThumbnailUrl = frontImage.thumbnail.publicUrl;
+          frontImageStoragePath = frontImage.detail.path;
+          frontThumbnailStoragePath = frontImage.thumbnail.path;
         }
 
         if (formData.backCover) {
-          backImageUrl = await uploadImage(formData.backCover, `back-${Date.now()}`);
+          const backImage = await uploadItemImageVariants(formData.backCover, `${user!.id}/back-${Date.now()}`);
+          backImageUrl = backImage.detail.publicUrl;
+          backThumbnailUrl = backImage.thumbnail.publicUrl;
+          backImageStoragePath = backImage.detail.path;
+          backThumbnailStoragePath = backImage.thumbnail.path;
         }
 
         // Create item in database
-        const { error } = await (supabase.from("items") as any).insert({
+        const { data: insertedItem, error } = await (supabase.from("items") as any).insert({
           seller_id: user!.id,
           title: formData.bookName,
           original_price: Number(formData.originalPrice),
@@ -171,7 +169,16 @@ export default function ListingPage() {
           status: "available",
           front_image_url: frontImageUrl,
           back_image_url: backImageUrl,
-        });
+          front_thumbnail_url: frontThumbnailUrl,
+          back_thumbnail_url: backThumbnailUrl,
+          front_image_storage_path: frontImageStoragePath,
+          back_image_storage_path: backImageStoragePath,
+          front_thumbnail_storage_path: frontThumbnailStoragePath,
+          back_thumbnail_storage_path: backThumbnailStoragePath,
+          image_storage_provider: "supabase",
+        })
+        .select("id")
+        .single();
 
         if (error) throw error;
 
@@ -180,8 +187,7 @@ export default function ListingPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            itemTitle: formData.bookName,
-            sellerId: user!.id,
+            itemId: insertedItem?.id,
           }),
         }).catch(() => {}); // 失敗しても出品自体はブロックしない
 
@@ -221,8 +227,8 @@ export default function ListingPage() {
   if (step === "confirm") {
     return (
       <div className="min-h-screen bg-white">
-        <header className="bg-white px-6 pt-8 pb-6 border-b">
-          <h1 className="text-3xl font-bold text-primary">
+        <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight">
             出品内容の確認
           </h1>
         </header>
@@ -323,32 +329,27 @@ export default function ListingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white font-gentle">
       {/* Listing Tutorial for first-time visitors */}
       {showTutorial && (
         <ListingTutorial onClose={handleCloseTutorial} />
       )}
 
-      <header className="bg-white px-6 pt-8 pb-6 border-b">
-        <div className="flex items-center gap-4">
-          <Link href="/">
-            <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
-          </Link>
-          <h1 className="text-3xl font-bold text-primary animate-slide-in-left">
-            教科書の出品
-          </h1>
-        </div>
+      <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
+        <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+          教科書の出品
+        </h1>
       </header>
 
       <div className="px-6 py-8">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl border shadow-lg p-8">
+          <div className="bg-white rounded-2xl border shadow-lg p-5 sm:p-8">
             <div className="space-y-6">
               <div className="animate-slide-in-bottom">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   バーコード (ISBN) <span className="text-gray-400 text-xs ml-1">※任意</span>
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
                     placeholder="978から始まる13桁の数字"
@@ -356,12 +357,12 @@ export default function ListingPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, barcode: e.target.value })
                     }
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    className="min-w-0 flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                   />
                   <button
                     onClick={handleBarcodeSearch}
                     disabled={searching || !formData.barcode}
-                    className="px-3 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap"
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap sm:w-auto"
                   >
                     {searching ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -622,11 +623,9 @@ export default function ListingPage() {
                 <button
                   onClick={captureAndScan}
                   disabled={scanStatus === "detected"}
-                  className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
+                  className="w-16 h-16 bg-gradient-btn-blue rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
                 >
-                  <div className="w-14 h-14 border-2 border-black rounded-full flex items-center justify-center">
-                    <Camera className="w-6 h-6 text-gray-700" />
-                  </div>
+                  <Camera className="w-6 h-6 text-white" />
                 </button>
               </div>
             </div>

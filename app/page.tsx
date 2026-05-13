@@ -10,7 +10,7 @@ export default async function HomePage() {
   // みんなの出品（新着順 上位15件）
   const { data: popularData, error: popularError } = await supabase
     .from("items")
-    .select("id, title, selling_price, front_image_url, seller_id, favorites(count)")
+    .select("id, title, selling_price, front_image_url, front_thumbnail_url, seller_id, favorites(count)")
     .eq("status", "available")
     .order("created_at", { ascending: false })
     .range(0, 14);

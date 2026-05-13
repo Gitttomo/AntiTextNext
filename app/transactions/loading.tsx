@@ -1,5 +1,5 @@
-import { TransactionsSkeleton } from "./skeleton";
+import PageTurnLoader from "@/components/page-turn-loader";
 
 export default function Loading() {
-    return <TransactionsSkeleton />;
+    return <PageTurnLoader />;
 }

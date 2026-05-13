@@ -2,13 +2,15 @@
 
 export const dynamic = "force-dynamic";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Search, History, Heart, Bell, Loader2, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 export type SearchHistory = {
   id: string;
@@ -20,6 +22,8 @@ export type Item = {
   id: string;
   title: string;
   selling_price: number;
+  front_image_url: string | null;
+  front_thumbnail_url?: string | null;
   //condition: string;
   favorite_count?: number;
 };
@@ -61,6 +65,12 @@ function SearchContent() {
   const [hasSearched, setHasSearched] = useState(false);
   const [watchSaving, setWatchSaving] = useState(false);
   const [watchSaved, setWatchSaved] = useState(false);
+  const favoriteStateRef = useRef<Set<string>>(new Set());
+  const favoriteSyncTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    favoriteStateRef.current = new Set(favorites);
+  }, [favorites]);
 
   // 検索実�?
   const executeSearch = async (query: string) => {
@@ -84,7 +94,7 @@ function SearchContent() {
         searches.map(async (searchTerm) => {
           const { data, error } = await supabase
             .from("items")
-            .select("id, title, selling_price, favorites(count)")
+            .select("id, title, selling_price, front_image_url, front_thumbnail_url, favorites(count)")
             .eq("status", "available")
             .ilike("title", `%${searchTerm}%`)
             .order("created_at", { ascending: false })
@@ -237,44 +247,80 @@ function SearchContent() {
     executeSearch(keyword);
   };
 
-  const toggleFavorite = async (id: string, e: React.MouseEvent) => {
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!user) return;
 
-    const isFav = favorites.includes(id);
+    const wasFavorite = favoriteStateRef.current.has(id);
+    const shouldFavorite = !wasFavorite;
+
+    if (shouldFavorite) {
+      favoriteStateRef.current.add(id);
+    } else {
+      favoriteStateRef.current.delete(id);
+    }
 
     setFavorites(prev =>
-      isFav ? prev.filter(favId => favId !== id) : [...prev, id]
+      shouldFavorite
+        ? (prev.includes(id) ? prev : [...prev, id])
+        : prev.filter(favId => favId !== id)
     );
 
+    const delta = shouldFavorite ? 1 : -1;
     setResults(prev => prev.map(item => {
       if (item.id === id) {
         return {
           ...item,
-          favorite_count: Math.max(0, (item.favorite_count || 0) + (isFav ? -1 : 1))
+          favorite_count: Math.max(0, (item.favorite_count || 0) + delta)
         };
       }
       return item;
     }));
 
-    try {
-      if (isFav) {
-        await (supabase
-          .from("favorites") as any)
-          .delete()
-          .match({ user_id: user.id, item_id: id });
-      } else {
-        await (supabase
-          .from("favorites") as any)
-          .upsert({ user_id: user.id, item_id: id }, { onConflict: 'user_id,item_id' });
-      }
-    } catch (err) {
-      setFavorites(prev =>
-        isFav ? [...prev, id] : prev.filter(favId => favId !== id)
-      );
+    const existingTimer = favoriteSyncTimersRef.current.get(id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
     }
+
+    const timer = setTimeout(async () => {
+      try {
+        if (shouldFavorite) {
+          await (supabase
+            .from("favorites") as any)
+            .upsert({ user_id: user.id, item_id: id }, { onConflict: 'user_id,item_id' });
+        } else {
+          await (supabase
+            .from("favorites") as any)
+            .delete()
+            .match({ user_id: user.id, item_id: id });
+        }
+      } catch (err) {
+        if (favoriteStateRef.current.has(id) === shouldFavorite) {
+          if (wasFavorite) {
+            favoriteStateRef.current.add(id);
+          } else {
+            favoriteStateRef.current.delete(id);
+          }
+          setFavorites(prev =>
+            wasFavorite
+              ? (prev.includes(id) ? prev : [...prev, id])
+              : prev.filter(favId => favId !== id)
+          );
+          const rollbackDelta = wasFavorite ? 1 : -1;
+          setResults(prev => prev.map(item =>
+            item.id === id
+              ? { ...item, favorite_count: Math.max(0, (item.favorite_count || 0) + rollbackDelta) }
+              : item
+          ));
+        }
+      } finally {
+        favoriteSyncTimersRef.current.delete(id);
+      }
+    }, 220);
+
+    favoriteSyncTimersRef.current.set(id, timer);
   };
 
   return (
@@ -369,11 +415,29 @@ function SearchContent() {
             <h3 className="text-sm font-semibold text-gray-700 mb-4">
               {results.length}件の結果
             </h3>
-            <div className="space-y-4">
+            <div className="relative ml-2 space-y-4 border-l-2 border-primary/15 pl-5">
               {results.map((item) => (
                 <Link key={item.id} href={`/product/${item.id}`} prefetch={false}>
-                  <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
+                  <div className="relative bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
+                    <div className="absolute -left-[31px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white bg-primary/30 shadow-sm" />
                     <div className="flex items-center justify-between gap-4">
+                      <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 border border-gray-100 shadow-sm">
+                        {getItemImageUrl(item, "front", "thumbnail") ? (
+                          <Image
+                            src={getItemImageUrl(item, "front", "thumbnail")!}
+                            alt={item.title}
+                            width={56}
+                            height={80}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            quality={55}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Search className="h-5 w-5 text-gray-300" />
+                          </div>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         {/* <div className="text-xs font-medium text-gray-500 mb-1">
                           {item.condition}

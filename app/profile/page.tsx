@@ -45,13 +45,18 @@ export default async function Mypage() {
         { data: ratingsData },
         { data: favoritesData },
         { data: sellerItems },
-        { data: sellerTransactions }
+        { data: sellerTransactions },
+        { data: buyerTransactions }
     ] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", userId).single(),
         supabase.from("ratings").select("score").eq("rated_id", userId),
         supabase.from("favorites").select("item_id, items(*)").eq("user_id", userId),
         supabase.from("items").select("*").eq("seller_id", userId),
-        supabase.from("transactions").select("item_id, status").eq("seller_id", userId)
+        supabase.from("transactions").select("item_id, status").eq("seller_id", userId),
+        supabase
+            .from("transactions")
+            .select("item_id, status, items(*)")
+            .eq("buyer_id", userId)
     ]);
 
     // Calculate average rating
@@ -65,7 +70,14 @@ export default async function Mypage() {
 
     // Filter past items: sold status OR completed transaction
     const completedTxItemIds = new Set((sellerTransactions || []).filter(tx => tx.status === 'completed').map(tx => tx.item_id));
-    const pastItems = (sellerItems || []).filter(item => item.status === 'sold' || completedTxItemIds.has(item.id));
+    const sellerPastItems = (sellerItems || []).filter(item => item.status === 'sold' || completedTxItemIds.has(item.id));
+    const buyerPastItems = ((buyerTransactions || []) as any[])
+        .filter(tx => tx.status === 'completed' || tx.items?.status === 'sold')
+        .map(tx => tx.items)
+        .filter(Boolean);
+    const pastItems = Array.from(
+        new Map([...sellerPastItems, ...buyerPastItems].map((item: any) => [item.id, item])).values()
+    );
 
     // Extract favorite items
     const favoriteItems = (favoritesData || []).map(f => f.items).filter(Boolean);

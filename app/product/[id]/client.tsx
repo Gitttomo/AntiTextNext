@@ -5,14 +5,12 @@ import Image from "next/image";
 import { ArrowLeft, ShoppingCart, X, Search, User, Star, GraduationCap, Heart, Pencil, Pause, Play, Trash2, Loader2, AlertTriangle, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
-import dynamic from 'next/dynamic';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
+import PurchaseModal from "@/components/PurchaseModal";
 import { PurchaseData, generatePurchaseMessage } from "@/components/purchase-utils";
 import { calculateSellingPrice } from "@/lib/utils";
-
-const PurchaseModal = dynamic(() => import('@/components/PurchaseModal'), { ssr: false });
 
 export type Item = {
   id: string;
@@ -34,15 +32,20 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const { user } = useAuth();
   const { t } = useI18n();
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const isLockedRef = useRef(false);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const favoriteStateRef = useRef(false);
+  const favoriteSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 出品者管理用 state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -61,30 +64,47 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         .eq("item_id", item.id)
         .maybeSingle();
       setIsFavorite(!!data);
+      favoriteStateRef.current = !!data;
     };
     checkFavorite();
   }, [user, item]);
 
   const toggleFavorite = async () => {
-    if (!user || favoriteLoading) return;
+    if (!user) return;
+
+    const previous = favoriteStateRef.current;
+    const next = !previous;
+    favoriteStateRef.current = next;
+    setIsFavorite(next);
     setFavoriteLoading(true);
-    try {
-      if (isFavorite) {
-        await (supabase.from("favorites") as any)
-          .delete()
-          .eq("user_id", user.id)
-          .eq("item_id", item.id);
-        setIsFavorite(false);
-      } else {
-        await (supabase.from("favorites") as any)
-          .insert({ user_id: user.id, item_id: item.id });
-        setIsFavorite(true);
-      }
-    } catch (err) {
-      console.error("Error toggling favorite:", err);
-    } finally {
-      setFavoriteLoading(false);
+
+    if (favoriteSyncTimerRef.current) {
+      clearTimeout(favoriteSyncTimerRef.current);
     }
+
+    favoriteSyncTimerRef.current = setTimeout(async () => {
+      try {
+        if (next) {
+          await (supabase.from("favorites") as any)
+            .upsert({ user_id: user.id, item_id: item.id }, { onConflict: "user_id,item_id" });
+        } else {
+          await (supabase.from("favorites") as any)
+            .delete()
+            .eq("user_id", user.id)
+            .eq("item_id", item.id);
+        }
+      } catch (err) {
+        console.error("Error toggling favorite:", err);
+        if (favoriteStateRef.current === next) {
+          favoriteStateRef.current = previous;
+          setIsFavorite(previous);
+        }
+      } finally {
+        if (favoriteStateRef.current === next) {
+          setFavoriteLoading(false);
+        }
+      }
+    }, 220);
   };
 
   useEffect(() => {
@@ -139,14 +159,15 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   };
 
   const handleOpenPurchaseModal = async () => {
+    if (isAcquiringLock || isPurchaseModalOpen || isSubmitting || !isAvailable) return;
     if (!user) {
       router.push("/auth/login");
       return;
     }
 
-    const now = new Date().toISOString();
     const tenMinutesLater = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     
+    setIsAcquiringLock(true);
     try {
       // Attempt to acquire lock via RPC (more secure & bypasses RLS issues)
       const { data: success, error } = await (supabase as any).rpc("acquire_item_lock", {
@@ -172,6 +193,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
       } else {
         alert("購入手続きの開始に失敗しました。時間をおいて再度お試しください。");
       }
+    } finally {
+      setIsAcquiringLock(false);
     }
   };
 
@@ -181,7 +204,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   };
 
   const handlePurchaseSubmit = async (data: PurchaseData) => {
-    if (!user || !item) return;
+    if (!user || !item || isSubmitting) return;
 
     setIsSubmitting(true);
 
@@ -209,74 +232,16 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         return;
       }
 
-      // Create transaction with pending_approval status (seller must approve)
-      const { data: newTransaction, error: transactionError } = await (supabase
-        .from("transactions") as any)
-        .insert({
-          item_id: item.id,
-          buyer_id: user.id,
-          seller_id: item.seller_id,
-          payment_method: data.paymentMethod,
-          meetup_time_slots: data.timeSlots,
-          meetup_locations: data.locations,
-          status: "pending_approval",
-        })
-        .select('id')
-        .single();
-
-      if (transactionError) throw transactionError;
-
-      // Record in purchase_request_history
-      await (supabase.from("purchase_request_history") as any)
-        .insert({
-          item_id: item.id,
-          buyer_id: user.id,
-          seller_id: item.seller_id,
-          status: "pending_approval",
-        });
-
-      // Keep item status as 'available' — NOT transaction_pending yet
-      // Only release the lock
-      await (supabase.from("items") as any)
-        .update({
-          locked_by: null,
-          locked_until: null,
-        })
-        .eq("id", item.id);
-
       const autoMessage = generatePurchaseMessage(data);
-      const { error: messageError } = await (supabase
-        .from("messages") as any)
-        .insert({
-          item_id: item.id,
-          sender_id: user.id,
-          receiver_id: item.seller_id,
-          message: autoMessage,
-          is_read: false,
-        });
+      const { error: purchaseError } = await (supabase as any).rpc("submit_purchase_request", {
+        target_item_id: item.id,
+        payment_method: data.paymentMethod,
+        meetup_time_slots: data.timeSlots,
+        meetup_locations: data.locations,
+        auto_message: autoMessage,
+      });
 
-      if (messageError) throw messageError;
-
-      // Get buyer's nickname for notification
-      const { data: buyerProfile } = await supabase
-        .from("profiles")
-        .select("nickname")
-        .eq("user_id", user.id)
-        .single();
-
-      const buyerNickname = (buyerProfile as any)?.nickname || "購入者";
-
-      // Send notification to seller — emphasize approval needed
-      await (supabase.from("notifications") as any)
-        .insert({
-          user_id: item.seller_id,
-          type: "purchase_request",
-          title: "購入リクエストの承認待ち",
-          message: `${buyerNickname}さんから購入リクエストが届きました。チャットで確認し、承認または辞退してください。`,
-          link_type: "chat",
-          link_id: item.id,
-          is_read: false,
-        });
+      if (purchaseError) throw purchaseError;
 
       setIsPurchaseModalOpen(false);
       router.push(`/chat/${item.id}`);
@@ -296,18 +261,29 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   }[item.condition] || item.condition; */
 
   const isOwnItem = user?.id === item.seller_id;
-  const isSold = item.status === "sold";
-  const isPending = item.status === "transaction_pending";
-  const isReserved = item.status === "reserved";
-  const isAvailable = item.status === "available";
+  const isSold = currentStatus === "sold";
+  const isPending = currentStatus === "transaction_pending";
+  const isReserved = currentStatus === "reserved";
+  const isAvailable = currentStatus === "available";
 
   // 他のユーザーが予約中または取引中の商品にアクセスした場合
   const isReservedByOther = (isReserved || isPending) && !isOwnItem;
 
+  const scrollToImage = (index: number) => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+
+    carousel.scrollTo({
+      left: index * carousel.offsetWidth,
+      behavior: "smooth",
+    });
+    setActiveImageIndex(index);
+  };
+
   // If item is reserved by another user, show blocked message
   if (isReservedByOther) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
+      <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-6">
         <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center animate-[slideUp_0.3s_ease-out]">
           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <ShoppingCart className="w-8 h-8 text-yellow-600" />
@@ -333,18 +309,19 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50" onClick={handleBackdropClick}>
+    <div className="fixed inset-0 z-[70]" onClick={handleBackdropClick}>
       {/* Backdrop */}
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isVisible && !isClosing ? 'opacity-50' : 'opacity-0'
         }`}
+        onClick={handleClose}
       />
       
       {/* Modal Content - Bottom Sheet */}
       <div 
-        className={`absolute inset-x-0 bottom-20 top-14 bg-white rounded-t-3xl shadow-2xl overflow-hidden transition-transform duration-300 ease-out ${
-          isVisible && !isClosing ? 'translate-y-0' : 'translate-y-full'
+        className={`absolute inset-x-0 bottom-24 top-14 bg-white rounded-t-3xl shadow-2xl overflow-hidden transition-transform duration-300 ease-out md:left-1/2 md:right-auto md:top-8 md:bottom-8 md:w-[min(1120px,calc(100vw-4rem))] md:-translate-x-1/2 md:rounded-3xl ${
+          isVisible && !isClosing ? 'translate-y-0' : 'translate-y-full md:translate-y-8'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -370,8 +347,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         </div>
         
         {/* Scrollable content */}
-        <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-6">
-          <div className="max-w-4xl mx-auto">
+        <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-6 md:h-[calc(100%-148px)] md:overflow-hidden md:px-8 md:py-6">
+          <div className="max-w-4xl mx-auto md:grid md:h-full md:max-w-none md:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] md:gap-6">
             {/* Images - Swipe Carousel */}
             {(item.front_image_url || item.back_image_url) && (() => {
               const images = [
@@ -380,9 +357,9 @@ export default function ProductDetailClient({ item }: { item: Item }) {
               ].filter(Boolean) as { url: string; label: string }[];
 
               return (
-                <div className="mb-6">
+                <div className="mb-6 md:mb-0 md:min-h-0">
                   <div
-                    className="relative overflow-hidden rounded-2xl bg-gray-100"
+                    className="relative overflow-hidden rounded-2xl bg-gray-100 md:h-full"
                     onTouchStart={(e) => {
                       const t = e.currentTarget as any;
                       t._touchStartX = e.touches[0].clientX;
@@ -407,26 +384,23 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                     }}
                   >
                     <div
+                      ref={carouselRef}
                       data-carousel
-                      className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                      className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide md:h-full"
                       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                       onScroll={(e) => {
                         const el = e.currentTarget;
                         const idx = Math.round(el.scrollLeft / el.offsetWidth);
-                        const dots = el.parentElement?.querySelectorAll('[data-dot]');
-                        dots?.forEach((dot, i) => {
-                          (dot as HTMLElement).style.opacity = i === idx ? '1' : '0.4';
-                          (dot as HTMLElement).style.width = i === idx ? '20px' : '8px';
-                        });
+                        setActiveImageIndex(idx);
                       }}
                     >
                       {images.map((img, idx) => (
                         <div
                           key={idx}
-                          className="flex-none w-full snap-center"
+                          className="flex-none w-full snap-center md:h-full"
                         >
                           <div
-                            className="relative aspect-[3/4] cursor-zoom-in group"
+                            className="relative aspect-[3/4] cursor-zoom-in group md:h-full md:aspect-auto"
                             onClick={() => setZoomedImage(img.url)}
                           >
                             <Image
@@ -451,6 +425,28 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                         </div>
                       ))}
                     </div>
+                    {/* Front/back selector */}
+                    {images.length > 1 && (
+                      <div className="absolute left-3 right-3 top-3 z-10 flex rounded-2xl bg-black/35 p-1 backdrop-blur-md">
+                        {images.map((img, idx) => (
+                          <button
+                            key={img.label}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              scrollToImage(idx);
+                            }}
+                            className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition-all ${
+                              activeImageIndex === idx
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-white/85 hover:bg-white/15"
+                            }`}
+                          >
+                            {img.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {/* Dot Indicators */}
                     {images.length > 1 && (
                       <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
@@ -460,8 +456,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                             data-dot
                             className="h-2 rounded-full bg-white shadow-sm transition-all duration-300"
                             style={{
-                              width: idx === 0 ? '20px' : '8px',
-                              opacity: idx === 0 ? 1 : 0.4,
+                              width: idx === activeImageIndex ? '20px' : '8px',
+                              opacity: idx === activeImageIndex ? 1 : 0.4,
                             }}
                           />
                         ))}
@@ -473,8 +469,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
             })()}
 
             {/* Product Info */}
-            <div className="bg-white rounded-2xl shadow-lg border p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">{item.title}</h2>
+            <div className="bg-white rounded-2xl shadow-lg border p-6 md:min-h-0 md:overflow-y-auto md:p-5">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 md:text-[1.7rem] md:leading-tight">{item.title}</h2>
 
               {(isSold || isPending) && (
                 <div className={`inline-block px-3 py-1 rounded-full text-sm font-semibold mb-4 ${
@@ -572,14 +568,14 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         </div>
 
         {/* Action Buttons - Fixed at bottom of modal */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-6 py-4 z-[60]">
+        <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-5 py-3 z-[80] md:px-6 md:py-4">
           <div className="max-w-4xl mx-auto flex gap-3">
             {isOwnItem ? (
               <div className="flex gap-2 flex-1">
                 <button
                   onClick={() => setIsEditModalOpen(true)}
                   disabled={currentStatus === 'sold' || currentStatus === 'transaction_pending'}
-                  className="flex-1 py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 text-sm"
+                  className="flex-1 py-3 md:py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 text-sm"
                 >
                   <Pencil className="w-4 h-4" />
                   {t('product.edit')}
@@ -592,7 +588,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                       const newStatus = currentStatus === 'paused' ? 'available' : 'paused';
                       const { error } = await (supabase.from('items') as any)
                         .update({ status: newStatus })
-                        .eq('id', item.id);
+                        .eq('id', item.id)
+                        .eq('seller_id', user?.id);
                       if (error) throw error;
                       setCurrentStatus(newStatus);
                     } catch (err: any) {
@@ -602,7 +599,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                     }
                   }}
                   disabled={isManaging || currentStatus === 'sold' || currentStatus === 'transaction_pending'}
-                  className={`py-3.5 px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed ${
+                  className={`py-3 md:py-3.5 px-3 md:px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed ${
                     currentStatus === 'paused'
                       ? 'bg-green-500 text-white hover:bg-green-600'
                       : 'bg-yellow-500 text-white hover:bg-yellow-600'
@@ -619,7 +616,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 <button
                   onClick={() => setIsDeleteModalOpen(true)}
                   disabled={currentStatus === 'transaction_pending'}
-                  className="py-3.5 px-4 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center text-sm"
+                  className="py-3 md:py-3.5 px-3 md:px-4 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center text-sm"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -628,8 +625,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
               <>
                 <button
                   onClick={toggleFavorite}
-                  disabled={favoriteLoading || !user}
-                  className={`w-14 h-14 flex-shrink-0 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
+                  disabled={!user}
+                  className={`w-12 h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
                     isFavorite
                       ? "border-red-200 bg-red-50"
                       : "border-gray-200 bg-white hover:border-red-200 hover:bg-red-50"
@@ -646,11 +643,11 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 </button>
                 <button
                   onClick={handleOpenPurchaseModal}
-                  disabled={!isAvailable}
-                  className="flex-1 py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
+                  disabled={!isAvailable || isAcquiringLock || isSubmitting}
+                  className="flex-1 py-3 md:py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  {isSold ? t('product.sold') : isPending ? t('product.in_transaction') : t('product.buy')}
+                  {isAcquiringLock ? "確認中..." : isSold ? t('product.sold') : isPending ? t('product.in_transaction') : t('product.buy')}
                 </button>
               </>
             )}
@@ -710,7 +707,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                   original_price: originalPrice,
                   selling_price: sellingPrice,
                 })
-                .eq('id', item.id);
+                .eq('id', item.id)
+                .eq('seller_id', user?.id);
               if (error) throw error;
               // Refresh page to show updated data
               window.location.reload();
@@ -733,7 +731,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
             try {
               const { error } = await (supabase.from('items') as any)
                 .update({ status: 'deleted' })
-                .eq('id', item.id);
+                .eq('id', item.id)
+                .eq('seller_id', user?.id);
               if (error) throw error;
               router.push('/');
             } catch (err: any) {

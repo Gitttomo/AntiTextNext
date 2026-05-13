@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle } from "lucide-react";
+import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle, BookOpen } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { uploadChatImage } from "@/lib/image-storage";
 
 type Message = {
   id: string;
@@ -41,6 +42,9 @@ type Transaction = {
   cancellation_reason: string | null;
   decline_reason?: string | null;
   declined_at?: string | null;
+  schedule_change_requested_by: string | null;
+  previous_final_meetup_time: string | null;
+  previous_final_meetup_location: string | null;
 };
 
 type UserProfile = {
@@ -64,6 +68,22 @@ const LOCATION_LABELS: Record<string, string> = {
   other: "その他（チャットで相談）",
 };
 
+const formatTimeSlotLabel = (timeSlot: string) => {
+  const [datePart, slotPart] = timeSlot.split("_");
+  const date = new Date(datePart);
+  const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
+};
+
+const formatLocationLabel = (location: string) => LOCATION_LABELS[location] || location;
+
+const formatScheduleCandidates = (slots: string[], locations: string[]) => {
+  const formattedSlots = slots.map((slot) => `・${formatTimeSlotLabel(slot)}`).join("\n");
+  const formattedLocations = locations.map((location) => `・${formatLocationLabel(location)}`).join("\n");
+
+  return `候補日時:\n${formattedSlots}\n\n候補場所:\n${formattedLocations}`;
+};
+
 export default function ChatPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { user, loading: authLoading, avatarUrl } = useAuth();
@@ -85,24 +105,51 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [showCancellationSection, setShowCancellationSection] = useState(false);
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [backHref, setBackHref] = useState("/transactions");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scheduleCandidatesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const userScrolledUpRef = useRef(false);
   const previousMessagesLengthRef = useRef(0);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get("from");
+    setBackHref(from === "notifications" ? "/notifications" : "/transactions");
+  }, []);
 
   // 未読メッセージを既読にする
   const markMessagesAsRead = useCallback(async () => {
     if (!user || !params.id) return;
 
     try {
-      await (supabase.from("messages") as any)
+      const { error: messagesError } = await (supabase.from("messages") as any)
         .update({ is_read: true })
         .eq("item_id", params.id)
         .eq("receiver_id", user.id)
         .eq("is_read", false);
+
+      if (messagesError) throw messagesError;
+
+      const { error: notificationsError } = await (supabase.from("notifications") as any)
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .eq("link_type", "chat")
+        .eq("link_id", params.id)
+        .eq("is_read", false);
+
+      if (notificationsError) {
+        console.error("Error marking chat notifications as read:", notificationsError);
+      }
+
+      setMessages(current =>
+        current.map(message =>
+          message.receiver_id === user.id ? { ...message, is_read: true } : message
+        )
+      );
     } catch (err) {
       console.error("Error marking messages as read:", err);
     }
@@ -235,6 +282,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const scrollToScheduleCandidates = useCallback(() => {
+    userScrolledUpRef.current = true;
+    scheduleCandidatesRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
 
   // スクロール位置を監視してユーザーが上にスクロールしたかを追跡
   const handleScroll = useCallback(() => {
@@ -384,7 +439,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user || !item || !otherUserId) return;
+    if (!file || !user || !item || !otherUserId || isUploadingImage || sending) return;
 
     // ファイル形式・サイズチェック（例: 5MB以下）
     if (!file.type.startsWith('image/')) {
@@ -398,19 +453,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
     setIsUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${item.id}/${fileName}`;
-
-      const { data, error } = await supabase.storage
-        .from('chat-images')
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-images')
-        .getPublicUrl(filePath);
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const publicUrl = await uploadChatImage(file, `${item.id}/${fileName}`);
 
       await handleSend("[画像]", publicUrl);
 
@@ -425,21 +469,20 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleFinalizeSchedule = async (timeSlot: string, location: string) => {
-    if (!transaction || isFinalizing) return;
+    if (!transaction || isFinalizing || !canConfirmSchedule) return;
     setIsFinalizing(true);
 
     try {
-      const [datePart, slotPart] = timeSlot.split("_");
-      const date = new Date(datePart);
-      const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-      const formattedTime = `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
-      const formattedLocation = LOCATION_LABELS[location] || location;
+      const formattedTime = formatTimeSlotLabel(timeSlot);
+      const formattedLocation = formatLocationLabel(location);
+      const isChangeApproval = !!transaction.schedule_change_requested_by;
 
       const { error } = await (supabase.from("transactions") as any)
         .update({
           final_meetup_time: formattedTime,
           final_meetup_location: formattedLocation,
-          status: 'confirmed'
+          status: 'confirmed',
+          schedule_change_requested_by: null,
         })
         .eq("id", transaction.id);
 
@@ -450,11 +493,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         ...prev,
         final_meetup_time: formattedTime,
         final_meetup_location: formattedLocation,
-        status: 'confirmed'
+        status: 'confirmed',
+        schedule_change_requested_by: null,
+        previous_final_meetup_time: null,
+        previous_final_meetup_location: null,
       } : prev);
 
       // 自動メッセージを送信
-      await handleSend(`【日程が確定しました】\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\n当日はよろしくお願いいたします！`);
+      await handleSend(`${isChangeApproval ? "【日程変更が承認されました】" : "【受け渡し日時が決まりました】"}\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\n当日はよろしくお願いいたします！`);
 
     } catch (err: any) {
       alert("日程の確定に失敗しました: " + err.message);
@@ -465,6 +511,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   const handleReschedule = async () => {
     if (!transaction || isFinalizing) return;
+    if (user?.id !== transaction.buyer_id && user?.id !== transaction.seller_id) return;
     setIsFinalizing(true);
     try {
       // 日程調整をリセット
@@ -495,7 +542,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleCompleteTransaction = async () => {
-    if (!item || !transaction || !user) return;
+    if (isFinalizing || !item || !transaction || !user) return;
+    if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
     setIsFinalizing(true);
     try {
       const isBuyer = user.id === transaction.buyer_id;
@@ -538,7 +586,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   const handleCancelTransaction = async (reason: string) => {
-    if (!item || !transaction) return;
+    if (isFinalizing || !item || !transaction || !user) return;
+    if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
     setIsFinalizing(true);
     try {
       // Update transaction status to cancelled with reason
@@ -640,12 +689,41 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const isDeclined = transaction?.status === 'declined';
 
   const isSeller = user?.id === item.seller_id;
+  const isScheduleChangeRequester = !!transaction?.schedule_change_requested_by && transaction.schedule_change_requested_by === user?.id;
+  const canConfirmSchedule = !!transaction && (
+    transaction.schedule_change_requested_by
+      ? transaction.schedule_change_requested_by !== user?.id
+      : isSeller
+  );
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start || start.x > 56) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+
+    if (deltaX > 90 && Math.abs(deltaY) < 70) {
+      router.push(backHref);
+    }
+  };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100 overflow-hidden">
+    <div
+      className="fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-white overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-white/20 h-16">
-        <Link href="/transactions" className="p-1">
+      <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 z-50 border-b border-gray-100 h-16">
+        <Link href={backHref} className="p-1">
           <ArrowLeft className="w-6 h-6 text-black" />
         </Link>
         <div className="flex-1 min-w-0">
@@ -741,7 +819,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       {/* Action Bar (Below Header) — hide when pending_approval or declined */}
       {!isPendingApproval && !isDeclined && (
-      <div className="fixed top-16 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-white/10">
+      <div className="fixed top-16 left-0 right-0 bg-white/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-gray-100">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
           disabled={transaction?.status === 'awaiting_rating' || transaction?.status === 'completed'}
@@ -772,40 +850,104 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth"
         >
+          {/* Sticky Schedule Summary */}
+          {transaction && (
+            <div className="sticky top-0 z-30 -mx-4 mb-4 bg-white/95 px-4 pb-3 pt-2 backdrop-blur-md">
+              {transaction.final_meetup_time ? (
+                <div className="bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
+                    <CheckCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">受け渡し日時</p>
+                    <p className="text-sm font-black text-green-900">{transaction.final_meetup_time}</p>
+                    <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
+                  </div>
+                </div>
+              ) : transaction.schedule_change_requested_by ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={scrollToScheduleCandidates}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      scrollToScheduleCandidates();
+                    }
+                  }}
+                  className="cursor-pointer bg-amber-50 backdrop-blur-sm border-2 border-amber-200 rounded-2xl p-4 shadow-sm transition-all hover:border-amber-300 hover:bg-amber-100/70 active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-400/20">
+                      <Clock className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">変更提案中</p>
+                      <p className="text-sm font-black text-amber-950">
+                        {isScheduleChangeRequester ? "相手の承認待ちです" : "候補から行ける日時を選んで承認してください"}
+                      </p>
+                    </div>
+                  </div>
+                  {transaction.previous_final_meetup_time && (
+                    <div className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-xs text-amber-900">
+                      変更前: {transaction.previous_final_meetup_time}
+                      {transaction.previous_final_meetup_location ? ` / ${transaction.previous_final_meetup_location}` : ""}
+                    </div>
+                  )}
+                </div>
+              ) : transaction.meetup_time_slots && transaction.meetup_time_slots.length > 0 ? (
+                <div className="bg-gray-100/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-400/20">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">受け渡し日時</p>
+                    <p className="text-sm font-bold text-gray-700">候補から日程を決定してください。</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Scheduling Component (Injected at the top like a pinned post) */}
           {transaction && transaction.meetup_time_slots?.length > 0 && !transaction.final_meetup_time && (
-            <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div ref={scheduleCandidatesRef} className="scroll-mt-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="bg-white/90 backdrop-blur-md rounded-3xl p-5 shadow-xl border border-white/20">
                 <div className="flex items-center gap-2 mb-4 text-primary font-black">
                   <Calendar className="w-5 h-5" />
-                  <span className="text-sm uppercase tracking-wider">受け渡し日程調整</span>
+                  <span className="text-sm uppercase tracking-wider">
+                    {transaction.schedule_change_requested_by ? "変更候補の確認" : "受け渡し日程調整"}
+                  </span>
                 </div>
 
-                <p className="text-xs text-gray-500 font-bold mb-4 px-1">募集された候補から都合の良い日時を選択してください：</p>
+                <p className="text-xs text-gray-500 font-bold mb-4 px-1">
+                  {transaction.schedule_change_requested_by
+                    ? isScheduleChangeRequester
+                      ? "相手が承認するまでお待ちください。候補は以下の内容で提案されています。"
+                      : "提案された候補から行けそうな日時を選ぶと、変更が承認されます。"
+                    : "募集された候補から都合の良い日時を選択してください："}
+                </p>
 
                 <div className="space-y-2.5">
                   {transaction.meetup_time_slots.map((slot) => {
-                    const [datePart, slotPart] = slot.split("_");
-                    const date = new Date(datePart);
-                    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
-                    const label = `${date.getMonth() + 1}/${date.getDate()}(${dayNames[date.getDay()]}) ${TIME_SLOT_LABELS[slotPart] || slotPart}`;
+                    const label = formatTimeSlotLabel(slot);
 
                     return (
                       <button
                         key={slot}
                         onClick={() => {
-                          if (isSeller && !transaction.final_meetup_time) {
+                          if (canConfirmSchedule && !transaction.final_meetup_time) {
                             handleFinalizeSchedule(slot, transaction.meetup_locations[0]);
                           }
                         }}
-                        disabled={isFinalizing || !isSeller || !!transaction.final_meetup_time}
-                        className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${isSeller && !transaction.final_meetup_time
+                        disabled={isFinalizing || !canConfirmSchedule || !!transaction.final_meetup_time}
+                        className={`w-full text-left bg-primary/5 border-2 rounded-2xl p-4 transition-all group flex items-center justify-between active:scale-95 disabled:opacity-50 ${canConfirmSchedule && !transaction.final_meetup_time
                           ? "hover:bg-primary/10 border-primary/20 hover:border-primary/40 cursor-pointer"
                           : "border-primary/10 cursor-default"
                           }`}
                       >
-                        <span className={`text-primary font-black ${isSeller && !transaction.final_meetup_time ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
-                        <Clock className={`w-4 h-4 transition-colors ${isSeller && !transaction.final_meetup_time ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
+                        <span className={`text-primary font-black ${canConfirmSchedule && !transaction.final_meetup_time ? "group-hover:translate-x-1" : ""} transition-transform`}>{label}</span>
+                        <Clock className={`w-4 h-4 transition-colors ${canConfirmSchedule && !transaction.final_meetup_time ? "text-primary/40 group-hover:text-primary" : "text-primary/20"}`} />
                       </button>
                     );
                   })}
@@ -826,31 +968,6 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           )}
-
-          {/* Finalized Schedule Banner */}
-          {/* 日程確定済みボックス or 日程未設定ボックス */}
-          {transaction && (transaction.final_meetup_time ? (
-            <div className="mb-6 bg-green-500/10 backdrop-blur-sm border-2 border-green-500/20 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-500/20">
-                <CheckCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">日程確定済み</p>
-                <p className="text-sm font-black text-green-900">{transaction.final_meetup_time}</p>
-                <p className="text-[10px] text-green-700/60 font-medium">場所: {transaction.final_meetup_location}</p>
-              </div>
-            </div>
-          ) : transaction.meetup_time_slots && transaction.meetup_time_slots.length > 0 && (
-            <div className="mb-6 bg-gray-100/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-400/20">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">日程未設定</p>
-                <p className="text-sm font-bold text-gray-700">チャットで日程を決定し、入力してください。</p>
-              </div>
-            </div>
-          ))}
 
           {/* Messages List */}
           {messages.length === 0 ? (
@@ -881,9 +998,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                     {/* メッセージバブル */}
                     <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} max-w-[85%]`}>
                       <div
-                        className={`w-fit min-w-[50px] px-4 py-2.5 rounded-2xl shadow-sm bg-white ${isOwnMessage ? "rounded-br-sm" : "rounded-bl-sm"
+                        className={`w-fit min-w-[50px] px-4 py-2.5 rounded-2xl shadow-sm border ${isOwnMessage
+                          ? "rounded-br-sm bg-sky-50 border-sky-200"
+                          : "rounded-bl-sm bg-sky-100 border-sky-300"
                           }`}
-                        style={{ border: "2px solid #3B5998" }}
                       >
                         {msg.image_url && (
                           <div className="mb-2 -mx-2 -mt-1 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
@@ -897,7 +1015,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                             />
                           </div>
                         )}
-                        <p className="whitespace-pre-wrap break-all text-[15px] leading-relaxed text-[#3B5998] font-medium">
+                        <p className="whitespace-pre-wrap break-all text-[15px] leading-relaxed text-slate-800 font-medium">
                           {msg.message}
                         </p>
                       </div>
@@ -937,7 +1055,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               >
                 <AlertCircle className="w-4 h-4" />
                 取引キャンセルを行う場合
-                <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${showCancellationSection ? "rotate-90" : ""}`} />
+                <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${showCancellationSection ? "rotate-90" : "-rotate-90"}`} />
               </button>
 
               {showCancellationSection && (
@@ -961,7 +1079,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Input Area */}
-        <div className="flex-shrink-0 bg-white px-4 py-3 border-t border-gray-200">
+        <div className="flex-shrink-0 bg-white px-4 py-2.5 border-t border-gray-200">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -1024,8 +1142,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         isOpen={isScheduleModalOpen}
         onClose={() => setIsScheduleModalOpen(false)}
         onConfirm={async (slots: string[], locations: string[]) => {
-          if (!transaction) return;
+          if (!transaction || !user) return;
           setIsFinalizing(true);
+          const previousTime = transaction.final_meetup_time;
+          const previousLocation = transaction.final_meetup_location;
           try {
             const { error } = await (supabase.from("transactions") as any)
               .update({
@@ -1033,13 +1153,30 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 meetup_locations: locations,
                 final_meetup_time: null,
                 final_meetup_location: null,
-                status: 'pending'
+                status: 'pending',
+                schedule_change_requested_by: user.id,
+                previous_final_meetup_time: previousTime,
               })
               .eq("id", transaction.id);
             if (error) throw error;
 
+            setTransaction(prev => prev ? {
+              ...prev,
+              meetup_time_slots: slots,
+              meetup_locations: locations,
+              final_meetup_time: null,
+              final_meetup_location: null,
+              status: 'pending',
+              schedule_change_requested_by: user.id,
+              previous_final_meetup_time: previousTime,
+              previous_final_meetup_location: previousLocation,
+            } : prev);
+
             // Send notification message
-            await handleSend("日程候補が変更されました。ご確認ください。");
+            const previousSchedule = previousTime
+              ? `変更前:\n・日時: ${previousTime}\n・場所: ${previousLocation || "未設定"}`
+              : "変更前:\n・まだ受け渡し日時は決まっていません";
+            await handleSend(`【受け渡し日時の変更提案】\n\n${previousSchedule}\n\n変更後の候補:\n${formatScheduleCandidates(slots, locations)}\n\nこの候補で問題ないか、相手の方はチャット上部の候補から行けそうな日時を選んで承認してください。`);
           } catch (err: any) {
             alert("日程の変更に失敗しました: " + err.message);
           } finally {
@@ -1346,6 +1483,7 @@ function ScheduleAdjustmentModal({
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-xl border-t border-gray-100">
           <button
             onClick={() => {
+              if (isSubmitting) return;
               setIsSubmitting(true);
               onConfirm(selectedTimeSlots, selectedLocations).finally(() => setIsSubmitting(false));
             }}
@@ -1400,7 +1538,7 @@ function CompletionConfirmationModal({
       <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
         <div className="p-8">
           <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-            <Package className="w-8 h-8 text-primary" />
+            <BookOpen className="w-8 h-8 text-primary" />
           </div>
 
           <h2 className="text-xl font-black text-gray-900 text-center mb-2">
@@ -1466,13 +1604,13 @@ function CompletionConfirmationModal({
                   : "bg-gray-100 text-gray-400 shadow-none cursor-not-allowed"
               }`}
             >
-              はい、取引を完了して評価へ
+              取引を完了して評価へ
             </button>
             <button
               onClick={onClose}
               className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
             >
-              まだです、チャットに戻る
+              チャットに戻る
             </button>
           </div>
         </div>
