@@ -575,3 +575,92 @@
     transform: translateY(-4px);
   }
 }
+@keyframes rewardCrystalShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.reward-avatar-frame {
+  --reward-avatar-frame-color: #3b82f6;
+  --reward-avatar-frame-soft: #dbeafe;
+  padding: 4px;
+  border: 0;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.92), var(--reward-avatar-frame-soft) 42%, var(--reward-avatar-frame-color));
+  box-shadow:
+    0 0 0 1px var(--reward-avatar-frame-soft),
+    0 8px 18px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.reward-avatar-frame--white {
+  --reward-avatar-frame-color: #ffffff;
+  --reward-avatar-frame-soft: #e5e7eb;
+}
+
+.reward-avatar-frame--yellow {
+  --reward-avatar-frame-color: #facc15;
+  --reward-avatar-frame-soft: #fef3c7;
+}
+
+.reward-avatar-frame--green {
+  --reward-avatar-frame-color: #10b981;
+  --reward-avatar-frame-soft: #d1fae5;
+}
+
+.reward-avatar-frame--sky {
+  --reward-avatar-frame-color: #7dd3fc;
+  --reward-avatar-frame-soft: #e0f2fe;
+}
+
+.reward-avatar-frame--navy {
+  --reward-avatar-frame-color: #1e3a8a;
+  --reward-avatar-frame-soft: #93c5fd;
+}
+
+.reward-sparkle-overlay {
+  position: absolute;
+  inset: -10px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.reward-sparkle-overlay::before {
+  content: "";
+  position: absolute;
+  background:
+    linear-gradient(90deg, transparent 43%, rgba(255, 255, 255, 0.95) 47% 53%, transparent 57%),
+    linear-gradient(0deg, transparent 43%, rgba(255, 255, 255, 0.95) 47% 53%, transparent 57%),
+    radial-gradient(circle, var(--reward-avatar-frame-color) 0 22%, rgba(255, 255, 255, 0.88) 23% 34%, transparent 36%);
+  filter: drop-shadow(0 0 5px var(--reward-avatar-frame-color));
+}
+
+.reward-sparkle-overlay::before {
+  top: 2px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  transform: rotate(18deg);
+}
+
+.reward-sparkle-overlay::after {
+  content: none;
+}
+
+.reward-book-badge-icon {
+  /* バッジ本アイコンの色調整はここ: --reward-book-badge-color */
+  --reward-book-badge-color: #ef4444;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.8rem;
+  width: 1.8rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--reward-book-badge-color);
+  box-shadow: none;
+  animation: none;
+}

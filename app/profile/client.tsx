@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
-    User,
     Settings,
     Star,
     History,
@@ -21,6 +20,8 @@ import { useI18n } from "@/lib/i18n";
 import { ProfileSkeleton } from "./edit/skeleton";
 import { getItemImageUrl } from "@/lib/image-storage";
 import { supabase } from "@/lib/supabase";
+import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
+import type { UserBadge } from "@/lib/rewards";
 
 type Profile = {
     nickname: string;
@@ -45,6 +46,10 @@ type MypageClientProps = {
     initialFavoriteItems: Item[];
     averageRating: number;
     ratingCount: number;
+    listingCount: number;
+    transactionCount: number;
+    earlyRegistrationEligible: boolean;
+    badges: UserBadge[];
     isAdmin: boolean;
 };
 
@@ -55,6 +60,10 @@ export default function MypageClient({
     initialFavoriteItems,
     averageRating,
     ratingCount,
+    listingCount,
+    transactionCount,
+    earlyRegistrationEligible,
+    badges,
     isAdmin
 }: MypageClientProps) {
     const router = useRouter();
@@ -148,26 +157,18 @@ export default function MypageClient({
                             <Shield className="h-5 w-5" />
                         </button>
                     )}
-                    <div className="w-20 h-20 rounded-full border-4 border-primary/20 overflow-hidden shadow-inner">
-                        {initialProfile?.avatar_url ? (
-                            <Image
-                                src={initialProfile.avatar_url}
-                                alt="Avatar"
-                                width={80}
-                                height={80}
-                                className="w-full h-full object-cover"
-                                unoptimized
-                            />
-                        ) : (
-                            <div className="w-full h-full bg-primary/10 flex items-center justify-center">
-                                <User className="w-10 h-10 text-primary/40" />
-                            </div>
-                        )}
-                    </div>
+                    <RewardAvatar
+                        src={initialProfile?.avatar_url}
+                        alt="Avatar"
+                        size={80}
+                        listingCount={listingCount}
+                        earlyRegistration={earlyRegistrationEligible}
+                    />
                     <div className="flex-1 pr-12">
                         <h2 className="text-xl font-bold text-gray-900 truncate">
                             {initialProfile?.nickname || "読み込み中..."}
                         </h2>
+                        <RewardBadges badges={badges} />
                         <div className="flex items-center gap-2 mt-1">
                             <div className="flex text-yellow-500">
                                 {[...Array(5)].map((_, i) => (
@@ -180,6 +181,16 @@ export default function MypageClient({
                             <span className="text-sm font-bold text-gray-500">
                                 ({averageRating.toFixed(1)})
                             </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <div className="rounded-2xl bg-primary/5 px-3 py-2 text-center">
+                                <p className="text-[10px] font-black text-primary/70">出品数</p>
+                                <p className="text-lg font-black text-primary">{listingCount}件</p>
+                            </div>
+                            <div className="rounded-2xl bg-gray-50 px-3 py-2 text-center">
+                                <p className="text-[10px] font-black text-gray-500">取引数</p>
+                                <p className="text-lg font-black text-gray-900">{transactionCount}件</p>
+                            </div>
                         </div>
                     </div>
                 </div>

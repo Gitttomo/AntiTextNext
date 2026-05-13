@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import ProductDetailClient, { Item } from "./client";
+import { resolveEarlyRegistrationEligible } from "@/lib/rewards";
 
 // Phase 2: 適切なキャッシュ戦略
 // 30秒ごとに再検証することで、削除されたアイテムが長時間表示されるのを防ぐ
@@ -24,7 +25,7 @@ export default async function ProductDetailPage({
     // 1. Fetch item and profile
     const { data: itemData, error: itemError } = await supabase
       .from("items")
-      .select(`${itemFields}, profiles!items_seller_id_fkey_profiles(nickname, avatar_url, department, major, degree, grade)`)
+      .select(`${itemFields}, profiles!items_seller_id_fkey_profiles(nickname, avatar_url, department, major, degree, grade, created_at)`)
       .eq("id", id)
       .single();
 
@@ -35,11 +36,21 @@ export default async function ProductDetailPage({
 
     const sellerId = (itemData as any).seller_id;
 
-    // 2. Fetch ratings in parallel
-    const { data: ratingsData } = await supabase
-      .from("ratings")
-      .select("score")
-      .eq("rated_id", sellerId);
+    const [
+      { data: ratingsData },
+      { count: sellerListingCount },
+      { count: sellerTransactionCount },
+      { data: rewardSetting },
+      { data: sellerBadges },
+      { data: sellerRewardOverride },
+    ] = await Promise.all([
+      supabase.from("ratings").select("score").eq("rated_id", sellerId),
+      supabase.from("items").select("*", { count: "exact", head: true }).eq("seller_id", sellerId).eq("status", "available"),
+      supabase.from("transactions").select("*", { count: "exact", head: true }).eq("seller_id", sellerId).eq("status", "completed"),
+      (supabase as any).from("reward_settings").select("*").eq("id", "early_registration").single(),
+      (supabase as any).from("user_badges").select("id,badge_type,label,note").eq("user_id", sellerId).is("revoked_at", null).order("created_at", { ascending: false }),
+      (supabase as any).from("user_reward_overrides").select("early_registration_override").eq("user_id", sellerId).maybeSingle(),
+    ]);
 
     const scores = (ratingsData as any[] || []).map(r => r.score);
     const ratingCount = scores.length;
@@ -59,7 +70,11 @@ export default async function ProductDetailPage({
       seller_department: profile?.department,
       seller_major: profile?.major,
       seller_rating: averageRating,
-      seller_rating_count: ratingCount
+      seller_rating_count: ratingCount,
+      seller_listing_count: sellerListingCount ?? 0,
+      seller_transaction_count: sellerTransactionCount ?? 0,
+      seller_early_registration: resolveEarlyRegistrationEligible(profile?.created_at, rewardSetting as any, sellerRewardOverride as any),
+      seller_badges: sellerBadges ?? []
     };
 
     return <ProductDetailClient item={fullItem as any} />;

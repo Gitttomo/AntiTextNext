@@ -1,12 +1,12 @@
 export type PurchaseData = {
-    paymentMethod: "cash" | "paypay";
+    paymentMethod: "cash" | "other";
     timeSlots: string[];
     locations: string[];
 };
 
 // 自動メッセージ生成用のヘルパー関数
 export function generatePurchaseMessage(data: PurchaseData): string {
-    const paymentMethodLabel = data.paymentMethod === "cash" ? "現金手渡し" : "PayPay（対面・送金）";
+    const paymentMethodLabel = data.paymentMethod === "cash" ? "現金手渡し" : "その他（相談）";
 
     const timeSlotLabels: Record<string, string> = {
         "12period": "12限終わり休み",

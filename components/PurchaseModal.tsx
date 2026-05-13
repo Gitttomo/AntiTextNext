@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, CreditCard, Banknote, Smartphone, Clock, AlertCircle, MapPin, CalendarCheck2, CheckCircle } from "lucide-react";
+import { X, Banknote, MessageCircleQuestion, Clock, AlertCircle, MapPin, CalendarCheck2, CheckCircle } from "lucide-react";
 import { PurchaseData } from "./purchase-utils";
 import { PURCHASE_NOTICE_ITEMS } from "@/lib/legal";
 
@@ -65,7 +65,7 @@ export default function PurchaseModal({
     itemTitle,
     lockedUntil,
 }: PurchaseModalProps) {
-    const [paymentMethod, setPaymentMethod] = useState<"cash" | "paypay">("cash");
+    const [paymentMethod, setPaymentMethod] = useState<"cash" | "other">("cash");
     const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
     const [expandedDays, setExpandedDays] = useState<string[]>([]);
@@ -210,19 +210,19 @@ export default function PurchaseModal({
                             </button>
 
                             <button
-                                onClick={() => setPaymentMethod("paypay")}
+                                onClick={() => setPaymentMethod("other")}
                                 className={`flex items-center gap-4 p-5 rounded-3xl border-2 transition-all duration-300 text-left ${
-                                    paymentMethod === "paypay" 
+                                    paymentMethod === "other" 
                                     ? "bg-white border-primary shadow-xl shadow-primary/10 scale-[1.02]" 
                                     : "bg-white border-transparent hover:border-gray-100 grayscale-[0.5] opacity-70"
                                 }`}
                             >
-                                <div className={`p-4 rounded-2xl transition-colors ${paymentMethod === "paypay" ? "bg-red-100" : "bg-gray-100"}`}>
-                                    <Smartphone className="w-7 h-7 text-red-500" />
+                                <div className={`p-4 rounded-2xl transition-colors ${paymentMethod === "other" ? "bg-blue-100" : "bg-gray-100"}`}>
+                                    <MessageCircleQuestion className="w-7 h-7 text-blue-500" />
                                 </div>
                                 <div className="flex-1">
-                                    <span className="block font-black text-lg text-gray-900 leading-tight">PayPay</span>
-                                    <span className="text-xs font-bold text-gray-400">QRコード・送金リンク対応</span>
+                                    <span className="block font-black text-lg text-gray-900 leading-tight">その他（相談）</span>
+                                    <span className="text-xs font-bold text-gray-400">チャットで支払い方法を相談</span>
                                 </div>
                             </button>
                         </div>

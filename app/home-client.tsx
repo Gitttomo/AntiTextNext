@@ -129,6 +129,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
   const { user, avatarUrl, loading } = useAuth();
   const { t } = useI18n();
   const [favorites, setFavorites] = useState<string[]>([]);
+  const isAdminHomeView = user?.email?.toLowerCase() === "textnextbbs@gmail.com";
   
   // 各アイテムの状態管理（サーバーのキャッシュを上書きできるようにState化）
   const [recommendedItems, setRecommendedItems] = useState<Item[]>(initialRecommendedItems);
@@ -152,7 +153,10 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
 
   // お気に入りセットをメモ化
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
-  const recommendedIdSet = useMemo(() => new Set(recommendedItems.map(item => item.id)), [recommendedItems]);
+  const recommendedIdSet = useMemo(
+    () => new Set(isAdminHomeView ? [] : recommendedItems.map(item => item.id)),
+    [recommendedItems, isAdminHomeView]
+  );
   const displayedPopularItems = useMemo(
     () => popularItems.filter(item => !recommendedIdSet.has(item.id) && (!user || item.seller_id !== user.id)),
     [popularItems, recommendedIdSet, user]
@@ -192,7 +196,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         );
       }
 
-      if (user) {
+      if (user && !isAdminHomeView) {
         setLoadingRecommended(true);
         promises.push(
           supabase
@@ -215,7 +219,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
 
       let countRes = itemIds.length > 0 ? results[0] : null;
       let favRes = user ? results[1] : null;
-      let profileRes = user ? results[2] : null;
+      let profileRes = user && !isAdminHomeView ? results[2] : null;
 
       // カウントの反映 & 削除されたアイテムのフィルタリング
       if (countRes?.data) {
@@ -245,7 +249,12 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       }
 
       // 2. パーソナライズされたおすすめの取得
-      if (user && profileRes?.data) {
+      if (isAdminHomeView) {
+        setRecommendedItems([]);
+        setHasMoreRecommended(false);
+        setTotalRecommendedCount(0);
+        setLoadingRecommended(false);
+      } else if (user && profileRes?.data) {
         const { department, major } = profileRes.data as any;
         
         let query = supabase
@@ -286,7 +295,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     return () => {
       cancelled = true;
     };
-  }, [user, initialRecommendedItems]); // userが変わった時（ログイン/ログアウト）に再実行
+  }, [user, initialRecommendedItems, isAdminHomeView]); // userが変わった時（ログイン/ログアウト）に再実行
 
   const favoriteStateRef = useRef<Set<string>>(new Set(favorites));
   const favoriteSyncTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -611,7 +620,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       </header>
 
       {/* おすすめの教材 */}
-      {user && (
+      {user && !isAdminHomeView && (
         <div className="px-6 py-8">
           <div className="flex items-center gap-2 mb-6">
             <TrendingUp className="w-6 h-6 text-primary" />

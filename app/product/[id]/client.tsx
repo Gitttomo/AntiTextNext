@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import PurchaseModal from "@/components/PurchaseModal";
 import { PurchaseData, generatePurchaseMessage } from "@/components/purchase-utils";
 import { calculateSellingPrice } from "@/lib/utils";
+import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
 
 export type Item = {
   id: string;
@@ -501,29 +502,27 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">出品者</h3>
                   <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4 space-y-3">
-                    <Link
-                      href={`/seller/${item.seller_id}`}
-                      className="flex items-center gap-3 group transition-all"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors overflow-hidden border-2 border-white shadow-sm">
-                        {item.seller_avatar_url ? (
-                          <Image
-                            src={item.seller_avatar_url}
-                            alt={item.seller_nickname || "出品者"}
-                            width={48}
-                            height={48}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <User className="w-6 h-6" />
-                        )}
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/seller/${item.seller_id}`}
+                        className="group transition-all"
+                      >
+                      <RewardAvatar
+                        src={item.seller_avatar_url}
+                        alt={item.seller_nickname || "出品者"}
+                        size={48}
+                        listingCount={(item as any).seller_listing_count ?? 0}
+                        earlyRegistration={(item as any).seller_early_registration}
+                        className="group-hover:scale-105 transition-transform"
+                      />
+                      </Link>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <Link href={`/seller/${item.seller_id}`} className="flex items-center gap-2 group">
                           <span className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors truncate">
                             {item.seller_nickname || "匿名"}
                           </span>
-                        </div>
+                        </Link>
+                        <RewardBadges badges={(item as any).seller_badges} />
                         {(item as any).seller_rating !== undefined && (
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <div className="flex text-yellow-500">
@@ -535,12 +534,12 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                               ))}
                             </div>
                             <span className="text-xs font-bold text-gray-500">
-                              {((item as any).seller_rating || 0).toFixed(1)}
+                              {(item as any).seller_listing_count ?? 0}件出品
                             </span>
                           </div>
                         )}
                       </div>
-                    </Link>
+                    </div>
                     
                     <div className="pt-2 border-t border-gray-200/60 space-y-1">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -552,6 +551,16 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                           <span className="text-xs bg-primary/5 text-primary px-2 py-0.5 rounded-md font-bold">{(item as any).seller_major}</span>
                         </div>
                       )}
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        <div className="rounded-xl bg-white px-3 py-2 text-center">
+                          <p className="text-[10px] font-black text-gray-400">出品数</p>
+                          <p className="text-sm font-black text-gray-900">{(item as any).seller_listing_count ?? 0}件</p>
+                        </div>
+                        <div className="rounded-xl bg-white px-3 py-2 text-center">
+                          <p className="text-[10px] font-black text-gray-400">取引数</p>
+                          <p className="text-sm font-black text-gray-900">{(item as any).seller_transaction_count ?? 0}件</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

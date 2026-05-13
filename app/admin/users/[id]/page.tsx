@@ -4,6 +4,9 @@ import { AdminPageHeader, StatusBadge } from "../../_components/admin-shell";
 import { RevealEmailButton } from "../../_components/reveal-email-button";
 import { formatAdminDate, maskEmail, requireAdmin } from "@/lib/admin-utils";
 import RestrictionActions from "./restriction-actions";
+import BadgeActions from "./badge-actions";
+import EarlyRewardActions from "./early-reward-actions";
+import { RevokeBadgeButton } from "./revoke-badge-button";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +14,7 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
   const { supabase } = await requireAdmin();
   const userId = params.id;
 
-  const [profileResult, listResult, itemsResult, buyerTxResult, sellerTxResult, ratingsResult, reportsAgainstResult, reportsByResult, restrictionsResult] = await Promise.all([
+  const [profileResult, listResult, itemsResult, buyerTxResult, sellerTxResult, ratingsResult, reportsAgainstResult, reportsByResult, restrictionsResult, badgesResult, rewardOverrideResult] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", userId).single(),
     (supabase as any).rpc("admin_list_users", { search_text: userId, ban_filter: null }),
     supabase.from("items").select("id, title, status, created_at, front_image_url").eq("seller_id", userId).order("created_at", { ascending: false }).limit(20),
@@ -21,6 +24,8 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
     (supabase as any).from("reports").select("*").eq("reported_user_id", userId).order("created_at", { ascending: false }).limit(20),
     (supabase as any).from("reports").select("*").eq("reporter_id", userId).order("created_at", { ascending: false }).limit(20),
     (supabase as any).from("user_restrictions").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
+    (supabase as any).from("user_badges").select("*").eq("user_id", userId).is("revoked_at", null).order("created_at", { ascending: false }).limit(20),
+    (supabase as any).from("user_reward_overrides").select("*").eq("user_id", userId).maybeSingle(),
   ]);
 
   const profile = profileResult.data as any;
@@ -61,8 +66,15 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
         </section>
 
         <RestrictionActions userId={userId} activeRestriction={activeRestriction?.restriction_type ?? userSummary?.restriction_status} />
+        <EarlyRewardActions
+          userId={userId}
+          initialOverride={(rewardOverrideResult.data as any)?.early_registration_override}
+          initialNote={(rewardOverrideResult.data as any)?.note}
+        />
+        <BadgeActions userId={userId} />
 
         <Grid>
+          <BadgeList badges={(badgesResult.data ?? []) as any[]} />
           <List title="出品一覧" rows={(itemsResult.data ?? []).map((item: any) => ({ href: `/admin/items?item=${item.id}`, title: item.title, meta: `${item.status} / ${formatAdminDate(item.created_at)}` }))} />
           <List title="購入履歴" rows={(buyerTxResult.data ?? []).map((tx: any) => ({ href: `/admin/transactions/${tx.id}`, title: tx.id, meta: `${tx.status} / ${formatAdminDate(tx.created_at)}` }))} />
           <List title="出品側取引履歴" rows={(sellerTxResult.data ?? []).map((tx: any) => ({ href: `/admin/transactions/${tx.id}`, title: tx.id, meta: `${tx.status} / ${formatAdminDate(tx.created_at)}` }))} />
@@ -73,6 +85,29 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
         </Grid>
       </main>
     </>
+  );
+}
+
+function BadgeList({ badges }: { badges: any[] }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-lg font-black">付与中のバッジ</h2>
+      <div className="space-y-3">
+        {badges.map((badge) => (
+          <div key={badge.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black">{badge.label}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">{badge.badge_type} / {formatAdminDate(badge.created_at)}</p>
+                {badge.note && <p className="mt-2 whitespace-pre-wrap text-xs font-bold text-slate-600">{badge.note}</p>}
+              </div>
+              <RevokeBadgeButton badgeId={badge.id} />
+            </div>
+          </div>
+        ))}
+        {badges.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-500">バッジはありません</p>}
+      </div>
+    </div>
   );
 }
 

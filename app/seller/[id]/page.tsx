@@ -5,6 +5,8 @@ import { ArrowLeft, User, GraduationCap, Heart, Star, Image as ImageIcon } from 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
+import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting, type UserBadge } from "@/lib/rewards";
 
 type SellerProfile = {
     user_id: string;
@@ -13,6 +15,7 @@ type SellerProfile = {
     major?: string;
     avatar_url?: string | null;
     is_deactivated?: boolean;
+    created_at?: string | null;
 };
 
 type Item = {
@@ -20,6 +23,7 @@ type Item = {
     title: string;
     selling_price: number;
     //condition: string;
+    front_thumbnail_url?: string | null;
     front_image_url: string | null;
 };
 
@@ -40,6 +44,10 @@ export default function SellerDetailPage({
     const [favorites, setFavorites] = useState<string[]>([]);
     const [averageRating, setAverageRating] = useState(0);
     const [ratingCount, setRatingCount] = useState(0);
+    const [transactionCount, setTransactionCount] = useState(0);
+    const [rewardSetting, setRewardSetting] = useState<RewardSetting | null>(null);
+    const [rewardOverride, setRewardOverride] = useState<RewardOverride | null>(null);
+    const [badges, setBadges] = useState<UserBadge[]>([]);
     const loadedRef = useRef(false);
 
     useEffect(() => {
@@ -54,13 +62,13 @@ export default function SellerDetailPage({
             // プロフィール、アイテム、評価を並列取得で高速化
             const profilePromise = supabase
                 .from("profiles")
-                .select("user_id, nickname, department, major, avatar_url, is_deactivated")
+                .select("user_id, nickname, department, major, avatar_url, is_deactivated, created_at")
                 .eq("user_id", params.id)
                 .single();
 
             const itemsPromise = supabase
                 .from("items")
-                .select("id, title, selling_price, front_image_url")
+                .select("id, title, selling_price, front_image_url, front_thumbnail_url")
                 .eq("seller_id", params.id)
                 .eq("status", "available")
                 .order("created_at", { ascending: false });
@@ -70,11 +78,40 @@ export default function SellerDetailPage({
                 .select("score")
                 .eq("rated_id", params.id);
 
-            const [profileResult, itemsResult, ratingsResult] = await Promise.all([
+            const transactionsPromise = supabase
+                .from("transactions")
+                .select("*", { count: "exact", head: true })
+                .eq("seller_id", params.id)
+                .eq("status", "completed");
+
+            const rewardSettingPromise = (supabase as any)
+                .from("reward_settings")
+                .select("*")
+                .eq("id", "early_registration")
+                .single();
+
+            const badgesPromise = (supabase as any)
+                .from("user_badges")
+                .select("id,badge_type,label,note")
+                .eq("user_id", params.id)
+                .is("revoked_at", null)
+                .order("created_at", { ascending: false });
+
+            const rewardOverridePromise = (supabase as any)
+                .from("user_reward_overrides")
+                .select("early_registration_override")
+                .eq("user_id", params.id)
+                .maybeSingle();
+
+            const [profileResult, itemsResult, ratingsResult, transactionsResult, rewardSettingResult, badgesResult, rewardOverrideResult] = await Promise.all([
                 profilePromise, 
                 itemsPromise,
-                ratingsPromise
-            ]) as [any, any, any];
+                ratingsPromise,
+                transactionsPromise,
+                rewardSettingPromise,
+                badgesPromise,
+                rewardOverridePromise
+            ]) as [any, any, any, any, any, any, any];
 
             if (profileResult.error) {
                 console.error("Error loading profile:", profileResult.error);
@@ -97,6 +134,11 @@ export default function SellerDetailPage({
                 setAverageRating(avg);
                 setRatingCount(count);
             }
+
+            setTransactionCount(transactionsResult.count || 0);
+            setRewardSetting(rewardSettingResult.data || null);
+            setRewardOverride(rewardOverrideResult.data || null);
+            setBadges((badgesResult.data || []) as UserBadge[]);
         } catch (err) {
             console.error("Error loading seller data:", err);
         } finally {
@@ -164,26 +206,18 @@ export default function SellerDetailPage({
 
                 {/* Seller Profile Info Card */}
                 <div className="flex items-center gap-5 transition-transform">
-                    <div className="w-20 h-20 rounded-full border-4 border-primary/20 overflow-hidden shadow-inner flex-shrink-0">
-                        {profile.avatar_url ? (
-                            <Image 
-                                src={profile.avatar_url} 
-                                alt="Avatar" 
-                                width={80} 
-                                height={80} 
-                                className="w-full h-full object-cover"
-                                unoptimized
-                            />
-                        ) : (
-                            <div className="w-full h-full bg-primary/10 flex items-center justify-center">
-                                <User className="w-10 h-10 text-primary/40" />
-                            </div>
-                        )}
-                    </div>
+                    <RewardAvatar
+                        src={profile.avatar_url}
+                        alt="Avatar"
+                        size={80}
+                        listingCount={items.length}
+                        earlyRegistration={resolveEarlyRegistrationEligible(profile.created_at, rewardSetting, rewardOverride)}
+                    />
                     <div className="flex-1 min-w-0">
                         <h2 className="text-2xl font-black text-gray-900 truncate mb-1">
                             {profile.nickname}
                         </h2>
+                        <RewardBadges badges={badges} />
                         <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
                                 <div className="flex text-yellow-500">
@@ -195,8 +229,18 @@ export default function SellerDetailPage({
                                     ))}
                                 </div>
                                 <span className="text-sm font-black text-gray-500">
-                                    {averageRating.toFixed(1)} ({ratingCount})
+                                    {items.length}件出品
                                 </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-2xl bg-primary/5 px-3 py-2 text-center">
+                                    <p className="text-[10px] font-black text-primary/70">出品数</p>
+                                    <p className="text-base font-black text-primary">{items.length}件</p>
+                                </div>
+                                <div className="rounded-2xl bg-gray-50 px-3 py-2 text-center">
+                                    <p className="text-[10px] font-black text-gray-500">取引数</p>
+                                    <p className="text-base font-black text-gray-900">{transactionCount}件</p>
+                                </div>
                             </div>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-600">
                                 <div className="flex items-center gap-1.5">
@@ -238,13 +282,29 @@ export default function SellerDetailPage({
                             <Link key={item.id} href={`/product/${item.id}`}>
                                 <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
                                     <div className="flex items-start justify-between gap-4">
+                                        <div className="relative h-24 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50 shadow-sm">
+                                            {item.front_thumbnail_url || item.front_image_url ? (
+                                                <Image
+                                                    src={item.front_thumbnail_url || item.front_image_url || ""}
+                                                    alt={item.title}
+                                                    fill
+                                                    sizes="64px"
+                                                    className="object-cover"
+                                                    unoptimized
+                                                />
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center">
+                                                    <ImageIcon className="h-6 w-6 text-gray-300" />
+                                                </div>
+                                            )}
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-2">
                                                 {/* <span className={`text-xs font-medium px-2 py-1 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
                                                     {item.condition}
                                                 </span> */}
                                             </div>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                            <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
                                                 {item.title}
                                             </h3>
                                             <p className="text-2xl font-bold text-primary">

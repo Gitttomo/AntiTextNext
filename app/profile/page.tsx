@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import MypageClient from "./client";
 import { isCurrentUserAdmin } from "@/lib/admin";
+import { resolveEarlyRegistrationEligible } from "@/lib/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function Mypage() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-        return <MypageClient initialProfile={null} serverSession={false} initialListingItems={[]} initialPastItems={[]} initialFavoriteItems={[]} averageRating={0} ratingCount={0} isAdmin={false} />;
+        return <MypageClient initialProfile={null} serverSession={false} initialListingItems={[]} initialPastItems={[]} initialFavoriteItems={[]} averageRating={0} ratingCount={0} listingCount={0} transactionCount={0} earlyRegistrationEligible={false} badges={[]} isAdmin={false} />;
     }
 
     const userId = session.user.id;
@@ -46,7 +47,10 @@ export default async function Mypage() {
         { data: favoritesData },
         { data: sellerItems },
         { data: sellerTransactions },
-        { data: buyerTransactions }
+        { data: buyerTransactions },
+        { data: rewardSetting },
+        { data: badges },
+        { data: rewardOverride }
     ] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", userId).single(),
         supabase.from("ratings").select("score").eq("rated_id", userId),
@@ -56,7 +60,10 @@ export default async function Mypage() {
         supabase
             .from("transactions")
             .select("item_id, status, items(*)")
-            .eq("buyer_id", userId)
+            .eq("buyer_id", userId),
+        (supabase as any).from("reward_settings").select("*").eq("id", "early_registration").single(),
+        (supabase as any).from("user_badges").select("id,badge_type,label,note").eq("user_id", userId).is("revoked_at", null).order("created_at", { ascending: false }),
+        (supabase as any).from("user_reward_overrides").select("early_registration_override").eq("user_id", userId).maybeSingle()
     ]);
 
     // Calculate average rating
@@ -91,6 +98,10 @@ export default async function Mypage() {
             initialFavoriteItems={favoriteItems as any[]}
             averageRating={averageRating}
             ratingCount={ratingCount}
+            listingCount={listingItems.length}
+            transactionCount={pastItems.length}
+            earlyRegistrationEligible={resolveEarlyRegistrationEligible((profile as any)?.created_at, rewardSetting as any, rewardOverride as any)}
+            badges={(badges ?? []) as any[]}
             isAdmin={isAdmin}
         />
     );
