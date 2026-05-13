@@ -186,8 +186,31 @@ export default function ProductDetailClient({ item }: { item: Item }) {
     setIsSubmitting(true);
 
     try {
-      // Create transaction
-      const { error: transactionError } = await (supabase
+      // Check purchase eligibility (cooldown & attempt limits)
+      const { data: eligibility, error: eligError } = await supabase
+        .rpc('check_purchase_eligibility', {
+          p_buyer_id: user.id,
+          p_item_id: item.id,
+          p_seller_id: item.seller_id,
+        });
+
+      if (eligError) {
+        console.error("Eligibility check error:", eligError);
+        // If function doesn't exist yet, proceed without check
+      } else if (eligibility && !eligibility.allowed) {
+        if (eligibility.reason === 'max_attempts_reached') {
+          alert("この商品へのリクエストは上限（2回）に達しました。");
+        } else if (eligibility.reason === 'cooldown_active') {
+          alert(`前回の辞退から24時間経過していません。あと約${eligibility.hours_remaining}時間後にお試しください。`);
+        } else if (eligibility.reason === 'pending_request_exists') {
+          alert("この商品への承認待ちリクエストが既にあります。");
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Create transaction with pending_approval status (seller must approve)
+      const { data: newTransaction, error: transactionError } = await (supabase
         .from("transactions") as any)
         .insert({
           item_id: item.id,
@@ -196,22 +219,30 @@ export default function ProductDetailClient({ item }: { item: Item }) {
           payment_method: data.paymentMethod,
           meetup_time_slots: data.timeSlots,
           meetup_locations: data.locations,
-          status: "pending",
-        });
+          status: "pending_approval",
+        })
+        .select('id')
+        .single();
 
       if (transactionError) throw transactionError;
 
-      // Update item status and release lock
-      const { error: updateError } = await (supabase
-        .from("items") as any)
-        .update({ 
-          status: "transaction_pending",
+      // Record in purchase_request_history
+      await (supabase.from("purchase_request_history") as any)
+        .insert({
+          item_id: item.id,
+          buyer_id: user.id,
+          seller_id: item.seller_id,
+          status: "pending_approval",
+        });
+
+      // Keep item status as 'available' — NOT transaction_pending yet
+      // Only release the lock
+      await (supabase.from("items") as any)
+        .update({
           locked_by: null,
-          locked_until: null
+          locked_until: null,
         })
         .eq("id", item.id);
-
-      if (updateError) throw updateError;
 
       const autoMessage = generatePurchaseMessage(data);
       const { error: messageError } = await (supabase
@@ -235,26 +266,19 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
       const buyerNickname = (buyerProfile as any)?.nickname || "購入者";
 
-      // Send notification to seller
-      const { error: notificationError } = await (supabase
-        .from("notifications") as any)
+      // Send notification to seller — emphasize approval needed
+      await (supabase.from("notifications") as any)
         .insert({
           user_id: item.seller_id,
           type: "purchase_request",
-          title: "新しい購入リクエスト",
-          message: `${buyerNickname}さんから購入リクエストが届きました。チャットで日程を調整してください。`,
+          title: "購入リクエストの承認待ち",
+          message: `${buyerNickname}さんから購入リクエストが届きました。チャットで確認し、承認または辞退してください。`,
           link_type: "chat",
           link_id: item.id,
           is_read: false,
         });
 
-      if (notificationError) {
-        console.error("Failed to send notification:", notificationError);
-        // Don't block the flow if notification fails
-      }
-
       setIsPurchaseModalOpen(false);
-      // チャットはitem_idベースに変更
       router.push(`/chat/${item.id}`);
     } catch (err: any) {
       console.error("Error submitting purchase request:", err);

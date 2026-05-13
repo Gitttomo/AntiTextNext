@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package } from "lucide-react";
+import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -39,6 +39,8 @@ type Transaction = {
   buyer_completed: boolean;
   seller_completed: boolean;
   cancellation_reason: string | null;
+  decline_reason?: string | null;
+  declined_at?: string | null;
 };
 
 type UserProfile = {
@@ -81,6 +83,8 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [isCancellationReasonModalOpen, setIsCancellationReasonModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showCancellationSection, setShowCancellationSection] = useState(false);
+  const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -630,7 +634,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     transaction_pending: "取引調整中",
     awaiting_rating: "評価待ち",
     sold: "取引完了",
-  }[item.status] || item.status;
+  }[item.status] || (transaction?.status === 'pending_approval' ? '承認待ち' : item.status);
+
+  const isPendingApproval = transaction?.status === 'pending_approval';
+  const isDeclined = transaction?.status === 'declined';
 
   const isSeller = user?.id === item.seller_id;
 
@@ -651,7 +658,89 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         </div>
       </header>
 
-      {/* Action Bar (Below Header) */}
+      {/* Approval Bar (only for pending_approval transactions) */}
+      {isPendingApproval && (
+        <div className="fixed top-16 left-0 right-0 bg-amber-50/95 backdrop-blur-md px-4 py-3 z-40 border-b border-amber-200">
+          {isSeller ? (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-black text-amber-700">購入リクエストが届いています</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (isApproving || !transaction) return;
+                    setIsApproving(true);
+                    try {
+                      await (supabase.from('transactions') as any)
+                        .update({ status: 'pending' })
+                        .eq('id', transaction.id);
+                      await (supabase.from('items') as any)
+                        .update({ status: 'transaction_pending' })
+                        .eq('id', item.id);
+                      await (supabase.from('purchase_request_history') as any)
+                        .update({ status: 'approved', resolved_at: new Date().toISOString() })
+                        .eq('item_id', item.id)
+                        .eq('buyer_id', transaction.buyer_id)
+                        .eq('status', 'pending_approval');
+                      await (supabase.from('notifications') as any)
+                        .insert({
+                          user_id: transaction.buyer_id,
+                          type: 'purchase_request',
+                          title: '購入リクエストが承認されました',
+                          message: `「${item.title}」の購入リクエストが承認されました。チャットで日程を調整してください。`,
+                          link_type: 'chat',
+                          link_id: item.id,
+                          is_read: false,
+                        });
+                      await handleSend('【リクエスト承認】\n出品者が購入リクエストを承認しました。日程を調整しましょう！');
+                      setTransaction(prev => prev ? { ...prev, status: 'pending' } : prev);
+                      setItem(prev => prev ? { ...prev, status: 'transaction_pending' } : prev);
+                    } catch (err: any) {
+                      alert('承認に失敗しました: ' + err.message);
+                    } finally {
+                      setIsApproving(false);
+                    }
+                  }}
+                  disabled={isApproving}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl transition-all text-sm disabled:opacity-50"
+                >
+                  {isApproving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" />承認する</>}
+                </button>
+                <button
+                  onClick={() => setIsDeclineModalOpen(true)}
+                  disabled={isApproving}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-white hover:bg-red-50 text-red-500 border-2 border-red-200 font-bold py-2.5 rounded-xl transition-all text-sm disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4" />辞退する
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-bold text-amber-700">出品者の承認を待っています...</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Declined Banner */}
+      {isDeclined && (
+        <div className="fixed top-16 left-0 right-0 bg-red-50/95 backdrop-blur-md px-4 py-3 z-40 border-b border-red-200">
+          <div className="flex items-center gap-2">
+            <XCircle className="w-4 h-4 text-red-500" />
+            <span className="text-xs font-bold text-red-600">このリクエストは辞退されました</span>
+          </div>
+          {transaction?.decline_reason && (
+            <p className="text-xs text-red-500 mt-1 ml-6">理由: {transaction.decline_reason}</p>
+          )}
+        </div>
+      )}
+
+      {/* Action Bar (Below Header) — hide when pending_approval or declined */}
+      {!isPendingApproval && !isDeclined && (
       <div className="fixed top-16 left-0 right-0 bg-gray-100/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-white/10">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
@@ -674,6 +763,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           取引を完了する
         </button>
       </div>
+      )}
 
       <div className="flex-1 overflow-hidden pt-[116px] flex flex-col">
         {/* Messages Area */}
@@ -983,6 +1073,66 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         onClose={() => setIsCancellationReasonModalOpen(false)}
         onConfirm={handleCancelTransaction}
         isSubmitting={isFinalizing}
+      />
+
+      {/* Decline Reason Modal (for seller declining purchase request) */}
+      <DeclineReasonModal
+        isOpen={isDeclineModalOpen}
+        onClose={() => setIsDeclineModalOpen(false)}
+        onConfirm={async (reason: string) => {
+          if (!transaction || !item) return;
+          setIsApproving(true);
+          try {
+            // Update transaction to declined
+            await (supabase.from('transactions') as any)
+              .update({
+                status: 'declined',
+                decline_reason: reason,
+                declined_at: new Date().toISOString(),
+              })
+              .eq('id', transaction.id);
+
+            // Update purchase_request_history
+            await (supabase.from('purchase_request_history') as any)
+              .update({
+                status: 'declined',
+                decline_reason: reason,
+                resolved_at: new Date().toISOString(),
+              })
+              .eq('item_id', item.id)
+              .eq('buyer_id', transaction.buyer_id)
+              .eq('status', 'pending_approval');
+
+            // Send notification to buyer
+            await (supabase.from('notifications') as any)
+              .insert({
+                user_id: transaction.buyer_id,
+                type: 'transaction_cancelled',
+                title: '購入リクエストが辞退されました',
+                message: `「${item.title}」への購入リクエストが出品者により辞退されました。理由: ${reason}`,
+                link_type: 'chat',
+                link_id: item.id,
+                is_read: false,
+              });
+
+            // Send system message
+            await handleSend(`【リクエスト辞退】\n出品者が購入リクエストを辞退しました。\n\n理由: ${reason}\n\n※チャットは引き続きご利用いただけます`);
+
+            // Update local state
+            setTransaction(prev => prev ? {
+              ...prev,
+              status: 'declined',
+              decline_reason: reason,
+            } : prev);
+
+            setIsDeclineModalOpen(false);
+          } catch (err: any) {
+            alert('辞退に失敗しました: ' + err.message);
+          } finally {
+            setIsApproving(false);
+          }
+        }}
+        isSubmitting={isApproving}
       />
 
       <style jsx global>{`
@@ -1463,6 +1613,91 @@ function CancellationReasonModal({
               className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98] disabled:opacity-50"
             >
               戻る
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Decline Reason Modal (for seller to decline purchase request) ---
+function DeclineReasonModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  isSubmitting,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  isSubmitting: boolean;
+}) {
+  const [reason, setReason] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleSubmit = () => {
+    if (!reason.trim()) {
+      alert("辞退理由を入力してください");
+      return;
+    }
+    onConfirm(reason.trim());
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 animate-in fade-in duration-300">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+        <div className="p-8">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+            <XCircle className="w-8 h-8 text-amber-500" />
+          </div>
+
+          <h2 className="text-xl font-black text-gray-900 text-center mb-2">
+            リクエストを辞退
+          </h2>
+          <p className="text-gray-500 text-sm text-center mb-6 font-medium">
+            購入者への配慮のため、辞退理由を入力してください
+          </p>
+
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="例: 先に約束していた方がいるため辞退させていただきます"
+            disabled={isSubmitting}
+            className="w-full h-32 px-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-amber-500 focus:bg-white transition-all resize-none text-gray-700 placeholder:text-gray-400 font-medium mb-4"
+            maxLength={300}
+          />
+
+          <div className="flex items-start gap-3 bg-red-50 p-3 rounded-xl border border-red-100 mb-6">
+            <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+            <p className="text-xs font-bold text-red-600">
+              この操作は取り消せません。辞退するとリクエストはキャンセルされます。
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !reason.trim()}
+              className="w-full bg-red-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                "辞退を確定する"
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              キャンセル
             </button>
           </div>
         </div>
