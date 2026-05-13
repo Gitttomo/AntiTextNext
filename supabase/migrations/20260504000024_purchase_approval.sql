@@ -18,6 +18,34 @@ CREATE TABLE IF NOT EXISTS purchase_request_history (
   resolved_at timestamptz
 );
 
+-- Enable Row Level Security
+ALTER TABLE purchase_request_history ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Buyers can view their own requests
+CREATE POLICY "Buyers can view own requests"
+  ON purchase_request_history FOR SELECT
+  USING (auth.uid() = buyer_id);
+
+-- Policy: Sellers can view requests for their items
+CREATE POLICY "Sellers can view requests for their items"
+  ON purchase_request_history FOR SELECT
+  USING (auth.uid() = seller_id);
+
+-- Policy: Authenticated users can insert their own requests (as buyer)
+CREATE POLICY "Buyers can create requests"
+  ON purchase_request_history FOR INSERT
+  WITH CHECK (auth.uid() = buyer_id);
+
+-- Policy: Sellers can update requests for their items (approve/decline)
+CREATE POLICY "Sellers can update requests"
+  ON purchase_request_history FOR UPDATE
+  USING (auth.uid() = seller_id);
+
+-- Policy: Buyers can also update their own requests (for eligibility check function)
+CREATE POLICY "Buyers can update own requests"
+  ON purchase_request_history FOR UPDATE
+  USING (auth.uid() = buyer_id);
+
 -- Index for checking cooldown and attempt limits
 CREATE INDEX IF NOT EXISTS idx_purchase_request_history_buyer_item
   ON purchase_request_history(buyer_id, item_id, created_at DESC);
