@@ -211,7 +211,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
     try {
       // Check purchase eligibility (cooldown & attempt limits)
-      const { data: eligibility, error: eligError } = await supabase
+      const { data: eligibility, error: eligError } = await (supabase as any)
         .rpc('check_purchase_eligibility', {
           p_buyer_id: user.id,
           p_item_id: item.id,
