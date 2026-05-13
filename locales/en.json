@@ -98,7 +98,19 @@
     "irreversible_warning": "This action cannot be undone. Please confirm only after the handover.",
     "confirmed_checkbox": "I confirm the handover is complete",
     "yes_complete": "Yes, complete and rate",
-    "not_yet": "Not yet, go back to chat"
+    "not_yet": "Not yet, go back to chat",
+    "approval_pending": "Purchase request received",
+    "approval_waiting": "Waiting for seller approval...",
+    "approve": "Approve",
+    "decline": "Decline",
+    "declined_banner": "This request has been declined",
+    "decline_reason_label": "Reason",
+    "decline_modal_title": "Decline Request",
+    "decline_modal_description": "Please provide a reason for declining this request",
+    "decline_modal_placeholder": "e.g. Sorry, this item is already promised to someone else",
+    "decline_modal_warning": "This action cannot be undone. The request will be cancelled.",
+    "decline_confirm": "Confirm Decline",
+    "status_pending_approval": "Pending Approval"
   },
   "settings": {
     "title": "Settings",

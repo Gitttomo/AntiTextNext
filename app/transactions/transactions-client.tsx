@@ -122,7 +122,7 @@ export default function TransactionsClient({
                 const item = tx.items;
                 if (!item) continue;
 
-                if (tx.status === "completed" || item.status === "sold") {
+                if (tx.status === "completed" || tx.status === "declined" || item.status === "sold") {
                     continue;
                 }
 
@@ -176,8 +176,8 @@ export default function TransactionsClient({
                     transactionStatus: txInfo?.txStatus,
                 };
 
-                if (item.status === "transaction_pending" || txInfo) {
-                    // Include pending, confirmed, and awaiting_rating in active
+                if (item.status === "transaction_pending" || (txInfo && txInfo.txStatus !== "declined")) {
+                    // Include pending, pending_approval, confirmed, and awaiting_rating in active
                     active.push(txItem);
                 }
             }
@@ -307,7 +307,12 @@ export default function TransactionsClient({
                         >
                             {item.isBuyer ? "購入" : "出品"}
                         </span>
-                        {item.transactionStatus === "awaiting_rating" ? (
+                        {item.transactionStatus === "pending_approval" ? (
+                            <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {t('chat.status_pending_approval')}
+                            </span>
+                        ) : item.transactionStatus === "awaiting_rating" ? (
                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full flex items-center gap-1">
                                 <Star className="w-3 h-3" />
                                 評価待ち

@@ -119,7 +119,7 @@ export default async function TransactionsPage() {
         const item = tx.items;
         if (!item) continue;
 
-        if (tx.status === "completed" || item.status === "sold") {
+        if (tx.status === "completed" || tx.status === "declined" || item.status === "sold") {
             continue;
         }
 
@@ -173,7 +173,7 @@ export default async function TransactionsPage() {
             transactionStatus: txInfo?.txStatus,
         };
 
-        if (item.status === "transaction_pending" || txInfo) {
+        if (item.status === "transaction_pending" || (txInfo && txInfo.txStatus !== "declined")) {
             active.push(txItem);
         }
     }
