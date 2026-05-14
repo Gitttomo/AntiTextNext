@@ -40,12 +40,10 @@ type Item = {
 
 type MypageClientProps = {
     initialProfile: Profile | null;
-    serverSession: boolean;
     initialListingItems: Item[];
     initialPastItems: Item[];
     initialFavoriteItems: Item[];
     averageRating: number;
-    ratingCount: number;
     listingCount: number;
     transactionCount: number;
     earlyRegistrationEligible: boolean;
@@ -59,7 +57,6 @@ export default function MypageClient({
     initialPastItems,
     initialFavoriteItems,
     averageRating,
-    ratingCount,
     listingCount,
     transactionCount,
     earlyRegistrationEligible,

@@ -243,13 +243,6 @@ export default function ListingPage() {
                 </p>
               </div>
 
-              {/* <div>
-                <span className="text-sm font-medium text-gray-600">状態</span>
-                <p className="text-lg text-gray-900 mt-1">
-                  {formData.condition}
-                </p> 
-              </div> */}
-
               <div>
                 <span className="text-sm font-medium text-gray-600">出品価格</span>
                 <p className="text-2xl font-bold text-primary mt-1">
@@ -391,23 +384,6 @@ export default function ListingPage() {
                 />
               </div>
 
-              {/* <div className="animate-slide-in-bottom" style={{ animationDelay: '100ms' }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  状態 <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.condition}
-                  onChange={(e) =>
-                    setFormData({ ...formData, condition: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                >
-                  <option value="美品">美品</option>
-                  <option value="良好">良好</option>
-                  <option value="可">可</option>
-                </select>
-              </div> */}
-
               <div className="animate-slide-in-bottom" style={{ animationDelay: '200ms' }}>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   写真 <span className="text-red-500">*</span>
@@ -545,102 +521,6 @@ export default function ListingPage() {
         </div>
       </div>
 
-      {/* Barcode Scanner Modal - Temporarily disabled due to missing state variables
-      {isScanning && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl overflow-hidden w-full max-w-md relative">
-            <div className="p-4 border-b flex items-center justify-between bg-white z-10 relative">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-lg">
-                  {scanStatus === "detected" ? "検出しました！" : "バーコードを読み取り中"}
-                </h3>
-                {scanStatus === "scanning" && (
-                  <Scan className="w-5 h-5 text-primary animate-pulse" />
-                )}
-              </div>
-              <button
-                onClick={stopScanner}
-                className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="relative w-full aspect-[3/4] bg-black">
-              <div ref={scannerRef} className="absolute inset-0 [&>video]:w-full [&>video]:h-full [&>video]:object-cover" />
-
-              <div className={`absolute inset-0 m-8 rounded-lg pointer-events-none transition-all duration-300 ${scanStatus === "detected"
-                ? "border-4 border-green-500 bg-green-500/20"
-                : "border-2 border-primary/50"
-                }`}>
-                {scanStatus === "scanning" && (
-                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                    <div className="w-full h-1 bg-red-500 animate-scan-line" />
-                  </div>
-                )}
-                {scanStatus === "detected" && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
-                      <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {scanStatus === "scanning" && (
-                <div className="absolute top-4 left-4 right-4 flex justify-center z-20">
-                  <div className="bg-black/60 text-white px-4 py-2 rounded-full flex items-center gap-2 text-sm">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                    自動検出中...
-                  </div>
-                </div>
-              )}
-
-              {scanStatus === "scanning" && maxZoom > 1 && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-20">
-                  <button
-                    onClick={() => changeZoom(zoomLevel + 0.5)}
-                    disabled={zoomLevel >= maxZoom}
-                    className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-30 text-lg font-bold"
-                  >
-                    +
-                  </button>
-                  <div className="bg-black/60 text-white text-xs px-2 py-1 rounded-full text-center">
-                    {zoomLevel.toFixed(1)}x
-                  </div>
-                  <button
-                    onClick={() => changeZoom(zoomLevel - 0.5)}
-                    disabled={zoomLevel <= 1}
-                    className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-30 text-lg font-bold"
-                  >
-                    −
-                  </button>
-                </div>
-              )}
-
-              <div className="absolute bottom-4 left-0 right-0 flex justify-center z-20">
-                <button
-                  onClick={captureAndScan}
-                  disabled={scanStatus === "detected"}
-                  className="w-16 h-16 bg-gradient-btn-blue rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
-                >
-                  <Camera className="w-6 h-6 text-white" />
-                </button>
-              </div>
-            </div>
-            <div className="p-4 text-center text-sm text-gray-500 bg-gray-50">
-              {scanStatus === "detected" ? (
-                <span className="text-green-600 font-medium">バーコードを検出しました！書籍情報を取得中...</span>
-              ) : (
-                <>バーコードを枠の中央に入れると自動で読み取ります<br />
-                  <span className="text-xs text-gray-400">小さいバーコードは右の＋ボタンでズームしてください</span></>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      */}
     </div>
   );
 }

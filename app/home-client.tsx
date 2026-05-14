@@ -22,12 +22,6 @@ type Item = {
   seller_id?: string;
 };
 
-/* const conditionColors: Record<string, string> = {
-  "美品": "bg-green-100 text-green-700",
-  "良好": "bg-blue-100 text-blue-700",
-  "可": "bg-yellow-100 text-yellow-700",
-}; */
-
 // アイテムカードをメモ化して再レンダリングを防止
 const ItemCard = memo(function ItemCard({
   item,
@@ -66,13 +60,7 @@ const ItemCard = memo(function ItemCard({
             )}
           </div>
 
-          {/* コンテンツ */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              {/* <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
-                {item.condition}
-              </span> */}
-            </div>
             <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
               {item.title}
             </h3>

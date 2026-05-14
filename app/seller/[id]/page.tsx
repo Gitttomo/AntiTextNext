@@ -22,16 +22,9 @@ type Item = {
     id: string;
     title: string;
     selling_price: number;
-    //condition: string;
     front_thumbnail_url?: string | null;
     front_image_url: string | null;
 };
-
-{/* const conditionColors: Record<string, string> = {
-    "美品": "bg-green-100 text-green-700",
-    "良好": "bg-blue-100 text-blue-700",
-    "可": "bg-yellow-100 text-yellow-700",
-}; */}
 
 export default function SellerDetailPage({
     params,
@@ -43,7 +36,6 @@ export default function SellerDetailPage({
     const [loading, setLoading] = useState(true);
     const [favorites, setFavorites] = useState<string[]>([]);
     const [averageRating, setAverageRating] = useState(0);
-    const [ratingCount, setRatingCount] = useState(0);
     const [transactionCount, setTransactionCount] = useState(0);
     const [rewardSetting, setRewardSetting] = useState<RewardSetting | null>(null);
     const [rewardOverride, setRewardOverride] = useState<RewardOverride | null>(null);
@@ -120,7 +112,6 @@ export default function SellerDetailPage({
                 const count = scores.length;
                 const avg = count > 0 ? scores.reduce((a, b) => a + b, 0) / count : 0;
                 setAverageRating(avg);
-                setRatingCount(count);
             }
 
             // 取引数
@@ -302,11 +293,6 @@ export default function SellerDetailPage({
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                {/* <span className={`text-xs font-medium px-2 py-1 rounded-full ${conditionColors[item.condition] || 'bg-gray-100 text-gray-700'}`}>
-                                                    {item.condition}
-                                                </span> */}
-                                            </div>
                                             <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
                                                 {item.title}
                                             </h3>

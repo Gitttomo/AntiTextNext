@@ -34,7 +34,7 @@ export default async function Mypage() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-        return <MypageClient initialProfile={null} serverSession={false} initialListingItems={[]} initialPastItems={[]} initialFavoriteItems={[]} averageRating={0} ratingCount={0} listingCount={0} transactionCount={0} earlyRegistrationEligible={false} badges={[]} isAdmin={false} />;
+        return <MypageClient initialProfile={null} initialListingItems={[]} initialPastItems={[]} initialFavoriteItems={[]} averageRating={0} listingCount={0} transactionCount={0} earlyRegistrationEligible={false} badges={[]} isAdmin={false} />;
     }
 
     const userId = session.user.id;
@@ -93,12 +93,10 @@ export default async function Mypage() {
     return (
         <MypageClient 
             initialProfile={profile as any}
-            serverSession={true}
             initialListingItems={listingItems as any[]}
             initialPastItems={pastItems as any[]}
             initialFavoriteItems={favoriteItems as any[]}
             averageRating={averageRating}
-            ratingCount={ratingCount}
             listingCount={activeListingCount}
             transactionCount={pastItems.length}
             earlyRegistrationEligible={resolveEarlyRegistrationEligible((profile as any)?.created_at, rewardSetting as any, rewardOverride as any)}
