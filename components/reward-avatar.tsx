@@ -11,6 +11,7 @@ const frameClasses: Record<string, string> = {
   green: "reward-avatar-frame--green",
   sky: "reward-avatar-frame--sky",
   navy: "reward-avatar-frame--navy",
+  admin: "reward-avatar-frame--admin",
 };
 
 export function RewardAvatar({
@@ -19,6 +20,7 @@ export function RewardAvatar({
   size = 80,
   listingCount,
   earlyRegistration,
+  adminFrame = false,
   className = "",
 }: {
   src?: string | null;
@@ -26,9 +28,10 @@ export function RewardAvatar({
   size?: number;
   listingCount: number;
   earlyRegistration?: boolean;
+  adminFrame?: boolean;
   className?: string;
 }) {
-  const tone = getListingFrameTone(listingCount);
+  const tone = adminFrame ? "admin" : getListingFrameTone(listingCount);
   const sizeStyle = { width: size, height: size };
 
   return (

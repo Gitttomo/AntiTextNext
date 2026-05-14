@@ -166,6 +166,7 @@ export default function MypageClient({
                         size={80}
                         listingCount={listingCount}
                         earlyRegistration={earlyRegistrationEligible}
+                        adminFrame={isAdmin}
                     />
                     <div className="flex-1 pr-10">
                         <h2 className="text-xl font-bold text-gray-900 truncate">

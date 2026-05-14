@@ -439,6 +439,7 @@ export default function TransactionsClient({
                                 size={56}
                                 listingCount={profileAvatar.listingCount}
                                 earlyRegistration={profileAvatar.earlyRegistration}
+                                adminFrame={user?.email?.toLowerCase() === "textnextbbs@gmail.com"}
                                 className="shadow-md"
                             />
                             <div className="flex-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 
 type AccessPeriod = "month" | "week" | "day" | "hour";
@@ -10,6 +10,8 @@ export type AccessBucket = {
   bucket_start: string;
   bucket_label: string;
   visitor_count: number;
+  legacy_count?: number;
+  is_legacy?: boolean;
   is_future: boolean;
 };
 
@@ -96,10 +98,10 @@ export function AccessGraph({ initialRows }: { initialRows: AccessBucket[] }) {
   const [isPending, startTransition] = useTransition();
 
   const maxActual = useMemo(
-    () => Math.max(...rows.filter(row => !row.is_future).map(row => row.visitor_count), 1),
+    () => Math.max(...rows.filter(row => !row.is_future).map(row => row.is_legacy ? row.legacy_count ?? 0 : row.visitor_count), 1),
     [rows]
   );
-  const total = rows.reduce((sum, row) => sum + (row.is_future ? 0 : row.visitor_count), 0);
+  const total = rows.reduce((sum, row) => sum + (row.is_future ? 0 : row.is_legacy ? row.legacy_count ?? 0 : row.visitor_count), 0);
   const leftYear = formatYear(rows[0]?.bucket_start);
   const rightYear = formatYear(rows[rows.length - 1]?.bucket_start);
 
@@ -120,6 +122,8 @@ export function AccessGraph({ initialRows }: { initialRows: AccessBucket[] }) {
       setRows((payload.rows ?? []).map((row: AccessBucket) => ({
         ...row,
         visitor_count: Number(row.visitor_count ?? 0),
+        legacy_count: Number(row.legacy_count ?? 0),
+        is_legacy: Boolean(row.is_legacy),
         is_future: Boolean(row.is_future),
       })));
       setState(nextState);
@@ -127,8 +131,15 @@ export function AccessGraph({ initialRows }: { initialRows: AccessBucket[] }) {
     });
   };
 
+  useEffect(() => {
+    loadRows(state, []);
+    // 初回表示でも旧ページビュー参考値をAPI側で合成するため、一度だけ読み直します。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const drillDown = (row: AccessBucket) => {
     const next = periodMeta[state.period].next;
+    if (row.is_legacy) return;
     if (!next) return;
     loadRows(
       {
@@ -208,7 +219,7 @@ export function AccessGraph({ initialRows }: { initialRows: AccessBucket[] }) {
       <div className="mb-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
         <div className="text-xs font-black text-slate-500">{leftYear}</div>
         <div className="text-center">
-          <p className="text-[10px] font-black text-slate-500">表示範囲の実測合計</p>
+          <p className="text-[10px] font-black text-slate-500">表示範囲の実測/参考合計</p>
           <p className="text-lg font-black text-slate-900">{total.toLocaleString()}人</p>
         </div>
         <div className="text-xs font-black text-slate-500">{rightYear}</div>
@@ -220,9 +231,11 @@ export function AccessGraph({ initialRows }: { initialRows: AccessBucket[] }) {
           style={{ gridTemplateColumns: `repeat(${Math.max(rows.length, 1)}, minmax(4.5rem, 1fr))` }}
         >
             {rows.map(row => {
-              const visualCount = row.is_future ? maxActual / 2 : row.visitor_count;
-              const height = Math.max((visualCount / maxActual) * 100, !row.is_future && row.visitor_count > 0 ? 8 : 0);
-              const canDrill = Boolean(periodMeta[state.period].next);
+              const displayCount = row.is_legacy ? row.legacy_count ?? 0 : row.visitor_count;
+              const visualCount = row.is_future ? maxActual / 2 : displayCount;
+              const height = Math.max((visualCount / maxActual) * 100, !row.is_future && displayCount > 0 ? 8 : 0);
+              const canDrill = Boolean(periodMeta[state.period].next) && !row.is_legacy;
+              const isMeasuredZero = !row.is_future && !row.is_legacy && displayCount === 0;
 
               return (
                 <button
@@ -231,19 +244,24 @@ export function AccessGraph({ initialRows }: { initialRows: AccessBucket[] }) {
                   onClick={() => drillDown(row)}
                   disabled={!canDrill || isPending}
                   className="flex min-w-0 flex-col items-center gap-2 rounded-lg px-1 py-1 text-center transition hover:bg-white/80 disabled:cursor-default disabled:hover:bg-transparent"
-                  title={`${rowLabel(row)}: ${row.is_future ? "未確定" : `${row.visitor_count}人`}`}
+                  title={`${rowLabel(row)}: ${row.is_future ? "未確定" : row.is_legacy ? `${displayCount}PV参考値` : `${displayCount}人`}`}
                 >
                   <div className="flex h-56 w-full items-end justify-center">
                     <div
                       className={
                         row.is_future
                           ? "w-full max-w-12 rounded-t-md border-2 border-dashed border-sky-400 bg-transparent"
+                          : row.is_legacy
+                            ? "w-full max-w-12 rounded-t-md bg-sky-200/50 shadow-sm"
+                            : isMeasuredZero
+                              ? "w-full max-w-12 rounded-t-md bg-slate-950"
                           : "w-full max-w-12 rounded-t-md bg-sky-500 shadow-sm"
                       }
-                      style={{ height: `${height}%` }}
+                      style={{ height: isMeasuredZero ? "6px" : `${height}%` }}
                     />
                   </div>
                   <span className="w-full truncate text-[11px] font-black text-slate-600">{rowLabel(row)}</span>
+                  {row.is_legacy && <span className="text-[9px] font-black text-sky-400">PV参考</span>}
                 </button>
               );
             })}

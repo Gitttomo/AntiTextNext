@@ -625,6 +625,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
                   size={40}
                   listingCount={profileAvatar.listingCount}
                   earlyRegistration={profileAvatar.earlyRegistration}
+                  adminFrame={isAdminHomeView}
                 />
               </Link>
             ) : (
