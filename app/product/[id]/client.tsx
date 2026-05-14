@@ -244,6 +244,21 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
       if (purchaseError) throw purchaseError;
 
+      // メール通知APIの呼び出し（エラーが起きてもブロックしない）
+      try {
+        await fetch("/api/notify/transaction", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "request",
+            itemId: item.id,
+            receiverId: item.seller_id,
+          }),
+        });
+      } catch (notifyErr) {
+        console.error("Failed to trigger notify API:", notifyErr);
+      }
+
       setIsPurchaseModalOpen(false);
       router.push(`/chat/${item.id}`);
     } catch (err: any) {

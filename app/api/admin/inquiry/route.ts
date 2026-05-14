@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { adminLog, requireAdmin } from "@/lib/admin-utils";
+import { sendInquiryReplyEmail } from "@/lib/email";
 
 const allowedStatuses = new Set(["open", "checking", "replied", "completed", "no_action"]);
 
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     const { supabase, user } = await requireAdmin();
     const { data: inquiry, error: inquiryError } = await (supabase as any)
       .from("inquiries")
-      .select("id, sender_user_id, sender_name, status")
+      .select("id, sender_user_id, sender_name, status, email")
       .eq("id", inquiryId)
       .single();
 
@@ -67,6 +68,23 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedMessage = String(message).trim();
+
+    // 言語設定の取得（デフォルトja）
+    let userLocale = "ja";
+    if (inquiry.sender_user_id) {
+      const { data: profile } = await (supabase as any)
+        .from("profiles")
+        .select("locale")
+        .eq("user_id", inquiry.sender_user_id)
+        .single();
+      if (profile?.locale) userLocale = profile.locale;
+    }
+
+    // メール送信（エラーを握り潰して続行、ログは残る）
+    if (inquiry.email) {
+      await sendInquiryReplyEmail(inquiry.email, trimmedMessage, userLocale);
+    }
+
     const rpcResult = await (supabase as any).rpc("admin_send_user_notification", {
       target_user_id: inquiry.sender_user_id,
       notification_title: "お問い合わせへの返信",

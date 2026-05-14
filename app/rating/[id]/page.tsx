@@ -88,6 +88,18 @@ export default function RatingPage({ params }: { params: { id: string } }) {
 
       if (error) throw error;
 
+      // 相手に評価完了の通知（催促）を送信
+      fetch("/api/notify/transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "rating_remind",
+          itemId: transaction.item_id,
+          receiverId: ratedUser.user_id,
+          extraData: { transactionId: transaction.id }
+        }),
+      }).catch(e => console.error(e));
+
       router.push("/profile");
     } catch (err) {
       console.error(err);

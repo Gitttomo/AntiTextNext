@@ -23,11 +23,6 @@ export async function middleware(request: NextRequest) {
             value,
             ...options,
           });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
           response.cookies.set({
             name,
             value,
@@ -39,11 +34,6 @@ export async function middleware(request: NextRequest) {
             name,
             value: '',
             ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
           });
           response.cookies.set({
             name,
@@ -89,25 +79,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // セッションがあり、除外パスでない場合 → プロフィールが存在するか確認
-  if (session?.user && !isExcluded) {
-    try {
-      const { data: profile, error } = await (supabase
-        .from("profiles") as any)
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .single();
-
-      if (!profile && !error) {
-        // プロフィール未設定 → 設定ページにリダイレクト
-        return NextResponse.redirect(new URL('/auth/setup-profile', request.url));
-      }
-      // エラー時はリダイレクトせずそのまま通す（無限ループ防止）
-    } catch {
-      // クエリエラー時もそのまま通す
-    }
-  }
-
+  // セッションがあり、除外パスでない場合の処理（制限チェックやプロフィール未設定チェック）は
+  // パフォーマンスのためクライアントの auth-provider.tsx で非同期に行います。
+  
   return response;
 }
 

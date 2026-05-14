@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { adminLog, requireAdmin } from "@/lib/admin-utils";
+import { sendAdminNoticeEmail } from "@/lib/email";
 
 const allowedRestrictionTypes = new Set(["warning", "temporary_suspend", "permanent_ban"]);
 
@@ -40,14 +41,50 @@ export async function POST(request: NextRequest) {
     }
 
     if (userNotice && String(userNotice).trim()) {
+      const trimmedNotice = String(userNotice).trim();
+      
       await (supabase as any).rpc("admin_send_user_notification", {
         target_user_id: userId,
         notification_title: "アカウント状態について",
-        notification_message: String(userNotice).trim(),
+        notification_message: trimmedNotice,
         notification_type: "admin_restriction_notice",
         target_link_type: "profile",
         target_link_id: userId,
       });
+
+      // メール送信処理
+      try {
+        const { data: email } = await (supabase as any).rpc("admin_get_user_email", {
+          target_user_id: userId,
+          reason: `制限実行(${restrictionType})に伴う通知メール送信のため`,
+        });
+
+        if (email) {
+          let userLocale = "ja";
+          const { data: profile } = await (supabase as any)
+            .from("profiles")
+            .select("locale")
+            .eq("user_id", userId)
+            .single();
+          if (profile?.locale) userLocale = profile.locale;
+
+          let emailContent = "";
+          if (restrictionType === "warning") {
+            emailContent = userLocale === "en" ? `You have received a warning.\nReason: ${trimmedNotice}` : `アカウントに警告が行われました。\n理由: ${trimmedNotice}`;
+          } else if (restrictionType === "temporary_suspend") {
+            const endsAtStr = endsAt ? new Date(endsAt).toLocaleString(userLocale) : "不明";
+            emailContent = userLocale === "en" 
+              ? `Your account has been temporarily suspended.\nReason: ${trimmedNotice}\nSuspension ends at: ${endsAtStr}` 
+              : `アカウントが一時停止されました。\n理由: ${trimmedNotice}\n停止解除予定: ${endsAtStr}`;
+          } else if (restrictionType === "permanent_ban") {
+            emailContent = userLocale === "en" ? `Your account has been permanently banned.\nReason: ${trimmedNotice}` : `アカウントが永久停止（BAN）されました。\n理由: ${trimmedNotice}`;
+          }
+
+          await sendAdminNoticeEmail(email, "アカウント状態について", emailContent, userLocale);
+        }
+      } catch (emailErr) {
+        console.error("Failed to send restriction email:", emailErr);
+      }
     }
 
     await adminLog(supabase, "user_restriction_created", "user", userId, String(reason).trim(), {

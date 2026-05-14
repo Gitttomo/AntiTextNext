@@ -18,6 +18,12 @@ export default function SetupProfilePage() {
     const [error, setError] = useState("");
     const [saving, setSaving] = useState(false);
 
+    // 通知設定
+    const [notifyWatch, setNotifyWatch] = useState(true);
+    const [notifyProgress, setNotifyProgress] = useState(true);
+    const [notifyReminders, setNotifyReminders] = useState(true);
+    const [notifyChat, setNotifyChat] = useState(true);
+
     // ユーザーネーム重複チェック用
     const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
     const [usernameMessage, setUsernameMessage] = useState("");
@@ -121,6 +127,11 @@ export default function SetupProfilePage() {
                     degree,
                     grade: parseInt(grade),
                     major: (degree !== "学士" || parseInt(grade) >= 2) ? major : null,
+                    email_notify_watch_keywords: notifyWatch,
+                    email_notify_transaction_progress: notifyProgress,
+                    email_notify_reminders: notifyReminders,
+                    email_notify_chat_messages: notifyChat,
+                    locale: "ja",
                 });
 
             if (profileError) {
@@ -330,6 +341,41 @@ export default function SetupProfilePage() {
                                     </select>
                                 </div>
                             )}
+
+                            {/* メール通知設定 */}
+                            <div className="animate-slide-in-left bg-gray-50 p-4 rounded-xl border border-gray-200 mt-6" style={{ animationDelay: '280ms' }}>
+                                <h3 className="text-sm font-bold text-gray-900 mb-2">メール通知設定</h3>
+                                <p className="text-xs text-gray-600 mb-4">
+                                    ※ 運営からの重要なお知らせは、設定にかかわらず必ず送信されます。
+                                    以下の通知設定は後からマイページの設定で変更可能です。
+                                </p>
+                                <div className="space-y-3">
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                            <input type="checkbox" checked={notifyWatch} onChange={(e) => setNotifyWatch(e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                                        </div>
+                                        <span className="text-sm text-gray-700 group-hover:text-gray-900">探している教科書の新着通知</span>
+                                    </label>
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                            <input type="checkbox" checked={notifyProgress} onChange={(e) => setNotifyProgress(e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                                        </div>
+                                        <span className="text-sm text-gray-700 group-hover:text-gray-900">取引進展の通知（購入リクエスト、承認、評価など）</span>
+                                    </label>
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                            <input type="checkbox" checked={notifyReminders} onChange={(e) => setNotifyReminders(e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                                        </div>
+                                        <span className="text-sm text-gray-700 group-hover:text-gray-900">取引前日のリマインド通知</span>
+                                    </label>
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                            <input type="checkbox" checked={notifyChat} onChange={(e) => setNotifyChat(e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                                        </div>
+                                        <span className="text-sm text-gray-700 group-hover:text-gray-900">チャット新規メッセージ通知</span>
+                                    </label>
+                                </div>
+                            </div>
 
                             <button
                                 type="submit"

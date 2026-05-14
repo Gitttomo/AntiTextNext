@@ -158,12 +158,12 @@ export function BottomNav() {
                 className="flex flex-col items-center justify-center -mb-2"
               >
                 <div className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 -translate-y-4 bg-emerald-50 ring-4 ring-emerald-100",
+                  "w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 -translate-y-4 bg-red-500 ring-4 ring-red-100",
                   isActive
-                    ? "scale-110 shadow-emerald-100"
-                    : "hover:bg-emerald-100 hover:scale-105 shadow-emerald-100"
+                    ? "scale-110 shadow-red-500/40 ring-red-200"
+                    : "hover:bg-red-600 hover:scale-105 shadow-red-500/20"
                 )}>
-                  <Icon className={cn("w-8 h-8 transition-colors", isActive ? "text-primary" : "text-gray-400")} strokeWidth={2.5} />
+                  <Icon className="w-8 h-8 transition-colors text-white" strokeWidth={2.5} />
                 </div>
                 <span className={cn(
                   "text-[10px] font-bold -mt-3 transition-colors",

@@ -59,86 +59,89 @@ export default function SellerDetailPage({
 
     const loadSellerData = async () => {
         try {
-            // プロフィール、アイテム、評価を並列取得で高速化
-            const profilePromise = supabase
+            // プロフィールを最優先で取得
+            const { data: profileData, error: profileError } = await supabase
                 .from("profiles")
                 .select("user_id, nickname, department, major, avatar_url, is_deactivated, created_at")
                 .eq("user_id", params.id)
                 .single();
 
-            const itemsPromise = supabase
-                .from("items")
-                .select("id, title, selling_price, front_image_url, front_thumbnail_url")
-                .eq("seller_id", params.id)
-                .eq("status", "available")
-                .order("created_at", { ascending: false });
-
-            const ratingsPromise = supabase
-                .from("ratings")
-                .select("score")
-                .eq("rated_id", params.id);
-
-            const transactionsPromise = supabase
-                .from("transactions")
-                .select("*", { count: "exact", head: true })
-                .eq("seller_id", params.id)
-                .eq("status", "completed");
-
-            const rewardSettingPromise = (supabase as any)
-                .from("reward_settings")
-                .select("*")
-                .eq("id", "early_registration")
-                .single();
-
-            const badgesPromise = (supabase as any)
-                .from("user_badges")
-                .select("id,badge_type,label,note")
-                .eq("user_id", params.id)
-                .is("revoked_at", null)
-                .order("created_at", { ascending: false });
-
-            const rewardOverridePromise = (supabase as any)
-                .from("user_reward_overrides")
-                .select("early_registration_override")
-                .eq("user_id", params.id)
-                .maybeSingle();
-
-            const [profileResult, itemsResult, ratingsResult, transactionsResult, rewardSettingResult, badgesResult, rewardOverrideResult] = await Promise.all([
-                profilePromise, 
-                itemsPromise,
-                ratingsPromise,
-                transactionsPromise,
-                rewardSettingPromise,
-                badgesPromise,
-                rewardOverridePromise
-            ]) as [any, any, any, any, any, any, any];
-
-            if (profileResult.error) {
-                console.error("Error loading profile:", profileResult.error);
+            if (profileError || !profileData) {
+                console.error("Error loading profile:", profileError);
                 setLoading(false);
                 return;
             }
 
-            setProfile(profileResult.data as SellerProfile);
+            setProfile(profileData as SellerProfile);
 
-            if (itemsResult.error) {
-                console.error("Error loading items:", itemsResult.error);
-            } else {
-                setItems((itemsResult.data as Item[]) || []);
+            // プロフィールが見つかったら、残りのデータを並列取得（個別に失敗しても止まらない）
+            const [itemsResult, ratingsResult, transactionsResult, rewardSettingResult, badgesResult, rewardOverrideResult] = await Promise.allSettled([
+                supabase
+                    .from("items")
+                    .select("id, title, selling_price, front_image_url, front_thumbnail_url")
+                    .eq("seller_id", params.id)
+                    .eq("status", "available")
+                    .order("created_at", { ascending: false }),
+                supabase
+                    .from("ratings")
+                    .select("score")
+                    .eq("rated_id", params.id),
+                supabase
+                    .from("transactions")
+                    .select("*", { count: "exact", head: true })
+                    .eq("seller_id", params.id)
+                    .eq("status", "completed"),
+                (supabase as any)
+                    .from("reward_settings")
+                    .select("*")
+                    .eq("id", "early_registration")
+                    .single(),
+                (supabase as any)
+                    .from("user_badges")
+                    .select("id,badge_type,label,note")
+                    .eq("user_id", params.id)
+                    .is("revoked_at", null)
+                    .order("created_at", { ascending: false }),
+                (supabase as any)
+                    .from("user_reward_overrides")
+                    .select("early_registration_override")
+                    .eq("user_id", params.id)
+                    .maybeSingle()
+            ]);
+
+            // アイテム（0件でもOK）
+            if (itemsResult.status === 'fulfilled' && !itemsResult.value.error) {
+                setItems((itemsResult.value.data as Item[]) || []);
             }
 
-            if (ratingsResult.data) {
-                const scores = (ratingsResult.data as any[]).map(r => r.score);
+            // 評価
+            if (ratingsResult.status === 'fulfilled' && ratingsResult.value.data) {
+                const scores = (ratingsResult.value.data as any[]).map(r => r.score);
                 const count = scores.length;
                 const avg = count > 0 ? scores.reduce((a, b) => a + b, 0) / count : 0;
                 setAverageRating(avg);
                 setRatingCount(count);
             }
 
-            setTransactionCount(transactionsResult.count || 0);
-            setRewardSetting(rewardSettingResult.data || null);
-            setRewardOverride(rewardOverrideResult.data || null);
-            setBadges((badgesResult.data || []) as UserBadge[]);
+            // 取引数
+            if (transactionsResult.status === 'fulfilled') {
+                setTransactionCount(transactionsResult.value.count || 0);
+            }
+
+            // リワード設定
+            if (rewardSettingResult.status === 'fulfilled') {
+                setRewardSetting(rewardSettingResult.value.data || null);
+            }
+
+            // リワードオーバーライド
+            if (rewardOverrideResult.status === 'fulfilled') {
+                setRewardOverride(rewardOverrideResult.value.data || null);
+            }
+
+            // バッジ
+            if (badgesResult.status === 'fulfilled') {
+                setBadges((badgesResult.value.data || []) as UserBadge[]);
+            }
         } catch (err) {
             console.error("Error loading seller data:", err);
         } finally {

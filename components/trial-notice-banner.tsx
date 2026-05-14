@@ -22,10 +22,10 @@ export default function TrialNoticeBanner() {
     localStorage.setItem(STORAGE_KEY, String(next));
   };
 
-  if (!ready || pathname?.startsWith("/chat/")) return null;
+  if (pathname?.startsWith("/chat/")) return null;
 
   return (
-    <div className="sticky top-0 z-[70] border-b border-amber-200 bg-amber-50/95 px-4 py-2 backdrop-blur-md">
+    <div className={`sticky top-0 z-[70] border-b border-amber-200 bg-amber-50/95 px-4 py-2 backdrop-blur-md transition-all duration-300 ${!ready ? 'opacity-0' : 'opacity-100'}`}>
       <div className="mx-auto flex max-w-screen-lg items-start gap-3">
         <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
         <div className="min-w-0 flex-1">
@@ -41,11 +41,11 @@ export default function TrialNoticeBanner() {
               {collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
             </button>
           </div>
-          {!collapsed && (
-            <p className="mt-1 text-xs font-medium leading-relaxed text-amber-800">
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-40 opacity-100 mt-1'}`}>
+            <p className="text-xs font-medium leading-relaxed text-amber-800">
               TextNext は現在、ベータ版として公開しています。表示や動作に不具合が見られた場合、「マイページ」→「お問い合わせ」からご報告いただけますと幸いです。
             </p>
-          )}
+          </div>
         </div>
       </div>
     </div>

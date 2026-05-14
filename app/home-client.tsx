@@ -646,11 +646,9 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             </div>
           ) : (
             <>
-              <div className="relative ml-2 space-y-4 border-l border-sky-200/80 pl-5">
+              <div className="space-y-4">
                 {recommendedItems.map((item, index) => (
-                  <div key={item.id} className="relative">
-                    <div className="absolute -left-5 top-8 h-px w-4 bg-sky-200" />
-                    <div className="absolute -left-[25px] top-7 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-sky-200" />
+                  <div key={item.id}>
                     <ItemCard
                       item={item}
                       isFavorite={favoriteSet.has(item.id)}
@@ -697,11 +695,9 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             </h2>
           </div>
 
-          <div className="relative ml-2 space-y-4 border-l border-emerald-200/80 pl-5">
+          <div className="space-y-4">
             {displayedPopularItems.map((item, index) => (
-              <div key={`popular-${item.id}`} className="relative">
-                <div className="absolute -left-5 top-8 h-px w-4 bg-emerald-200" />
-                <div className="absolute -left-[25px] top-7 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-emerald-200" />
+              <div key={`popular-${item.id}`}>
                 <ItemCard
                   item={item}
                   isFavorite={favoriteSet.has(item.id)}

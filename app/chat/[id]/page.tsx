@@ -424,6 +424,18 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       if (error) throw error;
 
+      // メール通知APIを呼び出し（メッセージ）
+      fetch("/api/notify/transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "message",
+          itemId: item.id,
+          receiverId: otherUserId,
+          extraData: { senderName: userProfile?.nickname || "ユーザー" },
+        }),
+      }).catch(e => console.error(e));
+
       // 送信成功後、すぐにメッセージを再取得
       setTimeout(() => fetchMessages(), 300);
     } catch (err: any) {
@@ -775,6 +787,18 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                       await handleSend('【リクエスト承認】\n出品者が購入リクエストを承認しました。日程を調整しましょう！');
                       setTransaction(prev => prev ? { ...prev, status: 'pending' } : prev);
                       setItem(prev => prev ? { ...prev, status: 'transaction_pending' } : prev);
+
+                      // メール通知APIを非同期で呼び出し
+                      fetch("/api/notify/transaction", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          action: "approve",
+                          itemId: item.id,
+                          receiverId: transaction.buyer_id,
+                        }),
+                      }).catch(e => console.error(e));
+
                     } catch (err: any) {
                       alert('承認に失敗しました: ' + err.message);
                     } finally {
@@ -1261,6 +1285,17 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               status: 'declined',
               decline_reason: reason,
             } : prev);
+
+            // メール通知APIを非同期で呼び出し
+            fetch("/api/notify/transaction", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "decline",
+                itemId: item.id,
+                receiverId: transaction.buyer_id,
+              }),
+            }).catch(e => console.error(e));
 
             setIsDeclineModalOpen(false);
           } catch (err: any) {

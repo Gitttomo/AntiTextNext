@@ -27,13 +27,13 @@ const mplusRounded = M_PLUS_Rounded_1c({
   display: "swap",
   preload: true,
   variable: "--font-mplus-rounded",
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
   title: "TextNext - 学内教科書フリマ",
   description: "学内限定で教科書が循環するC2Cフリマアプリ",
   manifest: "/manifest.json",
-  themeColor: "#2563eb",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -43,6 +43,10 @@ export const metadata: Metadata = {
     icon: "/icons/icon-192x192.png",
     apple: "/icons/icon-192x192.png",
   },
+};
+
+export const viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({

@@ -230,7 +230,7 @@ export default function SettingsPage() {
                         </h2>
                         <Link
                             href="/settings/watch-keywords"
-                            className="flex items-center justify-between px-5 py-4 bg-white rounded-2xl shadow-md border border-gray-100 hover:border-primary/30 transition-all group"
+                            className="flex items-center justify-between px-5 py-4 bg-white rounded-2xl shadow-md border border-gray-100 hover:border-primary/30 transition-all group mb-3"
                         >
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center group-hover:bg-yellow-100 transition-colors">
@@ -239,6 +239,21 @@ export default function SettingsPage() {
                                 <div>
                                     <span className="font-bold text-gray-700 group-hover:text-gray-900 transition-colors">探している教科書</span>
                                     <p className="text-xs text-gray-400 mt-0.5">キーワードを登録して出品通知を受け取る</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                        </Link>
+                        <Link
+                            href="/settings/email-notifications"
+                            className="flex items-center justify-between px-5 py-4 bg-white rounded-2xl shadow-md border border-gray-100 hover:border-primary/30 transition-all group"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <span className="font-bold text-gray-700 group-hover:text-gray-900 transition-colors">メール通知設定</span>
+                                    <p className="text-xs text-gray-400 mt-0.5">各種メール通知の受け取りを設定</p>
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />

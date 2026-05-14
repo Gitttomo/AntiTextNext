@@ -147,11 +147,17 @@ export default function MypageClient({
 
             <div className="px-6 pt-8 space-y-8">
                 {/* Profile Section */}
-                <div className="relative bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-md border border-white/50 flex items-center gap-5 transition-transform hover:scale-[1.01]">
+                <Link 
+                    href={`/seller/${user.id}`}
+                    className="group relative bg-white/80 backdrop-blur-md rounded-3xl p-6 shadow-md border border-white/50 flex items-center gap-5 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-primary/30 cursor-pointer"
+                >
                     {isAdmin && (
                         <button
-                            onClick={() => router.push("/admin")}
-                            className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-900 text-white shadow-sm transition hover:bg-slate-800"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                router.push("/admin");
+                            }}
+                            className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-900 text-white shadow-sm transition hover:bg-slate-800 z-10"
                             aria-label="管理ダッシュボード"
                         >
                             <Shield className="h-5 w-5" />
@@ -164,7 +170,7 @@ export default function MypageClient({
                         listingCount={listingCount}
                         earlyRegistration={earlyRegistrationEligible}
                     />
-                    <div className="flex-1 pr-12">
+                    <div className="flex-1 pr-10">
                         <h2 className="text-xl font-bold text-gray-900 truncate">
                             {initialProfile?.nickname || "読み込み中..."}
                         </h2>
@@ -193,7 +199,11 @@ export default function MypageClient({
                             </div>
                         </div>
                     </div>
-                </div>
+                    {/* 右端の矢印アイコン */}
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 transition-transform group-hover:translate-x-1 group-hover:text-primary/60">
+                        <ChevronRight className="w-6 h-6" />
+                    </div>
+                </Link>
 
                 {/* Profile Edit Button */}
                 <button
