@@ -199,7 +199,7 @@ export default function SellerDetailPage({
     return (
         <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32">
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-md px-6 pt-8 pb-8 border-b border-gray-100 sticky top-0 z-10 shadow-sm">
+            <header className="bg-white/80 backdrop-blur-md px-6 pt-8 pb-8 border-b border-gray-100 shadow-sm">
                 <div className="flex items-center gap-4 mb-8">
                     <button onClick={() => window.history.back()} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors active:scale-90">
                         <ArrowLeft className="w-6 h-6 text-gray-600" />
