@@ -51,6 +51,7 @@ export default function ListingPage() {
   const detectedCodeRef = useRef<string | null>(null);
   const detectionBufferRef = useRef<string[]>([]);
   const detectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopRequestedRef = useRef(false);
 
   // Check if user has seen the tutorial
   useEffect(() => {
@@ -105,7 +106,7 @@ export default function ListingPage() {
     }
   }, [formData.barcode]);
 
-  const stopScanner = useCallback(() => {
+  const releaseCameraStream = useCallback(() => {
     try {
       const video = scannerRef.current?.querySelector("video");
       const stream = video?.srcObject as MediaStream | null;
@@ -124,12 +125,19 @@ export default function ListingPage() {
       clearTimeout(detectionTimerRef.current);
       detectionTimerRef.current = null;
     }
+  }, []);
+
+  const stopScanner = useCallback(() => {
+    stopRequestedRef.current = true;
+    releaseCameraStream();
     setIsScanning(false);
     setScanStatus("idle");
-  }, []);
+  }, [releaseCameraStream]);
 
   const startScanner = () => {
     detectedCodeRef.current = null;
+    detectionBufferRef.current = [];
+    stopRequestedRef.current = false;
     setScanStatus("scanning");
     setIsScanning(true);
   };
@@ -188,6 +196,8 @@ export default function ListingPage() {
         locate: true,
       },
       (error: any) => {
+        if (!active || stopRequestedRef.current) return;
+
         if (error) {
           console.error("Barcode scanner init error:", error);
           alert("カメラを起動できませんでした。ブラウザのカメラ許可を確認してください。");
@@ -207,9 +217,9 @@ export default function ListingPage() {
         (Quagga as any).offDetected?.(handleDetected);
       } catch {
       }
-      stopScanner();
+      releaseCameraStream();
     };
-  }, [handleBarcodeSearch, isScanning, stopScanner]);
+  }, [handleBarcodeSearch, isScanning, releaseCameraStream, stopScanner]);
 
   // useEffect内でリダイレクト（SSRでのlocationエラーを防止）
   useEffect(() => {
