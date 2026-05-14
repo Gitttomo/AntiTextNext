@@ -35,6 +35,9 @@ type Item = {
     selling_price: number;
     front_image_url: string | null;
     front_thumbnail_url?: string | null;
+    front_image_storage_path?: string | null;
+    front_thumbnail_storage_path?: string | null;
+    image_storage_provider?: string | null;
     status: string;
 };
 

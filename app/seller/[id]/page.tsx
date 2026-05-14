@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
 import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting, type UserBadge } from "@/lib/rewards";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 type SellerProfile = {
     user_id: string;
@@ -25,6 +26,9 @@ type Item = {
     selling_price: number;
     front_thumbnail_url?: string | null;
     front_image_url: string | null;
+    front_image_storage_path?: string | null;
+    front_thumbnail_storage_path?: string | null;
+    image_storage_provider?: string | null;
 };
 
 export default function SellerDetailPage({
@@ -130,7 +134,7 @@ export default function SellerDetailPage({
             const [itemsResult, ratingsResult, transactionsResult, rewardSettingResult, badgesResult, rewardOverrideResult] = await Promise.allSettled([
                 supabase
                     .from("items")
-                    .select("id, title, selling_price, front_image_url, front_thumbnail_url")
+                    .select("id, title, selling_price, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider")
                     .eq("seller_id", params.id)
                     .eq("status", "available")
                     .order("created_at", { ascending: false }),
@@ -473,9 +477,9 @@ export default function SellerDetailPage({
                                 <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-md hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="relative h-24 w-16 flex-shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50 shadow-sm">
-                                            {item.front_thumbnail_url || item.front_image_url ? (
+                                            {getItemImageUrl(item, "front", "thumbnail") ? (
                                                 <Image
-                                                    src={item.front_thumbnail_url || item.front_image_url || ""}
+                                                    src={getItemImageUrl(item, "front", "thumbnail")!}
                                                     alt={item.title}
                                                     fill
                                                     sizes="64px"

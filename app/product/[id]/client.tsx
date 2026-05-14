@@ -12,6 +12,7 @@ import PurchaseModal from "@/components/PurchaseModal";
 import { PurchaseData, generatePurchaseMessage } from "@/components/purchase-utils";
 import { calculateSellingPrice } from "@/lib/utils";
 import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 export type Item = {
   id: string;
@@ -22,6 +23,13 @@ export type Item = {
   status: string;
   front_image_url: string | null;
   back_image_url: string | null;
+  front_thumbnail_url?: string | null;
+  back_thumbnail_url?: string | null;
+  front_image_storage_path?: string | null;
+  back_image_storage_path?: string | null;
+  front_thumbnail_storage_path?: string | null;
+  back_thumbnail_storage_path?: string | null;
+  image_storage_provider?: string | null;
   created_at: string;
   seller_id: string;
   seller_nickname?: string;
@@ -36,6 +44,8 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const [isAcquiringLock, setIsAcquiringLock] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const frontImageUrl = getItemImageUrl(item, "front", "detail");
+  const backImageUrl = getItemImageUrl(item, "back", "detail");
   const [isClosing, setIsClosing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -359,10 +369,10 @@ export default function ProductDetailClient({ item }: { item: Item }) {
         <div className="overflow-y-auto h-[calc(100%-130px)] px-6 py-6 md:h-[calc(100%-148px)] md:overflow-hidden md:px-8 md:py-6">
           <div className="max-w-4xl mx-auto md:grid md:h-full md:max-w-none md:grid-cols-[minmax(0,1fr)_minmax(360px,430px)] md:gap-6">
             {/* Images - Swipe Carousel */}
-            {(item.front_image_url || item.back_image_url) && (() => {
+            {(frontImageUrl || backImageUrl) && (() => {
               const images = [
-                item.front_image_url ? { url: item.front_image_url, label: "表紙" } : null,
-                item.back_image_url ? { url: item.back_image_url, label: "裏表紙" } : null,
+                frontImageUrl ? { url: frontImageUrl, label: "表紙" } : null,
+                backImageUrl ? { url: backImageUrl, label: "裏表紙" } : null,
               ].filter(Boolean) as { url: string; label: string }[];
 
               return (
@@ -744,6 +754,23 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 .eq('id', item.id)
                 .eq('seller_id', user?.id);
               if (error) throw error;
+              if (item.image_storage_provider === "r2") {
+                fetch("/api/item-images/delete", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    itemId: item.id,
+                    paths: [
+                      item.front_image_storage_path,
+                      item.back_image_storage_path,
+                      item.front_thumbnail_storage_path,
+                      item.back_thumbnail_storage_path,
+                    ].filter(Boolean),
+                  }),
+                }).catch((deleteError) => {
+                  console.error("R2画像の削除に失敗しました", deleteError);
+                });
+              }
               router.push('/');
             } catch (err: any) {
               alert('削除に失敗しました: ' + err.message);

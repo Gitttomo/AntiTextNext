@@ -9,7 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import Quagga from "@ericblade/quagga2";
 import ListingTutorial from "@/components/ListingTutorial";
 import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
-import { uploadItemImageVariants } from "@/lib/image-storage";
+import { uploadItemImageVariantsToR2 } from "@/lib/image-storage";
 
 type ListingStep = "form" | "confirm" | "success";
 type ScanStatus = "idle" | "scanning" | "detected";
@@ -275,54 +275,58 @@ export default function ListingPage() {
       setStep("confirm");
     } else if (step === "confirm") {
       setUploading(true);
+      const itemId = crypto.randomUUID();
+      const uploadedR2Paths: string[] = [];
 
       try {
         // Upload images
-        let frontImageUrl = null;
-        let backImageUrl = null;
-        let frontThumbnailUrl = null;
-        let backThumbnailUrl = null;
         let frontImageStoragePath = null;
         let backImageStoragePath = null;
         let frontThumbnailStoragePath = null;
         let backThumbnailStoragePath = null;
 
-        if (formData.frontCover) {
-          const frontImage = await uploadItemImageVariants(formData.frontCover, `${user!.id}/front-${Date.now()}`);
-          frontImageUrl = frontImage.detail.publicUrl;
-          frontThumbnailUrl = frontImage.thumbnail.publicUrl;
-          frontImageStoragePath = frontImage.detail.path;
-          frontThumbnailStoragePath = frontImage.thumbnail.path;
-        }
-
-        if (formData.backCover) {
-          const backImage = await uploadItemImageVariants(formData.backCover, `${user!.id}/back-${Date.now()}`);
-          backImageUrl = backImage.detail.publicUrl;
-          backThumbnailUrl = backImage.thumbnail.publicUrl;
-          backImageStoragePath = backImage.detail.path;
-          backThumbnailStoragePath = backImage.thumbnail.path;
-        }
-
-        // Create item in database
-        const { data: insertedItem, error } = await (supabase.from("items") as any).insert({
+        const { error: draftError } = await (supabase.from("items") as any).insert({
+          id: itemId,
           seller_id: user!.id,
           title: formData.bookName,
           original_price: Number(formData.originalPrice),
           selling_price: sellingPrice,
-          //condition: formData.condition,
-          status: "available",
-          front_image_url: frontImageUrl,
-          back_image_url: backImageUrl,
-          front_thumbnail_url: frontThumbnailUrl,
-          back_thumbnail_url: backThumbnailUrl,
-          front_image_storage_path: frontImageStoragePath,
-          back_image_storage_path: backImageStoragePath,
-          front_thumbnail_storage_path: frontThumbnailStoragePath,
-          back_thumbnail_storage_path: backThumbnailStoragePath,
-          image_storage_provider: "supabase",
-        })
-        .select("id")
-        .single();
+          status: "draft_uploading",
+          front_image_url: null,
+          back_image_url: null,
+          front_thumbnail_url: null,
+          back_thumbnail_url: null,
+          image_storage_provider: "r2",
+        });
+
+        if (draftError) throw draftError;
+
+        if (formData.frontCover) {
+          const frontImage = await uploadItemImageVariantsToR2(formData.frontCover, itemId, "front");
+          frontImageStoragePath = frontImage.detail.path;
+          frontThumbnailStoragePath = frontImage.thumbnail.path;
+          uploadedR2Paths.push(frontImage.detail.path, frontImage.thumbnail.path);
+        }
+
+        if (formData.backCover) {
+          const backImage = await uploadItemImageVariantsToR2(formData.backCover, itemId, "back");
+          backImageStoragePath = backImage.detail.path;
+          backThumbnailStoragePath = backImage.thumbnail.path;
+          uploadedR2Paths.push(backImage.detail.path, backImage.thumbnail.path);
+        }
+
+        const { data: insertedItem, error } = await (supabase.from("items") as any)
+          .update({
+            status: "available",
+            front_image_storage_path: frontImageStoragePath,
+            back_image_storage_path: backImageStoragePath,
+            front_thumbnail_storage_path: frontThumbnailStoragePath,
+            back_thumbnail_storage_path: backThumbnailStoragePath,
+          })
+          .eq("id", itemId)
+          .eq("seller_id", user!.id)
+          .select("id")
+          .single();
 
         if (error) throw error;
 
@@ -340,6 +344,19 @@ export default function ListingPage() {
           router.push("/");
         }, 2000);
       } catch (error: any) {
+        if (uploadedR2Paths.length > 0) {
+          fetch("/api/item-images/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ itemId, paths: uploadedR2Paths }),
+          }).catch((deleteError) => {
+            console.error("R2アップロード済み画像のクリーンアップに失敗しました", deleteError);
+          });
+        }
+        await (supabase.from("items") as any)
+          .update({ status: "deleted" })
+          .eq("id", itemId)
+          .eq("seller_id", user!.id);
         alert("出品に失敗しました: " + error.message);
         setUploading(false);
       }

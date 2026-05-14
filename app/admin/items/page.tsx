@@ -2,6 +2,7 @@ import Image from "next/image";
 import { AdminPageHeader, StatusBadge } from "../_components/admin-shell";
 import { AdminUserLink } from "../_components/admin-user-link";
 import { formatAdminDate, getStringParam, requireAdmin, type AdminSearchParams } from "@/lib/admin-utils";
+import { getItemImageUrl } from "@/lib/image-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function AdminItemsPage({ searchParams }: { searchParams: A
   const status = getStringParam(searchParams, "status");
   let query = (supabase as any)
     .from("items")
-    .select("id, title, front_image_url, back_image_url, seller_id, created_at, status, transactions(id,status)");
+    .select("id, title, front_image_url, back_image_url, front_thumbnail_url, back_thumbnail_url, front_image_storage_path, back_image_storage_path, front_thumbnail_storage_path, back_thumbnail_storage_path, image_storage_provider, seller_id, created_at, status, transactions(id,status)");
 
   if (q) query = query.ilike("title", `%${q}%`);
   if (status) query = query.eq("status", status);
@@ -62,8 +63,8 @@ export default async function AdminItemsPage({ searchParams }: { searchParams: A
               {((data ?? []) as any[]).map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-black">{item.title}</td>
-                  <td className="px-4 py-3"><Thumb src={item.front_image_url} /></td>
-                  <td className="px-4 py-3"><Thumb src={item.back_image_url} /></td>
+                  <td className="px-4 py-3"><Thumb src={getItemImageUrl(item, "front", "thumbnail")} /></td>
+                  <td className="px-4 py-3"><Thumb src={getItemImageUrl(item, "back", "thumbnail")} /></td>
                   <td className="px-4 py-3"><AdminUserLink id={item.seller_id} name={profileMap.get(item.seller_id) as string | undefined} /></td>
                   <td className="px-4 py-3 font-bold text-slate-600">{formatAdminDate(item.created_at)}</td>
                   <td className="px-4 py-3"><StatusBadge value={item.status} /></td>

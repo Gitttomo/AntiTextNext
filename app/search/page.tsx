@@ -24,6 +24,9 @@ export type Item = {
   selling_price: number;
   front_image_url: string | null;
   front_thumbnail_url?: string | null;
+  front_image_storage_path?: string | null;
+  front_thumbnail_storage_path?: string | null;
+  image_storage_provider?: string | null;
   //condition: string;
   favorite_count?: number;
 };
@@ -94,7 +97,7 @@ function SearchContent() {
         searches.map(async (searchTerm) => {
           const { data, error } = await supabase
             .from("items")
-            .select("id, title, selling_price, front_image_url, front_thumbnail_url, favorites(count)")
+            .select("id, title, selling_price, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider, favorites(count)")
             .eq("status", "available")
             .ilike("title", `%${searchTerm}%`)
             .order("created_at", { ascending: false })

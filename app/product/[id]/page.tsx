@@ -20,7 +20,7 @@ export default async function ProductDetailPage({
     // Attempt to join first (Optimized path)
     let fullItem: Item | null = null;
     
-    const itemFields = "id, title, selling_price, original_price, status, front_image_url, back_image_url, created_at, seller_id";
+    const itemFields = "id, title, selling_price, original_price, status, front_image_url, back_image_url, front_thumbnail_url, back_thumbnail_url, front_image_storage_path, back_image_storage_path, front_thumbnail_storage_path, back_thumbnail_storage_path, image_storage_provider, created_at, seller_id";
 
     // 1. Fetch item and profile
     const { data: itemData, error: itemError } = await supabase

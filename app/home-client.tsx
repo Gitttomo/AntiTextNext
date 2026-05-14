@@ -18,6 +18,9 @@ type Item = {
   //condition: string;
   front_image_url: string | null;
   front_thumbnail_url?: string | null;
+  front_image_storage_path?: string | null;
+  front_thumbnail_storage_path?: string | null;
+  image_storage_provider?: string | null;
   favorite_count?: number;
   seller_id?: string;
 };
@@ -302,7 +305,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         
         let query = supabase
           .from("items")
-          .select("id, title, selling_price, front_image_url, front_thumbnail_url, favorites(count), profiles!inner(department, major)", { count: 'exact' })
+            .select("id, title, selling_price, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider, favorites(count), profiles!inner(department, major)", { count: 'exact' })
           .eq("status", "available")
           .neq("seller_id", user.id)
           .eq("profiles.department", department);
@@ -445,7 +448,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       if (profile) {
         let query = supabase
           .from("items")
-          .select("id, title, selling_price, front_image_url, front_thumbnail_url, favorites(count), profiles!inner(department, major)")
+          .select("id, title, selling_price, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider, favorites(count), profiles!inner(department, major)")
           .eq("status", "available")
           .neq("seller_id", user.id)
           .eq("profiles.department", (profile as any).department);
@@ -484,7 +487,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
       const currentLength = popularItems.length;
       const { data, error } = await supabase
         .from("items")
-        .select("id, title, selling_price, front_image_url, front_thumbnail_url, seller_id, favorites(count)")
+        .select("id, title, selling_price, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider, seller_id, favorites(count)")
         .eq("status", "available")
         .order("created_at", { ascending: false })
         .range(currentLength, currentLength + 14);
@@ -534,7 +537,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
         // みんなの出品を再取得
         const { data: freshPopular } = await supabase
           .from("items")
-          .select("id, title, selling_price, front_image_url, front_thumbnail_url, seller_id, favorites(count)")
+          .select("id, title, selling_price, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider, seller_id, favorites(count)")
           .eq("status", "available")
           .order("created_at", { ascending: false })
           .range(0, 14);

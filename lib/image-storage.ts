@@ -17,13 +17,19 @@ type UploadedImageVariant = {
 export type UploadedItemImage = {
   detail: UploadedImageVariant;
   thumbnail: UploadedImageVariant;
+  provider?: "r2" | "supabase";
 };
 
 export type ItemImageLike = {
+  image_storage_provider?: string | null;
   front_image_url?: string | null;
   back_image_url?: string | null;
   front_thumbnail_url?: string | null;
   back_thumbnail_url?: string | null;
+  front_image_storage_path?: string | null;
+  back_image_storage_path?: string | null;
+  front_thumbnail_storage_path?: string | null;
+  back_thumbnail_storage_path?: string | null;
 };
 
 const ITEM_DETAIL_VARIANT: ImageVariantOptions = {
@@ -154,6 +160,38 @@ export async function uploadItemImageVariants(file: File, basePath: string): Pro
   return { detail, thumbnail };
 }
 
+export async function uploadItemImageVariantsToR2(
+  file: File,
+  itemId: string,
+  side: "front" | "back"
+): Promise<UploadedItemImage> {
+  const [detailBlob, thumbnailBlob] = await Promise.all([
+    compressImageFile(file, ITEM_DETAIL_VARIANT),
+    compressImageFile(file, ITEM_THUMBNAIL_VARIANT),
+  ]);
+  const formData = new FormData();
+  formData.append("itemId", itemId);
+  formData.append("side", side);
+  formData.append("detail", detailBlob, `${side}-detail.${extensionForBlob(detailBlob)}`);
+  formData.append("thumbnail", thumbnailBlob, `${side}-thumb.${extensionForBlob(thumbnailBlob)}`);
+
+  const response = await fetch("/api/item-images/upload", {
+    method: "POST",
+    body: formData,
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error || "画像アップロードに失敗しました");
+  }
+
+  return {
+    provider: "r2",
+    detail: payload.detail,
+    thumbnail: payload.thumbnail,
+  };
+}
+
 export async function uploadChatImage(file: File, basePath: string): Promise<string> {
   const uploaded = await uploadCompressedVariant("chat-images", basePath, file, CHAT_IMAGE_VARIANT);
   return uploaded.publicUrl;
@@ -164,6 +202,19 @@ export function getItemImageUrl(
   side: "front" | "back" = "front",
   variant: "thumbnail" | "detail" = "thumbnail"
 ) {
+  const provider = item.image_storage_provider || "supabase";
+  if (provider === "r2") {
+    const path = side === "back"
+      ? variant === "thumbnail"
+        ? item.back_thumbnail_storage_path || item.back_image_storage_path
+        : item.back_image_storage_path || item.back_thumbnail_storage_path
+      : variant === "thumbnail"
+        ? item.front_thumbnail_storage_path || item.front_image_storage_path
+        : item.front_image_storage_path || item.front_thumbnail_storage_path;
+
+    if (path) return buildPublicItemImageUrl(path);
+  }
+
   if (side === "back") {
     return variant === "thumbnail"
       ? item.back_thumbnail_url || item.back_image_url || null
@@ -173,4 +224,16 @@ export function getItemImageUrl(
   return variant === "thumbnail"
     ? item.front_thumbnail_url || item.front_image_url || null
     : item.front_image_url || item.front_thumbnail_url || null;
+}
+
+export function buildPublicItemImageUrl(pathOrUrl?: string | null) {
+  if (!pathOrUrl) return null;
+  if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
+
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL ||
+    "https://img.textnext.jp"
+  ).replace(/\/+$/, "");
+
+  return `${baseUrl}/${pathOrUrl.replace(/^\/+/, "")}`;
 }

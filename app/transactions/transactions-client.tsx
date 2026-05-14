@@ -25,6 +25,9 @@ type TransactionItem = {
     status: string;
     front_image_url: string | null;
     front_thumbnail_url?: string | null;
+    front_image_storage_path?: string | null;
+    front_thumbnail_storage_path?: string | null;
+    image_storage_provider?: string | null;
     isBuyer: boolean;
     hasTransaction: boolean;
     unreadCount: number;
@@ -100,12 +103,12 @@ export default function TransactionsClient({
                         item_id,
                         final_meetup_time,
                         final_meetup_location,
-                        items(id, title, selling_price, status, front_image_url, front_thumbnail_url)
+                        items(id, title, selling_price, status, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider)
                     `)
                     .eq("buyer_id", user.id),
                 supabase
                     .from("items")
-                    .select("id, title, selling_price, status, seller_id, front_image_url, front_thumbnail_url")
+                    .select("id, title, selling_price, status, seller_id, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider")
                     .eq("seller_id", user.id),
                 supabase
                     .from("transactions")
@@ -170,6 +173,9 @@ export default function TransactionsClient({
                     status: item.status,
                     front_image_url: item.front_image_url || null,
                     front_thumbnail_url: item.front_thumbnail_url || null,
+                    front_image_storage_path: item.front_image_storage_path || null,
+                    front_thumbnail_storage_path: item.front_thumbnail_storage_path || null,
+                    image_storage_provider: item.image_storage_provider || null,
                     isBuyer: true,
                     hasTransaction: true,
                     unreadCount: unreadCountMap.get(item.id) || 0,
@@ -205,6 +211,9 @@ export default function TransactionsClient({
                     status: item.status,
                     front_image_url: item.front_image_url || null,
                     front_thumbnail_url: item.front_thumbnail_url || null,
+                    front_image_storage_path: item.front_image_storage_path || null,
+                    front_thumbnail_storage_path: item.front_thumbnail_storage_path || null,
+                    image_storage_provider: item.image_storage_provider || null,
                     isBuyer: false,
                     hasTransaction: !!txInfo,
                     unreadCount: unreadCountMap.get(item.id) || 0,
