@@ -432,7 +432,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           action: "message",
           itemId: item.id,
           receiverId: otherUserId,
-          extraData: { senderName: userProfile?.nickname || "ユーザー" },
+          extraData: { senderName: "取引相手" },
         }),
       }).catch(e => console.error(e));
 
