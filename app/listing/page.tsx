@@ -12,6 +12,19 @@ import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
 import { uploadItemImageVariants } from "@/lib/image-storage";
 
 type ListingStep = "form" | "confirm" | "success";
+type ScanStatus = "idle" | "scanning" | "detected";
+
+const isValidEan13 = (code: string) => {
+  if (!/^\d{13}$/.test(code)) return false;
+
+  const digits = code.split("").map(Number);
+  const checksum = digits.slice(0, 12).reduce((sum, digit, index) => {
+    return sum + digit * (index % 2 === 0 ? 1 : 3);
+  }, 0);
+  const checkDigit = (10 - (checksum % 10)) % 10;
+
+  return checkDigit === digits[12];
+};
 
 export default function ListingPage() {
   const router = useRouter();
@@ -30,8 +43,14 @@ export default function ListingPage() {
   const [backCoverPreview, setBackCoverPreview] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState<ScanStatus>("idle");
   const [showTutorial, setShowTutorial] = useState(false);
   const [listingNoticeConfirmed, setListingNoticeConfirmed] = useState(false);
+  const scannerRef = useRef<HTMLDivElement | null>(null);
+  const detectedCodeRef = useRef<string | null>(null);
+  const detectionBufferRef = useRef<string[]>([]);
+  const detectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check if user has seen the tutorial
   useEffect(() => {
@@ -46,24 +65,33 @@ export default function ListingPage() {
     setShowTutorial(false);
   };
 
-  const handleBarcodeSearch = async () => {
-    const isbn = formData.barcode.replace(/-/g, "").trim();
+  const handleBarcodeSearch = useCallback(async (targetIsbn?: string) => {
+    const isbn = (targetIsbn ?? formData.barcode).replace(/-/g, "").trim();
     if (!isbn) return;
 
     setSearching(true);
     try {
-      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const response = await fetch(`/api/books/isbn?isbn=${encodeURIComponent(isbn)}`);
       const data = await response.json();
 
-      if (data.totalItems > 0) {
-        const book = data.items[0].volumeInfo;
-        const saleInfo = data.items[0].saleInfo;
+      if (!response.ok) {
+        console.error("Book lookup API error:", data);
+        if (response.status === 404) {
+          alert("書籍が見つかりませんでした。ISBNを確認するか、手動で入力してください。");
+        } else if (response.status === 400) {
+          alert("ISBNは978または979から始まる13桁の数字を入力してください。");
+        } else {
+          alert("書籍検索に失敗しました。ISBNを確認するか、手動で入力してください。");
+        }
+        return;
+      }
 
+      if (data.title) {
         setFormData(prev => ({
           ...prev,
-          bookName: book.title || prev.bookName,
-          originalPrice: saleInfo?.listPrice?.amount
-            ? String(saleInfo.listPrice.amount)
+          bookName: data.title || prev.bookName,
+          originalPrice: data.originalPrice
+            ? String(data.originalPrice)
             : prev.originalPrice
         }));
       } else {
@@ -75,7 +103,113 @@ export default function ListingPage() {
     } finally {
       setSearching(false);
     }
+  }, [formData.barcode]);
+
+  const stopScanner = useCallback(() => {
+    try {
+      const video = scannerRef.current?.querySelector("video");
+      const stream = video?.srcObject as MediaStream | null;
+      stream?.getTracks().forEach(track => track.stop());
+      if (video) {
+        video.pause();
+        video.srcObject = null;
+        video.removeAttribute("src");
+        video.load();
+      }
+      Quagga.stop();
+    } catch {
+    }
+    detectionBufferRef.current = [];
+    if (detectionTimerRef.current) {
+      clearTimeout(detectionTimerRef.current);
+      detectionTimerRef.current = null;
+    }
+    setIsScanning(false);
+    setScanStatus("idle");
+  }, []);
+
+  const startScanner = () => {
+    detectedCodeRef.current = null;
+    setScanStatus("scanning");
+    setIsScanning(true);
   };
+
+  useEffect(() => {
+    if (!isScanning || !scannerRef.current) return;
+
+    let active = true;
+
+    const handleDetected = (result: any) => {
+      const code = String(result?.codeResult?.code || "").replace(/\D/g, "");
+      if (!active || detectedCodeRef.current || !/^97[89]\d{10}$/.test(code)) return;
+      if (!isValidEan13(code)) return;
+
+      detectionBufferRef.current = [...detectionBufferRef.current.slice(-2), code];
+      const matches = detectionBufferRef.current.filter(value => value === code).length;
+      if (matches < 2) return;
+
+      detectedCodeRef.current = code;
+      setScanStatus("detected");
+      setFormData(prev => ({ ...prev, barcode: code }));
+
+      window.setTimeout(() => {
+        stopScanner();
+        void handleBarcodeSearch(code);
+      }, 350);
+    };
+
+    (Quagga as any).init(
+      {
+        frequency: 8,
+        inputStream: {
+          type: "LiveStream",
+          target: scannerRef.current,
+          constraints: {
+            facingMode: "environment",
+            width: { min: 640, ideal: 1920 },
+            height: { min: 480, ideal: 1080 },
+            aspectRatio: { ideal: 1.777777778 },
+          },
+          area: {
+            top: "20%",
+            right: "8%",
+            left: "8%",
+            bottom: "20%",
+          },
+        },
+        decoder: {
+          readers: ["ean_reader"],
+          multiple: false,
+        },
+        locator: {
+          halfSample: false,
+          patchSize: "medium",
+        },
+        locate: true,
+      },
+      (error: any) => {
+        if (error) {
+          console.error("Barcode scanner init error:", error);
+          alert("カメラを起動できませんでした。ブラウザのカメラ許可を確認してください。");
+          setIsScanning(false);
+          setScanStatus("idle");
+          return;
+        }
+
+        Quagga.onDetected(handleDetected);
+        Quagga.start();
+      }
+    );
+
+    return () => {
+      active = false;
+      try {
+        (Quagga as any).offDetected?.(handleDetected);
+      } catch {
+      }
+      stopScanner();
+    };
+  }, [handleBarcodeSearch, isScanning, stopScanner]);
 
   // useEffect内でリダイレクト（SSRでのlocationエラーを防止）
   useEffect(() => {
@@ -343,19 +477,29 @@ export default function ListingPage() {
                   バーコード (ISBN) <span className="text-gray-400 text-xs ml-1">※任意</span>
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    type="text"
-                    placeholder="978から始まる13桁の数字"
-                    value={formData.barcode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, barcode: e.target.value })
-                    }
-                    className="min-w-0 flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  />
+                  <div className="relative min-w-0 flex-1">
+                    <input
+                      type="text"
+                      placeholder="978から始まる13桁の数字"
+                      value={formData.barcode}
+                      onChange={(e) =>
+                        setFormData({ ...formData, barcode: e.target.value })
+                      }
+                      className="w-full min-w-0 rounded-xl border border-gray-300 py-3 pl-4 pr-14 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={startScanner}
+                      className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-gray-100 text-gray-500 shadow-sm ring-1 ring-gray-200 transition-all hover:bg-gray-200 active:scale-95"
+                      aria-label="カメラでバーコードを読み取る"
+                    >
+                      <Camera className="h-5 w-5" />
+                    </button>
+                  </div>
                   <button
-                    onClick={handleBarcodeSearch}
+                    onClick={() => handleBarcodeSearch()}
                     disabled={searching || !formData.barcode}
-                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-primary disabled:opacity-50 transition-all shadow-sm active:scale-95 whitespace-nowrap sm:w-auto"
+                    className="w-full rounded-xl bg-gray-800 px-4 py-3 font-bold text-white shadow-sm transition-all hover:bg-primary active:scale-95 disabled:opacity-50 sm:w-auto"
                   >
                     {searching ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -520,6 +664,68 @@ export default function ListingPage() {
           </div>
         </div>
       </div>
+
+      {isScanning && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 p-0 sm:items-center sm:p-6">
+          <div className="w-full max-w-md overflow-hidden rounded-t-[32px] bg-white shadow-2xl sm:rounded-[32px]">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-black text-gray-900">
+                  {scanStatus === "detected" ? "ISBNを検出しました" : "バーコード読み取り"}
+                </h2>
+                <p className="text-xs font-bold text-gray-500">
+                  978/979から始まるバーコードを枠内に入れてください
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={stopScanner}
+                className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                aria-label="バーコード読み取りを閉じる"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="relative aspect-[3/4] bg-black">
+              <div
+                ref={scannerRef}
+                className="absolute inset-0 overflow-hidden [&_canvas]:hidden [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+              />
+              <div
+                className={`absolute inset-8 rounded-3xl border-4 transition-colors ${
+                  scanStatus === "detected"
+                    ? "border-green-400 bg-green-400/15"
+                    : "border-primary/70"
+                }`}
+              >
+                {scanStatus === "scanning" && (
+                  <div className="absolute inset-x-4 top-1/2 h-1 -translate-y-1/2 animate-pulse rounded-full bg-red-500 shadow-[0_0_18px_rgba(239,68,68,0.8)]" />
+                )}
+                {scanStatus === "detected" && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-white shadow-lg">
+                      <CheckCircle className="h-9 w-9" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="absolute left-4 right-4 top-4 flex justify-center">
+                <div className="inline-flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-sm font-bold text-white backdrop-blur">
+                  <Scan className="h-4 w-4 text-emerald-300" />
+                  {scanStatus === "detected" ? "検索しています..." : "読み取り中..."}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 px-5 py-4 text-center text-sm font-bold text-gray-500">
+              本を横向きにして、バーコード全体を明るい場所で枠内に入れてください。
+              読み取れない場合はISBNの数字を直接入力できます。
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
