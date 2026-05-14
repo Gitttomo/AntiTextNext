@@ -30,14 +30,15 @@ export default function SuspendedPage() {
                 .single();
 
             if (data) {
+                const res = data as any;
                 // 一時停止の場合、期限が過ぎていればホームへ
-                if (data.restriction_type === "temporary_suspend" && data.ends_at) {
-                    if (new Date(data.ends_at) <= new Date()) {
+                if (res.restriction_type === "temporary_suspend" && res.ends_at) {
+                    if (new Date(res.ends_at) <= new Date()) {
                         router.replace("/");
                         return;
                     }
                 }
-                setRestriction(data);
+                setRestriction(res);
             } else {
                 router.replace("/");
             }
