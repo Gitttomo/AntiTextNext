@@ -245,6 +245,18 @@ export interface Database {
                 Args: Record<PropertyKey, never>
                 Returns: boolean
             }
+            check_purchase_eligibility: {
+                Args: {
+                    p_buyer_id: string
+                    p_item_id: string
+                    p_seller_id: string
+                }
+                Returns: {
+                    allowed: boolean
+                    reason?: string
+                    hours_remaining?: number
+                }
+            }
             is_registered_email: {
                 Args: {
                     target_email: string
