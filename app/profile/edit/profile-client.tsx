@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +25,8 @@ type ProfileClientProps = {
 
 export default function ProfileClient({ initialProfile, serverSession = true }: ProfileClientProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const fromParam = searchParams.get('from');
     const { user, loading: authLoading, signOut, refreshAvatar } = useAuth();
     const [nickname, setNickname] = useState(initialProfile?.nickname || "");
     const [department, setDepartment] = useState(initialProfile?.department || "");
@@ -223,7 +225,16 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
             setUsernameStatus("idle");
             setUsernameMessage("");
             setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+            
+            // 保存成功後、元のページに戻る
+            setTimeout(() => {
+                if (fromParam === 'seller' && user) {
+                    router.push(`/seller/${user.id}`);
+                } else {
+                    router.push('/profile');
+                }
+                router.refresh();
+            }, 800);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -253,9 +264,15 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
         <div className="min-h-screen bg-white pb-24">
             <header className="bg-white px-6 pt-8 pb-6 border-b">
                 <div className="flex items-center gap-4 mb-6">
-                    <Link href="/profile">
+                    <button onClick={() => {
+                        if (fromParam === 'seller' && user) {
+                            router.push(`/seller/${user.id}`);
+                        } else {
+                            router.push('/profile');
+                        }
+                    }}>
                         <ArrowLeft className="w-6 h-6 text-gray-600 hover:text-primary transition-colors" />
-                    </Link>
+                    </button>
                     <h1 className="text-3xl font-bold text-primary">
                         プロフィール
                     </h1>

@@ -204,7 +204,7 @@ export default function MypageClient({
 
                 {/* Profile Edit Button */}
                 <button
-                    onClick={() => router.push("/profile/edit")}
+                    onClick={() => router.push("/profile/edit?from=mypage")}
                     className="w-full bg-white rounded-2xl p-4 shadow-md border border-gray-100 flex items-center justify-between group active:scale-[0.98] transition-all hover:border-primary/30"
                 >
                     <div className="flex items-center gap-3">
