@@ -46,117 +46,119 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    useEffect(() => {
-        const initAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            const currentUser = session?.user ?? null;
-            setUser(currentUser);
-            
-            if (currentUser) {
-                fetchAvatarUrl(currentUser.id);
-                
-                // アカウント制限のチェック
-                const excludedPaths = ['/suspended', '/auth/'];
-                const isExcluded = excludedPaths.some(p => pathname.startsWith(p));
-                
-                if (!isExcluded) {
-                    const { data: restriction } = await supabase
-                        .from('user_restrictions')
-                        .select('restriction_type, ends_at, lifted_at')
-                        .eq('user_id', currentUser.id)
-                        .in('restriction_type', ['temporary_suspend', 'permanent_ban'])
-                        .is('lifted_at', null)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .single();
+    const runPostAuthChecks = useCallback(async (currentUser: User) => {
+        const excludedPaths = ['/suspended', '/auth/'];
+        const isExcluded = excludedPaths.some(p => pathname.startsWith(p));
 
-                    if (restriction) {
-                        const res = restriction as any;
-                        // 一時停止の場合は期限をチェック
-                        if (res.restriction_type === 'temporary_suspend' && res.ends_at) {
-                            if (new Date(res.ends_at) > new Date()) {
-                                router.replace('/suspended');
-                                return;
-                            }
-                        } else if (res.restriction_type === 'permanent_ban') {
-                            router.replace('/suspended');
-                            return;
-                        }
-                    }
+        if (isExcluded) return;
 
-                    // 利用制限がない場合はプロフィールの設定状況をチェック
-                    const { data: profile, error: profileError } = await (supabase
-                        .from("profiles") as any)
-                        .select("user_id")
-                        .eq("user_id", currentUser.id)
-                        .single();
+        try {
+            const { data: restriction, error: restrictionError } = await supabase
+                .from('user_restrictions')
+                .select('restriction_type, ends_at, lifted_at')
+                .eq('user_id', currentUser.id)
+                .in('restriction_type', ['temporary_suspend', 'permanent_ban'])
+                .is('lifted_at', null)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
-                    if (!profile && !profileError) {
-                        router.replace('/auth/setup-profile');
-                    }
-                }
-            } else {
-                setAvatarUrl(null);
+            if (restrictionError) {
+                console.error("Error checking user restriction:", restrictionError);
             }
-            setLoading(false);
+
+            if (restriction) {
+                const res = restriction as any;
+                if (res.restriction_type === 'temporary_suspend' && res.ends_at) {
+                    if (new Date(res.ends_at) > new Date()) {
+                        router.replace('/suspended');
+                        return;
+                    }
+                } else if (res.restriction_type === 'permanent_ban') {
+                    router.replace('/suspended');
+                    return;
+                }
+            }
+
+            const { data: profile, error: profileError } = await (supabase
+                .from("profiles") as any)
+                .select("user_id")
+                .eq("user_id", currentUser.id)
+                .maybeSingle();
+
+            if (profileError) {
+                console.error("Error checking profile:", profileError);
+                return;
+            }
+
+            if (!profile) {
+                router.replace('/auth/setup-profile');
+            }
+        } catch (err) {
+            console.error("Error running post-auth checks:", err);
+        }
+    }, [pathname, router]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const initAuth = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const currentUser = session?.user ?? null;
+
+                if (!isMounted) return;
+
+                setUser(currentUser);
+
+                if (currentUser) {
+                    void fetchAvatarUrl(currentUser.id);
+                    await runPostAuthChecks(currentUser);
+                } else {
+                    setAvatarUrl(null);
+                }
+            } catch (err) {
+                console.error("Error initializing auth:", err);
+                if (isMounted) {
+                    setUser(null);
+                    setAvatarUrl(null);
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
         };
 
-        initAuth();
+        void initAuth();
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        } = supabase.auth.onAuthStateChange((_event, session) => {
             const currentUser = session?.user ?? null;
+            if (!isMounted) return;
+
             setUser(currentUser);
+
             if (currentUser) {
-                fetchAvatarUrl(currentUser.id);
-                // AuthState変更時も制限チェック
-                const excludedPaths = ['/suspended', '/auth/'];
-                const isExcluded = excludedPaths.some(p => pathname.startsWith(p));
-                
-                if (!isExcluded) {
-                    const { data: restriction } = await supabase
-                        .from('user_restrictions')
-                        .select('restriction_type, ends_at, lifted_at')
-                        .eq('user_id', currentUser.id)
-                        .in('restriction_type', ['temporary_suspend', 'permanent_ban'])
-                        .is('lifted_at', null)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .single();
-
-                    if (restriction) {
-                        const res = restriction as any;
-                        if (res.restriction_type === 'temporary_suspend' && res.ends_at) {
-                            if (new Date(res.ends_at) > new Date()) {
-                                router.replace('/suspended');
-                                return;
-                            }
-                        } else if (res.restriction_type === 'permanent_ban') {
-                            router.replace('/suspended');
-                            return;
-                        }
+                void fetchAvatarUrl(currentUser.id);
+                window.setTimeout(() => {
+                    if (isMounted) {
+                        void runPostAuthChecks(currentUser);
                     }
-
-                    // 利用制限がない場合はプロフィールの設定状況をチェック
-                    const { data: profile, error: profileError } = await (supabase
-                        .from("profiles") as any)
-                        .select("user_id")
-                        .eq("user_id", currentUser.id)
-                        .single();
-
-                    if (!profile && !profileError) {
-                        router.replace('/auth/setup-profile');
-                    }
-                }
+                }, 0);
             } else {
                 setAvatarUrl(null);
             }
+
             setLoading(false);
         });
 
-        return () => subscription.unsubscribe();
-    }, [fetchAvatarUrl, pathname, router]);
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
+    }, [fetchAvatarUrl, runPostAuthChecks]);
 
     const signOut = useCallback(async () => {
         setUser(null);
