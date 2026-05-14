@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Activity, Ban, BookOpen, ClipboardList, FileWarning, Inbox, Users } from "lucide-react";
+import { Activity, Ban, BookOpen, ClipboardList, Eye, FileWarning, Inbox, Users } from "lucide-react";
 import { AdminPageHeader, StatusBadge } from "./_components/admin-shell";
 import { formatAdminDate, requireAdmin } from "@/lib/admin-utils";
 
 export const dynamic = "force-dynamic";
 
 const cards = [
+  { key: "todayAccess", label: "今日の訪問者数", href: "/admin/access", icon: Eye, tone: "border-sky-100 bg-sky-50 text-sky-700" },
   { key: "users", label: "登録ユーザー数", href: "/admin/users", icon: Users, tone: "border-blue-100 bg-blue-50 text-blue-700" },
   { key: "items", label: "出品数", href: "/admin/items", icon: BookOpen, tone: "border-emerald-100 bg-emerald-50 text-emerald-700" },
   { key: "activeTransactions", label: "取引中の件数", href: "/admin/transactions?status=active", icon: ClipboardList, tone: "border-amber-100 bg-amber-50 text-amber-700" },
@@ -21,6 +22,7 @@ export default async function AdminDashboardPage() {
   const now = new Date().toISOString();
 
   const [
+    todayAccess,
     users,
     items,
     activeTransactions,
@@ -32,6 +34,7 @@ export default async function AdminDashboardPage() {
     recentReports,
     recentInquiries,
   ] = await Promise.all([
+    (supabase as any).rpc("admin_get_today_access_count"),
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("items").select("*", { count: "exact", head: true }),
     supabase.from("transactions").select("*", { count: "exact", head: true }).in("status", ["pending", "confirmed", "awaiting_rating"]),
@@ -45,6 +48,7 @@ export default async function AdminDashboardPage() {
   ]);
 
   const counts: Record<string, number> = {
+    todayAccess: Number(todayAccess.data ?? 0),
     users: users.count ?? 0,
     items: items.count ?? 0,
     activeTransactions: activeTransactions.count ?? 0,

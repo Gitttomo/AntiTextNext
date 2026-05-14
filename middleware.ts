@@ -2,6 +2,27 @@ import { createServerClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isCurrentUserAdmin } from '@/lib/admin';
 
+const ACCESS_VISITOR_COOKIE = 'textnext_visitor_id';
+
+const shouldTrackAccess = (request: NextRequest, pathname: string) => {
+  if (request.method !== 'GET') return false;
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/')) return false;
+  if (request.headers.get('next-router-prefetch') === '1') return false;
+  if (request.headers.get('purpose') === 'prefetch') return false;
+  if (request.headers.get('sec-purpose')?.includes('prefetch')) return false;
+
+  const accept = request.headers.get('accept') || '';
+  return accept.includes('text/html');
+};
+
+const hashVisitorId = async (value: string) => {
+  const data = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -49,6 +70,34 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isAdminRoute = pathname.startsWith('/admin');
+
+  if (shouldTrackAccess(request, pathname)) {
+    let visitorId = request.cookies.get(ACCESS_VISITOR_COOKIE)?.value;
+
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      response.cookies.set({
+        name: ACCESS_VISITOR_COOKIE,
+        value: visitorId,
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
+
+    const visitorSource = session?.user?.id ? `user:${session.user.id}` : `anon:${visitorId}`;
+    const visitorHash = await hashVisitorId(visitorSource);
+    const { error } = await (supabase as any).rpc('increment_site_access', {
+      target_visitor_hash: visitorHash,
+      target_time: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.error('Failed to track site access:', error);
+    }
+  }
 
   // 除外パス（これらのページはリダイレクトしない）
   const excludedPaths = [

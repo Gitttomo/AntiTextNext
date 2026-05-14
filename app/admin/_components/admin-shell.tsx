@@ -11,10 +11,12 @@ import {
   Inbox,
   ScrollText,
   Users,
+  Eye,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "ダッシュボード", icon: Gauge },
+  { href: "/admin/access", label: "アクセス分析", icon: Eye },
   { href: "/admin/users", label: "ユーザー管理", icon: Users },
   { href: "/admin/items", label: "出品管理", icon: BookOpen },
   { href: "/admin/transactions", label: "取引管理", icon: ClipboardList },
