@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import TransactionsClient from "./transactions-client";
+import { resolveEarlyRegistrationEligible } from "@/lib/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,8 @@ export default async function TransactionsPage() {
             <TransactionsClient
                 initialActiveItems={[]}
                 initialProfile={null}
+                initialListingCount={0}
+                initialEarlyRegistrationEligible={false}
                 serverSession={false}
             />
         );
@@ -70,7 +73,9 @@ export default async function TransactionsPage() {
         { data: buyerTransactions },
         { data: sellerItems },
         { data: sellerTransactions },
-        { data: unreadMessages }
+        { data: unreadMessages },
+        { data: rewardSetting },
+        { data: rewardOverride }
     ] = await Promise.all([
         supabase
             .from("profiles")
@@ -100,7 +105,17 @@ export default async function TransactionsPage() {
             .from("messages")
             .select("item_id")
             .eq("receiver_id", userId)
-            .eq("is_read", false)
+            .eq("is_read", false),
+        (supabase as any)
+            .from("reward_settings")
+            .select("*")
+            .eq("id", "early_registration")
+            .single(),
+        (supabase as any)
+            .from("user_reward_overrides")
+            .select("early_registration_override")
+            .eq("user_id", userId)
+            .maybeSingle()
     ]);
 
     // Data processing (mirrored from client logic for consistency)
@@ -113,6 +128,7 @@ export default async function TransactionsPage() {
     }
 
     const active: TransactionItem[] = [];
+    const activeListingCount = (sellerItems || []).filter((item: any) => item.status === "available").length;
 
     // Process Buyer Transactions
     for (const tx of (buyerTransactions || []) as any[]) {
@@ -182,6 +198,12 @@ export default async function TransactionsPage() {
         <TransactionsClient
             initialActiveItems={active}
             initialProfile={profileData as any}
+            initialListingCount={activeListingCount}
+            initialEarlyRegistrationEligible={resolveEarlyRegistrationEligible(
+                session.user.created_at,
+                rewardSetting as any,
+                rewardOverride as any
+            )}
         />
     );
 }

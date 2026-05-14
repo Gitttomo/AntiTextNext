@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Heart, BookOpen, TrendingUp, User, Users, ChevronDown, RefreshCw } from "lucide-react";
+import { Search, Heart, BookOpen, TrendingUp, Users, ChevronDown, RefreshCw } from "lucide-react";
 import { useState, useCallback, memo, useMemo, useEffect, useRef, TouchEvent as ReactTouchEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import { getItemImageUrl } from "@/lib/image-storage";
+import { RewardAvatar } from "@/components/reward-avatar";
+import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting } from "@/lib/rewards";
 
 type Item = {
   id: string;
@@ -139,6 +141,13 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
   const [loadingMoreRecommended, setLoadingMoreRecommended] = useState(false);
   const [hasMoreRecommended, setHasMoreRecommended] = useState(false); // 初期はサーバーサイドの10件
   const [totalRecommendedCount, setTotalRecommendedCount] = useState(initialRecommendedItems.length);
+  const [profileAvatar, setProfileAvatar] = useState<{
+    listingCount: number;
+    earlyRegistration: boolean;
+  }>({
+    listingCount: 0,
+    earlyRegistration: false,
+  });
 
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(initialPopularItems.length < totalPopularCount);
@@ -161,6 +170,52 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     () => popularItems.filter(item => !recommendedIdSet.has(item.id) && (!user || item.seller_id !== user.id)),
     [popularItems, recommendedIdSet, user]
   );
+
+  useEffect(() => {
+    if (!user) {
+      setProfileAvatar({ listingCount: 0, earlyRegistration: false });
+      return;
+    }
+
+    const loadProfileAvatarRewards = async () => {
+      try {
+        const [
+          { count: listingCount },
+          { data: rewardSetting },
+          { data: rewardOverride },
+        ] = await Promise.all([
+          supabase
+            .from("items")
+            .select("*", { count: "exact", head: true })
+            .eq("seller_id", user.id)
+            .eq("status", "available"),
+          (supabase as any)
+            .from("reward_settings")
+            .select("*")
+            .eq("id", "early_registration")
+            .single(),
+          (supabase as any)
+            .from("user_reward_overrides")
+            .select("early_registration_override")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]);
+
+        setProfileAvatar({
+          listingCount: listingCount ?? 0,
+          earlyRegistration: resolveEarlyRegistrationEligible(
+            user.created_at,
+            rewardSetting as RewardSetting | null,
+            rewardOverride as RewardOverride | null
+          ),
+        });
+      } catch (err) {
+        console.error("Error loading profile avatar rewards:", err);
+      }
+    };
+
+    void loadProfileAvatarRewards();
+  }, [user]);
 
   // 初期表示時にお気に入り & パーソナライズされたおすすめをロード
   useEffect(() => {
@@ -575,22 +630,14 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             {loading ? (
               <div className="w-10 h-10 bg-gray-100 rounded-full animate-pulse" />
             ) : user ? (
-              <Link href="/profile">
-                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 hover:border-primary/50 transition-colors">
-                  {avatarUrl ? (
-                    <Image
-                      src={avatarUrl}
-                      alt="プロフィール"
-                      width={40}
-                      height={40}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-5 h-5 text-primary" />
-                    </div>
-                  )}
-                </div>
+              <Link href="/profile" className="block transition-transform active:scale-95">
+                <RewardAvatar
+                  src={avatarUrl}
+                  alt="プロフィール"
+                  size={40}
+                  listingCount={profileAvatar.listingCount}
+                  earlyRegistration={profileAvatar.earlyRegistration}
+                />
               </Link>
             ) : (
               <Link

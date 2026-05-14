@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { User, GraduationCap, MessageCircle, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
+import { GraduationCap, MessageCircle, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +10,8 @@ import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { TransactionsSkeleton } from "./skeleton";
 import { getItemImageUrl } from "@/lib/image-storage";
+import { RewardAvatar } from "@/components/reward-avatar";
+import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting } from "@/lib/rewards";
 
 type Profile = {
     nickname: string;
@@ -34,12 +36,16 @@ type TransactionItem = {
 type TransactionsClientProps = {
     initialActiveItems: TransactionItem[];
     initialProfile: Profile | null;
+    initialListingCount?: number;
+    initialEarlyRegistrationEligible?: boolean;
     serverSession?: boolean;
 };
 
 export default function TransactionsClient({
     initialActiveItems,
     initialProfile,
+    initialListingCount = 0,
+    initialEarlyRegistrationEligible = false,
     serverSession = true
 }: TransactionsClientProps) {
     const router = useRouter();
@@ -48,6 +54,10 @@ export default function TransactionsClient({
     const [profile, setProfile] = useState<Profile | null>(initialProfile);
     const [activeTab, setActiveTab] = useState<"upcoming" | "pending">("upcoming");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
+    const [profileAvatar, setProfileAvatar] = useState({
+        listingCount: initialListingCount,
+        earlyRegistration: initialEarlyRegistrationEligible,
+    });
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -72,7 +82,10 @@ export default function TransactionsClient({
                 { data: buyerTransactions },
                 { data: sellerItems },
                 { data: sellerTransactions },
-                { data: unreadMessages }
+                { data: unreadMessages },
+                { count: activeListingCount },
+                { data: rewardSetting },
+                { data: rewardOverride }
             ] = await Promise.all([
                 supabase
                     .from("profiles")
@@ -102,12 +115,36 @@ export default function TransactionsClient({
                     .from("messages")
                     .select("item_id")
                     .eq("receiver_id", user.id)
-                    .eq("is_read", false)
+                    .eq("is_read", false),
+                supabase
+                    .from("items")
+                    .select("*", { count: "exact", head: true })
+                    .eq("seller_id", user.id)
+                    .eq("status", "available"),
+                (supabase as any)
+                    .from("reward_settings")
+                    .select("*")
+                    .eq("id", "early_registration")
+                    .single(),
+                (supabase as any)
+                    .from("user_reward_overrides")
+                    .select("early_registration_override")
+                    .eq("user_id", user.id)
+                    .maybeSingle()
             ]);
 
             if (profileData) {
                 setProfile(profileData as Profile);
             }
+
+            setProfileAvatar({
+                listingCount: activeListingCount ?? 0,
+                earlyRegistration: resolveEarlyRegistrationEligible(
+                    user.created_at,
+                    rewardSetting as RewardSetting | null,
+                    rewardOverride as RewardOverride | null
+                ),
+            });
 
             const unreadCountMap = new Map<string, number>();
             if (unreadMessages) {
@@ -396,21 +433,14 @@ export default function TransactionsClient({
                 {profile && (
                     <Link href="/profile" className="mt-6 block group">
                         <div className="flex items-center gap-4 bg-gray-50 rounded-[28px] p-4 transition-all hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98]">
-                            <div className="w-14 h-14 rounded-full overflow-hidden border-4 border-white shadow-md">
-                                        {avatarUrl ? (
-                                    <Image
-                                        src={avatarUrl}
-                                        alt="プロフィール"
-                                        width={56}
-                                        height={56}
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full bg-primary/10 flex items-center justify-center">
-                                        <User className="w-7 h-7 text-primary" />
-                                    </div>
-                                )}
-                            </div>
+                            <RewardAvatar
+                                src={avatarUrl}
+                                alt="プロフィール"
+                                size={56}
+                                listingCount={profileAvatar.listingCount}
+                                earlyRegistration={profileAvatar.earlyRegistration}
+                                className="shadow-md"
+                            />
                             <div className="flex-1">
                                 <p className="font-black text-gray-900 text-lg">{profile.nickname}</p>
                                 <div className="flex items-center gap-1.5 text-gray-500">
