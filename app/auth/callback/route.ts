@@ -7,6 +7,9 @@ export async function GET(request: NextRequest) {
     const code = requestUrl.searchParams.get('code');
     const token_hash = requestUrl.searchParams.get('token_hash');
     const type = requestUrl.searchParams.get('type');
+    const next = requestUrl.searchParams.get('next');
+    const safeNext = next?.startsWith('/') && !next.startsWith('//') ? next : null;
+    const successPath = safeNext || (type === 'recovery' ? '/auth/update-password' : '/auth/setup-profile');
 
     const cookieStore = cookies();
     const supabase = createServerClient(
@@ -32,8 +35,7 @@ export async function GET(request: NextRequest) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error) {
-            // メール認証成功 → プロフィール初期設定ページへ
-            return NextResponse.redirect(new URL('/auth/setup-profile', requestUrl.origin));
+            return NextResponse.redirect(new URL(successPath, requestUrl.origin));
         }
     }
 
@@ -45,8 +47,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (!error) {
-            // メール認証成功 → プロフィール初期設定ページへ
-            return NextResponse.redirect(new URL('/auth/setup-profile', requestUrl.origin));
+            return NextResponse.redirect(new URL(successPath, requestUrl.origin));
         }
     }
 

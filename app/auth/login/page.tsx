@@ -118,6 +118,15 @@ export default function LoginPage() {
                         </form>
 
                         <div className="mt-6 text-center">
+                            <Link
+                                href="/auth/forgot-password"
+                                className="text-sm text-gray-500 hover:text-primary hover:underline"
+                            >
+                                パスワードをお忘れですか？
+                            </Link>
+                        </div>
+
+                        <div className="mt-4 text-center">
                             <p className="text-gray-600">
                                 アカウントをお持ちでない方は
                             </p>
