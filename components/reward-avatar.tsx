@@ -11,6 +11,7 @@ const frameClasses: Record<string, string> = {
   green: "reward-avatar-frame--green",
   sky: "reward-avatar-frame--sky",
   navy: "reward-avatar-frame--navy",
+  red: "reward-avatar-frame--red",
   admin: "reward-avatar-frame--admin",
 };
 

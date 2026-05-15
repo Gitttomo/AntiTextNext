@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle, BookOpen, Star } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle, BookOpen, Star } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { ALLOWED_IMAGE_ACCEPT, assertAllowedImageFile, uploadChatImage } from "@/lib/image-storage";
 import { INPUT_LIMITS } from "@/lib/input-limits";
+import { RewardAvatar } from "@/components/reward-avatar";
+import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting } from "@/lib/rewards";
 
 type Message = {
   id: string;
@@ -52,6 +54,9 @@ type UserProfile = {
   avatar_url: string | null;
   nickname: string;
   is_deactivated?: boolean;
+  created_at?: string | null;
+  listing_count?: number;
+  early_registration?: boolean;
 };
 
 const TIME_SLOT_LABELS: Record<string, string> = {
@@ -98,6 +103,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
   const [otherUserProfile, setOtherUserProfile] = useState<UserProfile | null>(null);
+  const [ownAvatarReward, setOwnAvatarReward] = useState({ listingCount: 0, earlyRegistration: false });
   const [accessDenied, setAccessDenied] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -390,11 +396,47 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         setOtherUserId(other);
 
         if (other) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("avatar_url, nickname, is_deactivated")
-            .eq("user_id", other)
-            .single();
+          const [
+            { data: profileData },
+            { count: otherListingCount },
+            { data: rewardSetting },
+            { data: otherRewardOverride },
+            { count: ownListingCount },
+            { data: ownRewardOverride },
+          ] = await Promise.all([
+            supabase
+              .from("profiles")
+              .select("avatar_url, nickname, is_deactivated, created_at")
+              .eq("user_id", other)
+              .single(),
+            supabase
+              .from("items")
+              .select("*", { count: "exact", head: true })
+              .eq("seller_id", other)
+              .neq("status", "deleted"),
+            (supabase as any)
+              .from("reward_settings")
+              .select("*")
+              .eq("id", "early_registration")
+              .single(),
+            (supabase as any)
+              .from("user_reward_overrides")
+              .select("early_registration_override")
+              .eq("user_id", other)
+              .maybeSingle(),
+            supabase
+              .from("items")
+              .select("*", { count: "exact", head: true })
+              .eq("seller_id", user.id)
+              .neq("status", "deleted"),
+            (supabase as any)
+              .from("user_reward_overrides")
+              .select("early_registration_override")
+              .eq("user_id", user.id)
+              .maybeSingle(),
+          ]);
+
+          const setting = rewardSetting as RewardSetting | null;
 
           if (profileData) {
             const profile = profileData as UserProfile;
@@ -403,11 +445,30 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 avatar_url: null,
                 nickname: "退会済みユーザー",
                 is_deactivated: true,
+                listing_count: 0,
+                early_registration: false,
               });
             } else {
-              setOtherUserProfile(profile);
+              setOtherUserProfile({
+                ...profile,
+                listing_count: otherListingCount ?? 0,
+                early_registration: resolveEarlyRegistrationEligible(
+                  profile.created_at,
+                  setting,
+                  otherRewardOverride as RewardOverride | null
+                ),
+              });
             }
           }
+
+          setOwnAvatarReward({
+            listingCount: ownListingCount ?? 0,
+            earlyRegistration: resolveEarlyRegistrationEligible(
+              user.created_at,
+              setting,
+              ownRewardOverride as RewardOverride | null
+            ),
+          });
         }
       }
 
@@ -689,25 +750,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   // アバターコンポーネント
-  const Avatar = ({ url, size = 40 }: { url: string | null; size?: number }) => (
-    <div
-      className="rounded-full overflow-hidden flex-shrink-0 bg-gray-200"
-      style={{ width: size, height: size }}
-    >
-      {url ? (
-        <Image
-          src={url}
-          alt="avatar"
-          width={size}
-          height={size}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gray-300">
-          <User className="w-1/2 h-1/2 text-gray-500" />
-        </div>
-      )}
-    </div>
+  const ChatAvatar = ({ isOwn }: { isOwn: boolean }) => (
+    <RewardAvatar
+      src={isOwn ? avatarUrl : otherUserProfile?.avatar_url || null}
+      alt="avatar"
+      size={40}
+      listingCount={isOwn ? ownAvatarReward.listingCount : otherUserProfile?.listing_count ?? 0}
+      earlyRegistration={isOwn ? ownAvatarReward.earlyRegistration : otherUserProfile?.early_registration}
+    />
   );
 
   if (authLoading || loading) {
@@ -1133,7 +1183,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                     {/* アバター */}
                     <div className="flex-shrink-0" style={{ width: 40 }}>
                       {showAvatar && (
-                        <Avatar url={isOwnMessage ? avatarUrl : otherUserProfile?.avatar_url || null} />
+                        <ChatAvatar isOwn={isOwnMessage} />
                       )}
                     </div>
 

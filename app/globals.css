@@ -619,6 +619,11 @@
   --reward-avatar-frame-soft: #93c5fd;
 }
 
+.reward-avatar-frame--red {
+  --reward-avatar-frame-color: #dc2626;
+  --reward-avatar-frame-soft: #fecaca;
+}
+
 .reward-avatar-frame--admin {
   --reward-avatar-frame-color: #0f172a;
   --reward-avatar-frame-soft: #64748b;

@@ -13,7 +13,8 @@ import {
     ChevronRight,
     ArrowRight,
     MoreHorizontal,
-    Shield
+    Shield,
+    HelpCircle
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
@@ -21,6 +22,7 @@ import { ProfileSkeleton } from "./edit/skeleton";
 import { getItemImageUrl } from "@/lib/image-storage";
 import { supabase } from "@/lib/supabase";
 import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
+import ProfileRewardsTutorial from "@/components/ProfileRewardsTutorial";
 import type { UserBadge } from "@/lib/rewards";
 
 type Profile = {
@@ -71,10 +73,26 @@ export default function MypageClient({
     const { t } = useI18n();
     const [activeTab, setActiveTab] = useState<"past" | "listing" | null>(null);
     const [favoriteItems, setFavoriteItems] = useState<Item[]>(initialFavoriteItems);
+    const [showRewardsTutorial, setShowRewardsTutorial] = useState(false);
 
     useEffect(() => {
         setFavoriteItems(initialFavoriteItems);
     }, [initialFavoriteItems]);
+
+    useEffect(() => {
+        if (!user) return;
+        const storageKey = `profile_rewards_tutorial_seen:${user.id}`;
+        if (!localStorage.getItem(storageKey)) {
+            setShowRewardsTutorial(true);
+        }
+    }, [user]);
+
+    const handleCloseRewardsTutorial = () => {
+        if (user) {
+            localStorage.setItem(`profile_rewards_tutorial_seen:${user.id}`, "true");
+        }
+        setShowRewardsTutorial(false);
+    };
 
     const refreshFavoriteItems = async () => {
         if (!user) return;
@@ -138,11 +156,25 @@ export default function MypageClient({
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 pb-32 font-gentle">
+            {showRewardsTutorial && (
+                <ProfileRewardsTutorial onClose={handleCloseRewardsTutorial} />
+            )}
+
             {/* Header */}
             <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
-                <h1 className="text-4xl font-black text-gray-900 tracking-tight">
-                    {t('profile.mypage')}
-                </h1>
+                <div className="flex items-start justify-between gap-4">
+                    <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+                        {t('profile.mypage')}
+                    </h1>
+                    <button
+                        type="button"
+                        onClick={() => setShowRewardsTutorial(true)}
+                        className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary/15 bg-primary/5 text-primary shadow-sm transition-all hover:bg-primary/10 active:scale-95"
+                        aria-label="出品数とバッジの説明を見る"
+                    >
+                        <HelpCircle className="h-5 w-5" />
+                    </button>
+                </div>
             </header>
 
             <div className="px-6 pt-8 space-y-8">

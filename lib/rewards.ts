@@ -36,6 +36,7 @@ export function resolveEarlyRegistrationEligible(
 }
 
 export function getListingFrameTone(listingCount: number) {
+  if (listingCount >= 35) return "red";
   if (listingCount >= 20) return "navy";
   if (listingCount >= 10) return "sky";
   if (listingCount >= 5) return "green";

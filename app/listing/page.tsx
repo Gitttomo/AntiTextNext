@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Upload, Loader2, Camera, X, Scan, AlertCircle, CheckCircle } from "lucide-react";
+import { Upload, Loader2, Camera, X, Scan, AlertCircle, CheckCircle, HelpCircle } from "lucide-react";
 import { calculateSellingPrice } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -523,9 +523,19 @@ export default function ListingPage() {
       )}
 
       <header className="bg-white px-6 pt-10 pb-8 rounded-b-[40px] shadow-sm">
-        <h1 className="text-4xl font-black text-gray-900 tracking-tight">
-          教科書の出品
-        </h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+            教科書の出品
+          </h1>
+          <button
+            type="button"
+            onClick={() => setShowTutorial(true)}
+            className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary/15 bg-primary/5 text-primary shadow-sm transition-all hover:bg-primary/10 active:scale-95"
+            aria-label="出品方法を見る"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       <div className="px-6 py-8">
