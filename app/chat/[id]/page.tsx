@@ -333,8 +333,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .from("transactions")
         .select("*")
         .eq("item_id", params.id)
-        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-        .not("status", "in", "(cancelled)");
+        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
 
       if (targetTransactionId) {
         transactionQuery = transactionQuery.eq("id", targetTransactionId);
@@ -760,16 +759,33 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const statusLabel = {
+  const transactionStatusLabel = {
+    requested: "承認待ち",
+    pending_approval: "承認待ち",
+    accepted: "取引中",
+    scheduling: "日程調整中",
+    scheduled: "予定確定済み",
+    awaiting_rating: "評価待ち",
+    completed: "取引完了",
+    cancelled: "キャンセル済み",
+    rejected: "辞退済み",
+    declined: "辞退済み",
+    expired: "期限切れ",
+    auto_closed: "終了済み",
+  }[transaction?.status || ""];
+
+  const statusLabel = transactionStatusLabel || ({
     available: "出品中",
     transaction_pending: "取引中",
     trading: "取引中",
     awaiting_rating: "評価待ち",
     sold: "取引完了",
-  }[item.status] || (transaction?.status === 'requested' || transaction?.status === 'pending_approval' ? '承認待ち' : item.status);
+  }[item.status] || item.status);
 
   const isPendingApproval = transaction?.status === 'requested' || transaction?.status === 'pending_approval';
+  const isCancelled = transaction?.status === 'cancelled';
   const isDeclined = ['rejected', 'declined', 'expired', 'auto_closed'].includes(transaction?.status || '');
+  const isClosedTransaction = isCancelled || isDeclined || transaction?.status === 'completed';
   const canUseTradeActions = ['accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction?.status || '');
   const canAdjustSchedule = ['requested', 'pending_approval', 'accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction?.status || '');
   const canCancelTransaction = canUseTradeActions && !isDeclined && transaction?.status !== 'completed' && transaction?.status !== 'cancelled';
@@ -914,8 +930,21 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* Cancelled Banner */}
+      {isCancelled && (
+        <div className="fixed top-16 left-0 right-0 bg-red-50/95 backdrop-blur-md px-4 py-3 z-40 border-b border-red-200">
+          <div className="flex items-center gap-2">
+            <XCircle className="w-4 h-4 text-red-500" />
+            <span className="text-xs font-bold text-red-600">この取引はキャンセルされました</span>
+          </div>
+          {transaction?.cancellation_reason && (
+            <p className="text-xs text-red-500 mt-1 ml-6">理由: {transaction.cancellation_reason}</p>
+          )}
+        </div>
+      )}
+
       {/* Action Bar (Below Header) — hide when pending_approval or declined */}
-      {canUseTradeActions && !isDeclined && (
+      {canUseTradeActions && !isDeclined && !isCancelled && (
       <div className="fixed top-16 left-0 right-0 bg-white/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-gray-100">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
@@ -1186,18 +1215,19 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (isClosedTransaction) return;
             handleSend();
           }}
           className="flex items-center gap-3"
         >
           {/* Image Picker */}
-          <label className="cursor-pointer p-2 hover:bg-gray-100 rounded-full transition-colors relative">
+          <label className={`p-2 rounded-full transition-colors relative ${isClosedTransaction ? "cursor-not-allowed opacity-40" : "cursor-pointer hover:bg-gray-100"}`}>
             <input
               type="file"
               accept={ALLOWED_IMAGE_ACCEPT}
               className="hidden"
               onChange={handleImageUpload}
-              disabled={isUploadingImage}
+              disabled={isUploadingImage || isClosedTransaction}
             />
             {isUploadingImage ? (
               <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
@@ -1218,14 +1248,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               }
             }}
             maxLength={INPUT_LIMITS.chatMessageMax}
-            placeholder="メッセージを入力..."
+            placeholder={isClosedTransaction ? "この取引は終了しています" : "メッセージを入力..."}
             className="flex-1 px-4 py-3 bg-gray-100 rounded-full text-[15px] focus:outline-none focus:ring-2 focus:ring-primary/50 border border-gray-200"
-            disabled={sending}
+            disabled={sending || isClosedTransaction}
             autoComplete="off"
           />
           <button
             type="submit"
-            disabled={(!newMessage.trim() && !isUploadingImage) || sending}
+            disabled={isClosedTransaction || (!newMessage.trim() && !isUploadingImage) || sending}
             className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${(newMessage.trim() || isUploadingImage) && !sending
               ? "bg-primary text-white shadow-md active:scale-95"
               : "bg-gray-200 text-gray-400"
