@@ -567,14 +567,24 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const handleReschedule = async () => {
     if (!transaction || isFinalizing) return;
     if (user?.id !== transaction.buyer_id && user?.id !== transaction.seller_id) return;
+    if (transaction.final_meetup_time) return;
     setIsFinalizing(true);
     try {
-      // 日程調整をリセット
+      const nextStatus = ['requested', 'pending_approval'].includes(transaction.status)
+        ? transaction.status
+        : 'scheduling';
+
+      // 既存候補を取り下げてから、新しい候補を入力できる状態にする。
       const { error } = await (supabase.from("transactions") as any)
         .update({
+          meetup_time_slots: [],
+          meetup_locations: [],
           final_meetup_time: null,
           final_meetup_location: null,
-          status: 'scheduling' // または再調整用のステータス
+          status: nextStatus,
+          schedule_change_requested_by: null,
+          previous_final_meetup_time: null,
+          previous_final_meetup_location: null,
         })
         .eq("id", transaction.id);
 
@@ -583,12 +593,27 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       // ローカル状態を即座に更新（即時UI反映のため）
       setTransaction(prev => prev ? {
         ...prev,
+        meetup_time_slots: [],
+        meetup_locations: [],
         final_meetup_time: null,
         final_meetup_location: null,
-        status: 'scheduling'
+        status: nextStatus,
+        schedule_change_requested_by: null,
+        previous_final_meetup_time: null,
+        previous_final_meetup_location: null,
       } : prev);
 
-      await handleSend("この先の受け渡し日程については、こちらのチャットにてご相談ください。\n\n日程が決まりましたら、日程変更・登録を行っていただくことで、予定が自動的にカレンダーへ登録されます");
+      const hasAskedRescheduleBefore = messages.some((message) =>
+        message.message.includes("現在の候補日程をいったん取り下げました") ||
+        message.message.includes("提案いただいた日時では対応できません")
+      );
+
+      await handleSend(
+        hasAskedRescheduleBefore
+          ? "すみません、、提案いただいた日時では対応できません。他の日程を探させてください。\n\n日程変更、登録から日程を選択してください。"
+          : "現在の候補日程をいったん取り下げました。再度、行けそうな日程候補を提案します。"
+      );
+      setIsScheduleModalOpen(true);
     } catch (err: any) {
       alert("再調整の処理に失敗しました: " + err.message);
     } finally {
@@ -599,6 +624,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const handleCompleteTransaction = async () => {
     if (isFinalizing || !item || !transaction || !user) return;
     if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
+    if (!['accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction.status)) return;
     setIsFinalizing(true);
     try {
       const isBuyer = user.id === transaction.buyer_id;
@@ -643,6 +669,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const handleCancelTransaction = async (reason: string) => {
     if (isFinalizing || !item || !transaction || !user) return;
     if (user.id !== transaction.buyer_id && user.id !== transaction.seller_id) return;
+    if (!['accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction.status)) return;
     setIsFinalizing(true);
     try {
       // Update transaction status to cancelled with reason
@@ -744,10 +771,12 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const isPendingApproval = transaction?.status === 'requested' || transaction?.status === 'pending_approval';
   const isDeclined = ['rejected', 'declined', 'expired', 'auto_closed'].includes(transaction?.status || '');
   const canUseTradeActions = ['accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction?.status || '');
+  const canAdjustSchedule = ['requested', 'pending_approval', 'accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction?.status || '');
+  const canCancelTransaction = canUseTradeActions && !isDeclined && transaction?.status !== 'completed' && transaction?.status !== 'cancelled';
 
   const isSeller = user?.id === item.seller_id;
   const isScheduleChangeRequester = !!transaction?.schedule_change_requested_by && transaction.schedule_change_requested_by === user?.id;
-  const canConfirmSchedule = !!transaction && (
+  const canConfirmSchedule = canUseTradeActions && !!transaction && (
     transaction.schedule_change_requested_by
       ? transaction.schedule_change_requested_by !== user?.id
       : isSeller
@@ -846,11 +875,27 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                   <XCircle className="w-4 h-4" />辞退する
                 </button>
               </div>
+              <button
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 bg-white hover:bg-amber-100 text-amber-700 border-2 border-amber-200 font-bold py-2.5 rounded-xl transition-all text-sm"
+              >
+                <Calendar className="w-4 h-4" />
+                日程候補を提案・変更
+              </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" />
-              <span className="text-xs font-bold text-amber-700">出品者の承認を待っています...</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-amber-700">出品者の承認を待っています...</span>
+              </div>
+              <button
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 bg-white hover:bg-amber-100 text-amber-700 border-2 border-amber-200 font-bold py-2.5 rounded-xl transition-all text-sm"
+              >
+                <Calendar className="w-4 h-4" />
+                日程候補を提案・変更
+              </button>
             </div>
           )}
         </div>
@@ -878,7 +923,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 rounded-xl transition-all border border-slate-600 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Calendar className="w-4 h-4" />
-          日程調整・変更
+          日程変更・登録
         </button>
         <button
           onClick={() => setIsCompletionModalOpen(true)}
@@ -895,7 +940,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       </div>
       )}
 
-      <div className="flex-1 overflow-hidden pt-[116px] flex flex-col">
+      <div className={`flex-1 overflow-hidden ${isPendingApproval ? "pt-[190px]" : "pt-[116px]"} flex flex-col`}>
         {/* Messages Area */}
         <div
           ref={messagesContainerRef}
@@ -936,7 +981,11 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                     <div>
                       <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">変更提案中</p>
                       <p className="text-sm font-black text-amber-950">
-                        {isScheduleChangeRequester ? "相手の承認待ちです" : "候補から行ける日時を選んで承認してください"}
+                        {isPendingApproval
+                          ? "この候補で取引できそうか相談中です"
+                          : isScheduleChangeRequester
+                            ? "相手の承認待ちです"
+                            : "候補から行ける日時を選んで承認してください"}
                       </p>
                     </div>
                   </div>
@@ -973,7 +1022,9 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 </div>
 
                 <p className="text-xs text-gray-500 font-bold mb-4 px-1">
-                  {transaction.schedule_change_requested_by
+                  {isPendingApproval
+                    ? "承認前のため、ここでは日程確定はできません。候補を確認し、必要なら再提案してください。"
+                    : transaction.schedule_change_requested_by
                     ? isScheduleChangeRequester
                       ? "相手が承認するまでお待ちください。候補は以下の内容で提案されています。"
                       : "提案された候補から行けそうな日時を選ぶと、変更が承認されます。"
@@ -1006,11 +1057,11 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
                   <button
                     onClick={() => {
-                      if (isSeller && !transaction.final_meetup_time) {
+                      if (canAdjustSchedule && !transaction.final_meetup_time) {
                         handleReschedule();
                       }
                     }}
-                    disabled={isFinalizing || !isSeller || !!transaction.final_meetup_time}
+                    disabled={isFinalizing || !canAdjustSchedule || !!transaction.final_meetup_time}
                     className="w-full text-center py-3 text-gray-400 hover:text-gray-600 font-bold text-xs flex items-center justify-center gap-2 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -1097,7 +1148,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         </div>
 
       {/* Cancellation Section */}
-      {transaction && transaction.status !== 'completed' && transaction.status !== 'cancelled' &&
+      {transaction && canCancelTransaction &&
         !((user?.id === transaction.buyer_id && transaction.buyer_completed) || (user?.id === transaction.seller_id && transaction.seller_completed)) && (
           <div className="flex-shrink-0 bg-white border-t border-gray-100">
             <div className="px-4 py-2">
@@ -1193,12 +1244,14 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       {/* Schedule Adjustment Modal */}
       <ScheduleAdjustmentModal
         isOpen={isScheduleModalOpen}
+        allowRegister={canUseTradeActions && !isPendingApproval}
         onClose={() => setIsScheduleModalOpen(false)}
         onConfirm={async (slots: string[], locations: string[]) => {
           if (!transaction || !user) return;
           setIsFinalizing(true);
           const previousTime = transaction.final_meetup_time;
           const previousLocation = transaction.final_meetup_location;
+          const nextStatus = isPendingApproval ? transaction.status : 'scheduling';
           try {
             const { error } = await (supabase.from("transactions") as any)
               .update({
@@ -1206,7 +1259,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 meetup_locations: locations,
                 final_meetup_time: null,
                 final_meetup_location: null,
-                status: 'scheduling',
+                status: nextStatus,
                 schedule_change_requested_by: user.id,
                 previous_final_meetup_time: previousTime,
               })
@@ -1219,7 +1272,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               meetup_locations: locations,
               final_meetup_time: null,
               final_meetup_location: null,
-              status: 'scheduling',
+              status: nextStatus,
               schedule_change_requested_by: user.id,
               previous_final_meetup_time: previousTime,
               previous_final_meetup_location: previousLocation,
@@ -1229,9 +1282,53 @@ export default function ChatPage({ params }: { params: { id: string } }) {
             const previousSchedule = previousTime
               ? `変更前:\n・日時: ${previousTime}\n・場所: ${previousLocation || "未設定"}`
               : "変更前:\n・まだ受け渡し日時は決まっていません";
-            await handleSend(`【受け渡し日時の変更提案】\n\n${previousSchedule}\n\n変更後の候補:\n${formatScheduleCandidates(slots, locations)}\n\nこの候補で問題ないか、相手の方はチャット上部の候補から行けそうな日時を選んで承認してください。`);
+            await handleSend(
+              isPendingApproval
+                ? `【日程候補の再提案】\n\n${previousSchedule}\n\n変更後の候補:\n${formatScheduleCandidates(slots, locations)}\n\nこの候補で実際に取引できそうか、チャットで相談してください。`
+                : `【受け渡し日時の変更提案】\n\n${previousSchedule}\n\n変更後の候補:\n${formatScheduleCandidates(slots, locations)}\n\nこの候補で問題ないか、相手の方はチャット上部の候補から行けそうな日時を選んで承認してください。`
+            );
           } catch (err: any) {
             alert("日程の変更に失敗しました: " + err.message);
+          } finally {
+            setIsFinalizing(false);
+            setIsScheduleModalOpen(false);
+          }
+        }}
+        onRegister={async (slot: string, location: string) => {
+          if (!transaction || !user || !canUseTradeActions) return;
+          setIsFinalizing(true);
+          const formattedTime = formatTimeSlotLabel(slot);
+          const formattedLocation = formatLocationLabel(location);
+          try {
+            const { error } = await (supabase.from("transactions") as any)
+              .update({
+                meetup_time_slots: [slot],
+                meetup_locations: [location],
+                final_meetup_time: formattedTime,
+                final_meetup_location: formattedLocation,
+                status: 'scheduled',
+                schedule_change_requested_by: null,
+                previous_final_meetup_time: null,
+                previous_final_meetup_location: null,
+              })
+              .eq("id", transaction.id);
+            if (error) throw error;
+
+            setTransaction(prev => prev ? {
+              ...prev,
+              meetup_time_slots: [slot],
+              meetup_locations: [location],
+              final_meetup_time: formattedTime,
+              final_meetup_location: formattedLocation,
+              status: 'scheduled',
+              schedule_change_requested_by: null,
+              previous_final_meetup_time: null,
+              previous_final_meetup_location: null,
+            } : prev);
+
+            await handleSend(`【受け渡し予定が登録されました】\n\n日時: ${formattedTime}\n場所: ${formattedLocation}\n\nこの予定は予定管理に反映されました。`);
+          } catch (err: any) {
+            alert("日程の登録に失敗しました: " + err.message);
           } finally {
             setIsFinalizing(false);
             setIsScheduleModalOpen(false);
@@ -1368,23 +1465,40 @@ const getNext7Days = () => {
 function ScheduleAdjustmentModal({
   isOpen,
   onClose,
-  onConfirm
+  onConfirm,
+  allowRegister = false,
+  onRegister,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (slots: string[], locations: string[]) => Promise<void>;
+  allowRegister?: boolean;
+  onRegister?: (slot: string, location: string) => Promise<void>;
 }) {
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [expandedDays, setExpandedDays] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mode, setMode] = useState<"propose" | "register">("propose");
 
   const days = useMemo(() => getNext7Days(), []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setMode("propose");
+    setSelectedTimeSlots([]);
+    setSelectedLocations([]);
+    setExpandedDays([]);
+  }, [isOpen]);
 
   const toggleTimeSlot = (dateId: string, slotId: string) => {
     const key = `${dateId}_${slotId}`;
     setSelectedTimeSlots((prev) =>
-      prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]
+      prev.includes(key)
+        ? prev.filter((s) => s !== key)
+        : mode === "register"
+          ? [key]
+          : [...prev, key]
     );
   };
 
@@ -1392,7 +1506,9 @@ function ScheduleAdjustmentModal({
     setSelectedLocations((prev) =>
       prev.includes(locationId)
         ? prev.filter((l) => l !== locationId)
-        : [...prev, locationId]
+        : mode === "register"
+          ? [locationId]
+          : [...prev, locationId]
     );
   };
 
@@ -1404,6 +1520,7 @@ function ScheduleAdjustmentModal({
     );
   };
 
+  const isRegisterMode = allowRegister && mode === "register";
   const isValid = selectedTimeSlots.length > 0 && selectedLocations.length > 0;
 
   if (!isOpen) return null;
@@ -1419,7 +1536,9 @@ function ScheduleAdjustmentModal({
         <div className="px-6 py-5 border-b flex items-center justify-between bg-white">
           <div>
             <h2 className="text-xl font-black text-gray-900">日程の変更・登録</h2>
-            <p className="text-xs text-gray-500 font-bold mt-1">改めて候補を選択してください</p>
+            <p className="text-xs text-gray-500 font-bold mt-1">
+              {isRegisterMode ? "確定する日時と場所を1つずつ選択してください" : "改めて候補を選択してください"}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -1428,6 +1547,29 @@ function ScheduleAdjustmentModal({
             <XIcon className="w-6 h-6 text-gray-400" />
           </button>
         </div>
+
+        {allowRegister && (
+          <div className="px-6 pt-4">
+            <div className="grid grid-cols-2 rounded-2xl bg-gray-100 p-1">
+              <button
+                onClick={() => setMode("propose")}
+                className={`rounded-xl py-2 text-xs font-black transition-all ${mode === "propose" ? "bg-white text-primary shadow-sm" : "text-gray-500"}`}
+              >
+                候補を提案
+              </button>
+              <button
+                onClick={() => {
+                  setMode("register");
+                  setSelectedTimeSlots(prev => prev.slice(0, 1));
+                  setSelectedLocations(prev => prev.slice(0, 1));
+                }}
+                className={`rounded-xl py-2 text-xs font-black transition-all ${mode === "register" ? "bg-white text-primary shadow-sm" : "text-gray-500"}`}
+              >
+                予定を登録
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-6 py-8 space-y-8 custom-scrollbar pb-32">
@@ -1521,7 +1663,10 @@ function ScheduleAdjustmentModal({
             onClick={() => {
               if (isSubmitting) return;
               setIsSubmitting(true);
-              onConfirm(selectedTimeSlots, selectedLocations).finally(() => setIsSubmitting(false));
+              const action = isRegisterMode && onRegister
+                ? onRegister(selectedTimeSlots[0], selectedLocations[0])
+                : onConfirm(selectedTimeSlots, selectedLocations);
+              action.finally(() => setIsSubmitting(false));
             }}
             disabled={!isValid || isSubmitting}
             className={`w-full py-4 rounded-2xl font-black text-white shadow-xl transition-all flex items-center justify-center gap-2 ${isValid && !isSubmitting
@@ -1533,7 +1678,7 @@ function ScheduleAdjustmentModal({
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                候補を提案する
+                {isRegisterMode ? "予定を登録する" : "候補を提案する"}
                 <Send className="w-4 h-4" />
               </>
             )}

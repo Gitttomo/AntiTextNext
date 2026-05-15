@@ -486,9 +486,18 @@ BEGIN
   END IF;
 
   IF OLD.status = 'requested'
-     AND NEW.status IN ('accepted', 'rejected')
-     AND actor_id IS DISTINCT FROM OLD.seller_id THEN
-    RAISE EXCEPTION 'only seller can accept or reject purchase requests';
+     AND NEW.status IS DISTINCT FROM OLD.status THEN
+    IF NEW.status IN ('accepted', 'rejected')
+       AND actor_id IS NOT DISTINCT FROM OLD.seller_id THEN
+      RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION 'purchase request must be accepted before transaction status can advance';
+  END IF;
+
+  IF OLD.status = 'requested'
+     AND (NEW.final_meetup_time IS NOT NULL OR NEW.final_meetup_location IS NOT NULL) THEN
+    RAISE EXCEPTION 'purchase request must be accepted before schedule can be finalized';
   END IF;
 
   IF OLD.status IN ('completed', 'cancelled', 'rejected', 'expired', 'auto_closed')
