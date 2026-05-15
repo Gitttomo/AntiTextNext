@@ -20,7 +20,6 @@ export default function EmailNotificationsSettingsPage() {
     const [notifyWatch, setNotifyWatch] = useState(true);
     const [notifyProgress, setNotifyProgress] = useState(true);
     const [notifyReminders, setNotifyReminders] = useState(true);
-    const [notifyChat, setNotifyChat] = useState(true);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -33,7 +32,7 @@ export default function EmailNotificationsSettingsPage() {
             if (!user) return;
             try {
                 const { data, error } = await (supabase.from("profiles") as any)
-                    .select("email_notify_watch_keywords, email_notify_transaction_progress, email_notify_reminders, email_notify_chat_messages")
+                    .select("email_notify_watch_keywords, email_notify_transaction_progress, email_notify_reminders")
                     .eq("user_id", user.id)
                     .single();
 
@@ -43,7 +42,6 @@ export default function EmailNotificationsSettingsPage() {
                     setNotifyWatch(data.email_notify_watch_keywords ?? true);
                     setNotifyProgress(data.email_notify_transaction_progress ?? true);
                     setNotifyReminders(data.email_notify_reminders ?? true);
-                    setNotifyChat(data.email_notify_chat_messages ?? true);
                 }
             } catch (err) {
                 console.error("Error fetching preferences:", err);
@@ -69,7 +67,6 @@ export default function EmailNotificationsSettingsPage() {
                     email_notify_watch_keywords: notifyWatch,
                     email_notify_transaction_progress: notifyProgress,
                     email_notify_reminders: notifyReminders,
-                    email_notify_chat_messages: notifyChat,
                 })
                 .eq("user_id", user.id);
 
@@ -154,19 +151,6 @@ export default function EmailNotificationsSettingsPage() {
                                 </label>
                             </div>
 
-                            <hr className="border-gray-100" />
-
-                            {/* チャット */}
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <h3 className="text-sm font-bold text-gray-900">チャットの新規メッセージ</h3>
-                                    <p className="text-xs text-gray-500 mt-1">取引相手から新しいメッセージを受信した際に通知します。</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                                    <input type="checkbox" className="sr-only peer" checked={notifyChat} onChange={(e) => setNotifyChat(e.target.checked)} />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                </label>
-                            </div>
                         </div>
 
                         {error && (

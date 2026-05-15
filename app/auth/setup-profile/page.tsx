@@ -22,7 +22,6 @@ export default function SetupProfilePage() {
     const [notifyWatch, setNotifyWatch] = useState(true);
     const [notifyProgress, setNotifyProgress] = useState(true);
     const [notifyReminders, setNotifyReminders] = useState(true);
-    const [notifyChat, setNotifyChat] = useState(true);
 
     // ユーザーネーム重複チェック用
     const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
@@ -130,7 +129,6 @@ export default function SetupProfilePage() {
                     email_notify_watch_keywords: notifyWatch,
                     email_notify_transaction_progress: notifyProgress,
                     email_notify_reminders: notifyReminders,
-                    email_notify_chat_messages: notifyChat,
                     locale: "ja",
                 });
 
@@ -367,12 +365,6 @@ export default function SetupProfilePage() {
                                             <input type="checkbox" checked={notifyReminders} onChange={(e) => setNotifyReminders(e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
                                         </div>
                                         <span className="text-sm text-gray-700 group-hover:text-gray-900">取引前日のリマインド通知</span>
-                                    </label>
-                                    <label className="flex items-start gap-3 cursor-pointer group">
-                                        <div className="flex-shrink-0 mt-0.5">
-                                            <input type="checkbox" checked={notifyChat} onChange={(e) => setNotifyChat(e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
-                                        </div>
-                                        <span className="text-sm text-gray-700 group-hover:text-gray-900">チャット新規メッセージ通知</span>
                                     </label>
                                 </div>
                             </div>

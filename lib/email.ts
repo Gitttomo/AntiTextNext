@@ -99,18 +99,6 @@ export async function sendTransactionProgressEmail(to: string, title: string, co
 }
 
 /**
- * 新規メッセージの通知
- */
-export async function sendNewMessageEmail(to: string, senderName: string, chatUrl: string, locale: string = "ja") {
-  const subject = locale === "en" ? "[TextNext] New Message Received" : "【TextNext】新着メッセージがあります";
-  const text = locale === "en"
-    ? `You have received a new message from ${senderName}.\n\nReply here: ${chatUrl}\n\n* You can change your email preferences in My Page -> Settings.`
-    : `${senderName}さんから新着メッセージが届いています。\n\nこちらから返信してください:\n${chatUrl}\n\n※この通知はマイページの設定から停止できます。`;
-
-  return sendEmail({ to, subject, text });
-}
-
-/**
  * 取引前日のリマインド通知
  */
 export async function sendTransactionReminderEmail(to: string, partnerName: string, itemTitle: string, time: string, location: string, chatUrl: string, locale: string = "ja") {
