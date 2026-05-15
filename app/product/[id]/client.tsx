@@ -382,8 +382,33 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
               return (
                 <div className="mb-6 md:mb-0 md:min-h-0">
+                  <div className="grid grid-cols-2 gap-3 md:hidden">
+                    {images.map((img, idx) => (
+                      <button
+                        key={img.label}
+                        type="button"
+                        onClick={() => setZoomedImage(img.url)}
+                        className="group relative overflow-hidden rounded-xl bg-gray-100 shadow-sm ring-1 ring-gray-200"
+                      >
+                        <div className="relative aspect-[3/4]">
+                          <Image
+                            src={img.url}
+                            alt={`${item.title} ${img.label}`}
+                            fill
+                            sizes="45vw"
+                            className="object-cover"
+                            loading={idx === 0 ? "eager" : "lazy"}
+                            quality={65}
+                          />
+                        </div>
+                        <span className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+                          {img.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                   <div
-                    className="relative overflow-hidden rounded-2xl bg-gray-100 md:h-full"
+                    className="relative hidden overflow-hidden rounded-2xl bg-gray-100 md:block md:h-full"
                     onTouchStart={(e) => {
                       const t = e.currentTarget as any;
                       t._touchStartX = e.touches[0].clientX;
