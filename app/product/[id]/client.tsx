@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import PurchaseModal from "@/components/PurchaseModal";
 import { PurchaseData, generatePurchaseMessage } from "@/components/purchase-utils";
 import { calculateSellingPrice } from "@/lib/utils";
+import { LoginRequiredBubble, useLoginRequiredPrompt } from "@/components/login-required-prompt";
 import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
 import { getItemImageUrl } from "@/lib/image-storage";
 
@@ -57,6 +58,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const favoriteStateRef = useRef(false);
   const favoriteSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loginPrompt = useLoginRequiredPrompt();
 
   // 出品者管理用 state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -81,7 +83,10 @@ export default function ProductDetailClient({ item }: { item: Item }) {
   }, [user, item]);
 
   const toggleFavorite = async () => {
-    if (!user) return;
+    if (!user) {
+      loginPrompt.show();
+      return;
+    }
 
     const previous = favoriteStateRef.current;
     const next = !previous;
@@ -643,9 +648,10 @@ export default function ProductDetailClient({ item }: { item: Item }) {
               </div>
             ) : (
               <>
+                <div className="relative flex-shrink-0">
+                <LoginRequiredBubble visible={loginPrompt.visible} />
                 <button
                   onClick={toggleFavorite}
-                  disabled={!user}
                   className={`w-12 h-12 md:w-14 md:h-14 flex-shrink-0 flex items-center justify-center rounded-xl border-2 transition-all active:scale-90 ${
                     isFavorite
                       ? "border-red-200 bg-red-50"
@@ -661,6 +667,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                     }`}
                   />
                 </button>
+                </div>
                 <button
                   onClick={handleOpenPurchaseModal}
                   disabled={!isAvailable || isAcquiringLock || isSubmitting}

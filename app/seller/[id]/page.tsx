@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
 import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting, type UserBadge } from "@/lib/rewards";
 import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_MIME_TYPES, getItemImageUrl } from "@/lib/image-storage";
+import { LoginRequiredBubble, useLoginRequiredPrompt } from "@/components/login-required-prompt";
 
 type SellerProfile = {
     user_id: string;
@@ -41,6 +42,7 @@ export default function SellerDetailPage({
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
     const [favorites, setFavorites] = useState<string[]>([]);
+    const [loginPromptItemId, setLoginPromptItemId] = useState<string | null>(null);
     const [averageRating, setAverageRating] = useState(0);
     const [transactionCount, setTransactionCount] = useState(0);
     const [rewardSetting, setRewardSetting] = useState<RewardSetting | null>(null);
@@ -56,6 +58,7 @@ export default function SellerDetailPage({
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [avatarError, setAvatarError] = useState("");
     const avatarFileRef = useRef<HTMLInputElement>(null);
+    const loginPrompt = useLoginRequiredPrompt();
 
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -205,10 +208,16 @@ export default function SellerDetailPage({
     };
 
     const toggleFavorite = useCallback((id: string) => {
+        if (!user) {
+            setLoginPromptItemId(id);
+            loginPrompt.show();
+            return;
+        }
+
         setFavorites((prev) =>
             prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]
         );
-    }, []);
+    }, [user, loginPrompt]);
 
     if (loading) {
         return (
@@ -500,6 +509,8 @@ export default function SellerDetailPage({
                                                 ¥{item.selling_price.toLocaleString()}
                                             </p>
                                         </div>
+                                        <div className="relative">
+                                        <LoginRequiredBubble visible={loginPrompt.visible && loginPromptItemId === item.id} />
                                         <button
                                             onClick={(e) => {
                                                 e.preventDefault();
@@ -516,6 +527,7 @@ export default function SellerDetailPage({
                                                     }`}
                                             />
                                         </button>
+                                        </div>
                                     </div>
                                 </div>
                             </Link>

@@ -32,7 +32,10 @@ export default function NavigationLoadingOverlay() {
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const anchor = (event.target as HTMLElement | null)?.closest("a[href]");
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("button, [role='button'], [data-no-navigation-loader='true']")) return;
+
+      const anchor = target?.closest("a[href]");
       if (!anchor || !(anchor instanceof HTMLAnchorElement)) return;
       if (isInternalNavigationLink(anchor)) show();
     };

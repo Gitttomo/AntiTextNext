@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useI18n } from "@/lib/i18n";
 import { getItemImageUrl } from "@/lib/image-storage";
+import { LoginRequiredBubble, useLoginRequiredPrompt } from "@/components/login-required-prompt";
 
 export type SearchHistory = {
   id: string;
@@ -64,12 +65,14 @@ function SearchContent() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [loginPromptItemId, setLoginPromptItemId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [watchSaving, setWatchSaving] = useState(false);
   const [watchSaved, setWatchSaved] = useState(false);
   const favoriteStateRef = useRef<Set<string>>(new Set());
   const favoriteSyncTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const loginPrompt = useLoginRequiredPrompt();
 
   useEffect(() => {
     favoriteStateRef.current = new Set(favorites);
@@ -254,7 +257,11 @@ function SearchContent() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!user) return;
+    if (!user) {
+      setLoginPromptItemId(id);
+      loginPrompt.show();
+      return;
+    }
 
     const wasFavorite = favoriteStateRef.current.has(id);
     const shouldFavorite = !wasFavorite;
@@ -453,7 +460,8 @@ function SearchContent() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="relative flex items-center gap-1">
+                        <LoginRequiredBubble visible={loginPrompt.visible && loginPromptItemId === item.id} />
                         <button
                           onClick={(e) => toggleFavorite(item.id, e)}
                           className="group/heart relative p-2 -m-2 hover:bg-red-50 rounded-full transition-all active:scale-90 flex items-center justify-center"

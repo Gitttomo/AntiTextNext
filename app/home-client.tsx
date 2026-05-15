@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { getItemImageUrl } from "@/lib/image-storage";
 import { RewardAvatar } from "@/components/reward-avatar";
 import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting } from "@/lib/rewards";
+import { LoginRequiredBubble, useLoginRequiredPrompt } from "@/components/login-required-prompt";
 
 type Item = {
   id: string;
@@ -30,11 +31,13 @@ const ItemCard = memo(function ItemCard({
   item,
   isFavorite,
   onToggleFavorite,
+  showLoginPrompt,
   index,
 }: {
   item: Item;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
+  showLoginPrompt: boolean;
   index: number;
 }) {
   return (
@@ -73,7 +76,8 @@ const ItemCard = memo(function ItemCard({
           </div>
 
           {/* ハートボタン & カウント */}
-          <div className="flex items-center gap-1">
+          <div className="relative flex items-center gap-1">
+            <LoginRequiredBubble visible={showLoginPrompt} />
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -345,13 +349,19 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
 
   const favoriteStateRef = useRef<Set<string>>(new Set(favorites));
   const favoriteSyncTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const loginPrompt = useLoginRequiredPrompt();
+  const [loginPromptItemId, setLoginPromptItemId] = useState<string | null>(null);
 
   useEffect(() => {
     favoriteStateRef.current = new Set(favorites);
   }, [favorites]);
 
   const toggleFavorite = useCallback((id: string) => {
-    if (!user) return;
+    if (!user) {
+      setLoginPromptItemId(id);
+      loginPrompt.show();
+      return;
+    }
 
     const wasFavorite = favoriteStateRef.current.has(id);
     const shouldFavorite = !wasFavorite;
@@ -429,7 +439,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
     }, 220);
 
     favoriteSyncTimersRef.current.set(id, timer);
-  }, [user]);
+  }, [user, loginPrompt]);
 
   const loadMoreRecommended = async () => {
     if (loadingMoreRecommended || !hasMoreRecommended || !user) return;
@@ -692,6 +702,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
                       item={item}
                       isFavorite={favoriteSet.has(item.id)}
                       onToggleFavorite={toggleFavorite}
+                      showLoginPrompt={loginPrompt.visible && loginPromptItemId === item.id}
                       index={index}
                     />
                   </div>
@@ -741,6 +752,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
                   item={item}
                   isFavorite={favoriteSet.has(item.id)}
                   onToggleFavorite={toggleFavorite}
+                  showLoginPrompt={loginPrompt.visible && loginPromptItemId === item.id}
                   index={index}
                 />
               </div>

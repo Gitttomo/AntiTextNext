@@ -1664,7 +1664,7 @@ function CompletionConfirmationModal({
             </button>
             <button
               onClick={onClose}
-              className="w-full bg-gray-100 text-gray-400 py-4 rounded-2xl font-black hover:bg-gray-200 transition-all active:scale-[0.98]"
+              className="w-full bg-gray-200 text-gray-700 py-4 rounded-2xl font-black hover:bg-gray-300 transition-all active:scale-[0.98]"
             >
               チャットに戻る
             </button>
