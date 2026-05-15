@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle, Loader2, Lock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+const RESET_LINK_ERROR_MESSAGE = "再設定リンクの有効期限が切れているか、すでに使用されています。\nお手数ですが、もう一度パスワード再設定メールを送信してください。";
+
 export default function UpdatePasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -24,7 +26,7 @@ export default function UpdatePasswordPage() {
       const hashError = hashParams.get("error_description") || hashParams.get("error");
 
       if (hashError) {
-        setError("パスワード再設定リンクが無効、または期限切れです。もう一度メールを送信してください。");
+        setError(RESET_LINK_ERROR_MESSAGE);
         setCheckingSession(false);
         return;
       }
@@ -38,7 +40,7 @@ export default function UpdatePasswordPage() {
         window.history.replaceState(null, "", window.location.pathname);
 
         if (sessionError) {
-          setError("パスワード再設定リンクの確認に失敗しました。もう一度メールを送信してください。");
+          setError(RESET_LINK_ERROR_MESSAGE);
           setCheckingSession(false);
           return;
         }
@@ -49,7 +51,7 @@ export default function UpdatePasswordPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        setError("パスワード再設定リンクが無効、または期限切れです。もう一度メールを送信してください。");
+        setError(RESET_LINK_ERROR_MESSAGE);
         setCheckingSession(false);
         return;
       }
@@ -134,7 +136,12 @@ export default function UpdatePasswordPage() {
             ) : !canUpdate ? (
               <div className="text-center">
                 <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-600">
-                  {error || "パスワード再設定リンクを確認できませんでした。"}
+                  {(error || RESET_LINK_ERROR_MESSAGE).split("\n").map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+                <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-xs leading-6 text-blue-800">
+                  スマートフォンでは、再設定を開始したブラウザと同じブラウザで開くと成功しやすい場合があります。
                 </div>
                 <Link
                   href="/auth/forgot-password"

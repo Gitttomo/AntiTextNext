@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // エラー時はログインページへ
-    return NextResponse.redirect(new URL('/auth/login?error=auth_callback_failed', requestUrl.origin));
+    // エラー時はログインページへ逃がさず、リンクの期限切れ/使用済みを明示する
+    const errorUrl = new URL('/auth/link-error', requestUrl.origin);
+    errorUrl.searchParams.set('type', type || 'auth');
+    return NextResponse.redirect(errorUrl);
 }
