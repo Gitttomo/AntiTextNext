@@ -56,6 +56,25 @@ const CHAT_IMAGE_VARIANT: ImageVariantOptions = {
   suffix: "chat",
 };
 
+export const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+export const ALLOWED_IMAGE_ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
+export const MAX_ORIGINAL_IMAGE_BYTES = 5 * 1024 * 1024;
+
+export function assertAllowedImageFile(file: File) {
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+    throw new Error("アップロードできる画像は JPG / PNG / WebP のみです");
+  }
+
+  if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
+    throw new Error("画像サイズは5MB以下にしてください");
+  }
+}
+
 const loadImage = (file: File) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -83,6 +102,8 @@ const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality: number) 
   });
 
 export async function compressImageFile(file: File, options: ImageVariantOptions): Promise<Blob> {
+  assertAllowedImageFile(file);
+
   const image = await loadImage(file);
   const longEdge = Math.max(image.naturalWidth, image.naturalHeight);
   const scale = Math.min(1, options.maxLongEdge / longEdge);

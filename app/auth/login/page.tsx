@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
@@ -24,45 +23,28 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            const redirectTo = new URLSearchParams(window.location.search).get("redirectTo");
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email,
+                    password,
+                    redirectTo,
+                }),
             });
+            const payload = await response.json();
 
-            if (error) throw error;
-
-            if (data.user) {
-                // メール認証が完了しているか確認
-                if (!data.user.email_confirmed_at) {
-                    await supabase.auth.signOut();
-                    setError("メールアドレスの認証が完了していません。確認メール内のリンクをクリックしてください。");
-                    return;
-                }
-
-                // プロフィールが設定済みか確認
-                const { data: profile } = await (supabase
-                    .from("profiles") as any)
-                    .select("user_id, is_deactivated")
-                    .eq("user_id", data.user.id)
-                    .single();
-
-                if (!profile) {
-                    // プロフィール未設定 → 設定ページへ
-                    router.push("/auth/setup-profile");
-                    router.refresh();
-                } else if (profile.is_deactivated) {
-                    // アカウント停止中 → 復旧ページへ
-                    router.push("/auth/reactivate");
-                    router.refresh();
-                } else {
-                    const redirectTo = new URLSearchParams(window.location.search).get("redirectTo");
-                    const nextPath = redirectTo?.startsWith("/") ? redirectTo : "/";
-                    router.push(nextPath);
-                    router.refresh();
-                }
+            if (!response.ok) {
+                throw new Error(payload.error || "ログイン情報が正しくありません");
             }
+
+            router.push(payload.redirectTo || "/");
+            router.refresh();
         } catch (err: any) {
-            setError(err.message || "ログインに失敗しました");
+            setError(err.message || "ログイン情報が正しくありません");
         } finally {
             setLoading(false);
         }

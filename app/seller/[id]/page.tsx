@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
 import { resolveEarlyRegistrationEligible, type RewardOverride, type RewardSetting, type UserBadge } from "@/lib/rewards";
-import { getItemImageUrl } from "@/lib/image-storage";
+import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_MIME_TYPES, getItemImageUrl } from "@/lib/image-storage";
 
 type SellerProfile = {
     user_id: string;
@@ -61,8 +61,8 @@ export default function SellerDetailPage({
         const file = e.target.files?.[0];
         if (!file || !user) return;
 
-        if (!file.type.startsWith('image/')) {
-            setAvatarError("画像ファイルを選択してください");
+        if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+            setAvatarError("アップロードできる画像は JPG / PNG / WebP のみです");
             return;
         }
         if (file.size > 2 * 1024 * 1024) {
@@ -359,7 +359,7 @@ export default function SellerDetailPage({
                         <input
                             ref={avatarFileRef}
                             type="file"
-                            accept="image/*"
+                            accept={ALLOWED_IMAGE_ACCEPT}
                             onChange={handleAvatarUpload}
                             className="hidden"
                         />
