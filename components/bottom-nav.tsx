@@ -44,14 +44,32 @@ export function BottomNav() {
       return;
     }
     try {
-      const { count, error } = await supabase
+      const activeStatuses = ["requested", "pending_approval", "accepted", "scheduling", "scheduled", "pending", "confirmed", "awaiting_rating"];
+      const [{ data: activeTransactions, error: txError }, { data: unreadMessages, error: msgError }] = await Promise.all([
+        (supabase as any)
+          .from("transactions")
+          .select("item_id,buyer_id,seller_id,status")
+          .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+          .in("status", activeStatuses),
+        supabase
         .from("messages")
-        .select("*", { count: "exact", head: true })
+          .select("item_id,sender_id")
         .eq("receiver_id", user.id)
-        .eq("is_read", false);
+          .eq("is_read", false),
+      ]);
 
-      if (!error) {
-        setHasUnreadMessages((count ?? 0) > 0);
+      if (!txError && !msgError) {
+        const activeMessageKeys = new Set(
+          ((activeTransactions || []) as any[]).map((tx) => {
+            const counterpartId = tx.buyer_id === user.id ? tx.seller_id : tx.buyer_id;
+            return `${tx.item_id}:${counterpartId}`;
+          })
+        );
+        setHasUnreadMessages(
+          ((unreadMessages || []) as any[]).some((message) =>
+            activeMessageKeys.has(`${message.item_id}:${message.sender_id}`)
+          )
+        );
       }
     } catch {
       // エラー時は無視

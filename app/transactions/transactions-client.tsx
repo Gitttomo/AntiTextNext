@@ -34,8 +34,12 @@ type TransactionItem = {
     final_meetup_time?: string | null;
     final_meetup_location?: string | null;
     transactionId?: string;
+    counterpartId?: string;
     transactionStatus?: string;
 };
+
+const TERMINAL_TRANSACTION_STATUSES = ["completed", "rejected", "expired", "auto_closed", "cancelled"];
+const unreadKey = (itemId: string, counterpartId?: string | null) => `${itemId}:${counterpartId || ""}`;
 
 type TransactionsClientProps = {
     initialActiveItems: TransactionItem[];
@@ -102,6 +106,7 @@ export default function TransactionsClient({
                         id,
                         status,
                         item_id,
+                        seller_id,
                         final_meetup_time,
                         final_meetup_location,
                         items(id, title, selling_price, status, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider)
@@ -113,11 +118,11 @@ export default function TransactionsClient({
                     .eq("seller_id", user.id),
                 supabase
                     .from("transactions")
-                    .select("id, item_id, status, final_meetup_time, final_meetup_location")
+                    .select("id, item_id, buyer_id, status, final_meetup_time, final_meetup_location")
                     .eq("seller_id", user.id),
                 supabase
                     .from("messages")
-                    .select("item_id")
+                    .select("item_id,sender_id")
                     .eq("receiver_id", user.id)
                     .eq("is_read", false),
                 supabase
@@ -153,8 +158,9 @@ export default function TransactionsClient({
             const unreadCountMap = new Map<string, number>();
             if (unreadMessages) {
                 for (const msg of unreadMessages as any[]) {
-                    const count = unreadCountMap.get(msg.item_id) || 0;
-                    unreadCountMap.set(msg.item_id, count + 1);
+                    const key = unreadKey(msg.item_id, msg.sender_id);
+                    const count = unreadCountMap.get(key) || 0;
+                    unreadCountMap.set(key, count + 1);
                 }
             }
 
@@ -163,7 +169,7 @@ export default function TransactionsClient({
                 const item = tx.items;
                 if (!item) continue;
 
-                if (["completed", "rejected", "expired", "auto_closed", "cancelled"].includes(tx.status) || item.status === "sold") {
+                if (TERMINAL_TRANSACTION_STATUSES.includes(tx.status) || item.status === "sold") {
                     continue;
                 }
 
@@ -179,10 +185,11 @@ export default function TransactionsClient({
                     image_storage_provider: item.image_storage_provider || null,
                     isBuyer: true,
                     hasTransaction: true,
-                    unreadCount: unreadCountMap.get(item.id) || 0,
+                    unreadCount: unreadCountMap.get(unreadKey(item.id, tx.seller_id)) || 0,
                     final_meetup_time: tx.final_meetup_time,
                     final_meetup_location: tx.final_meetup_location,
                     transactionId: tx.id,
+                    counterpartId: tx.seller_id,
                     transactionStatus: tx.status,
                 };
 
@@ -190,11 +197,12 @@ export default function TransactionsClient({
                 active.push(txItem);
             }
 
-            const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }[]>();
+            const sellerTxMap = new Map<string, { txId: string; buyerId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }[]>();
             for (const tx of (sellerTransactions || []) as any[]) {
                 const txList = sellerTxMap.get(tx.item_id) || [];
                 txList.push({
                     txId: tx.id,
+                    buyerId: tx.buyer_id,
                     txStatus: tx.status,
                     final_meetup_time: tx.final_meetup_time,
                     final_meetup_location: tx.final_meetup_location
@@ -208,7 +216,7 @@ export default function TransactionsClient({
                 }
 
                 for (const txInfo of sellerTxMap.get(item.id) || []) {
-                    if (["completed", "rejected", "expired", "auto_closed", "cancelled"].includes(txInfo.txStatus)) {
+                    if (TERMINAL_TRANSACTION_STATUSES.includes(txInfo.txStatus)) {
                         continue;
                     }
 
@@ -225,10 +233,11 @@ export default function TransactionsClient({
                         image_storage_provider: item.image_storage_provider || null,
                         isBuyer: false,
                         hasTransaction: true,
-                        unreadCount: unreadCountMap.get(item.id) || 0,
+                        unreadCount: unreadCountMap.get(unreadKey(item.id, txInfo.buyerId)) || 0,
                         final_meetup_time: txInfo.final_meetup_time,
                         final_meetup_location: txInfo.final_meetup_location,
                         transactionId: txInfo.txId,
+                        counterpartId: txInfo.buyerId,
                         transactionStatus: txInfo.txStatus,
                     });
                 }
@@ -262,20 +271,27 @@ export default function TransactionsClient({
         };
     }, [user, initialCheckDone, loadData]);
 
-    const clearUnreadForItem = useCallback(async (itemId: string) => {
+    const clearUnreadForItem = useCallback(async (itemId: string, counterpartId?: string) => {
         if (!user) return;
 
         setActiveItems(current =>
             current.map(item =>
-                item.id === itemId ? { ...item, unreadCount: 0 } : item
+                item.id === itemId && (!counterpartId || item.counterpartId === counterpartId)
+                    ? { ...item, unreadCount: 0 }
+                    : item
             )
         );
 
-        const { error } = await (supabase.from("messages") as any)
+        let query = (supabase.from("messages") as any)
             .update({ is_read: true })
             .eq("item_id", itemId)
             .eq("receiver_id", user.id)
             .eq("is_read", false);
+        if (counterpartId) {
+            query = query.eq("sender_id", counterpartId);
+        }
+
+        const { error } = await query;
 
         if (error) {
             console.error("Error clearing unread messages before opening chat:", error);
@@ -399,7 +415,7 @@ export default function TransactionsClient({
                                 <button
                                     onClick={async (e) => {
                                         e.stopPropagation();
-                                        await clearUnreadForItem(item.id);
+                                        await clearUnreadForItem(item.id, item.counterpartId);
                                         router.push(item.transactionId ? `/chat/${item.id}?tx=${item.transactionId}` : `/chat/${item.id}`);
                                     }}
                                     className="flex items-center gap-1.5 px-4 py-2 gradient-btn-blue rounded-2xl font-black transition-all text-xs shadow-lg shadow-primary/20"

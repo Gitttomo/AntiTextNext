@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle, BookOpen } from "lucide-react";
+import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle, BookOpen, Star } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -784,6 +784,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   const isPendingApproval = transaction?.status === 'requested' || transaction?.status === 'pending_approval';
   const isCancelled = transaction?.status === 'cancelled';
+  const isAwaitingRating = transaction?.status === 'awaiting_rating';
   const isDeclined = ['rejected', 'declined', 'expired', 'auto_closed'].includes(transaction?.status || '');
   const isClosedTransaction = isCancelled || isDeclined || transaction?.status === 'completed';
   const canUseTradeActions = ['accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction?.status || '');
@@ -940,6 +941,27 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           {transaction?.cancellation_reason && (
             <p className="text-xs text-red-500 mt-1 ml-6">理由: {transaction.cancellation_reason}</p>
           )}
+        </div>
+      )}
+
+      {/* Rating Banner */}
+      {isAwaitingRating && transaction && (
+        <div className="fixed top-16 left-0 right-0 bg-purple-50/95 backdrop-blur-md px-4 py-3 z-40 border-b border-purple-200">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500 text-white shadow-sm">
+              <Star className="h-5 w-5 fill-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-purple-700">取引完了後の評価をお願いします</p>
+              <p className="mt-0.5 text-[11px] font-bold text-purple-500">評価が完了すると取引履歴へ移動します。</p>
+            </div>
+            <button
+              onClick={() => router.push(`/rating/${transaction.id}`)}
+              className="flex-shrink-0 rounded-xl bg-purple-600 px-4 py-2 text-xs font-black text-white shadow-sm transition-all hover:bg-purple-700 active:scale-[0.98]"
+            >
+              評価する
+            </button>
+          </div>
         </div>
       )}
 
