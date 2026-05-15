@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Loader2, Mail } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function ForgotPasswordPage() {
@@ -10,22 +10,60 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!cooldownUntil) {
+      setCooldownSeconds(0);
+      return;
+    }
+
+    const updateCooldown = () => {
+      const seconds = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      setCooldownSeconds(seconds);
+      if (seconds <= 0) {
+        setCooldownUntil(null);
+      }
+    };
+
+    updateCooldown();
+    const timer = window.setInterval(updateCooldown, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    if (cooldownUntil && Date.now() < cooldownUntil) {
+      const remainingSeconds = Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      setError(`短時間に複数回送信されています。${remainingSeconds}秒ほど待ってから再度お試しください。`);
+      return;
+    }
     setLoading(true);
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback?next=/auth/update-password`;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      const appOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      const redirectTo = `${appOrigin.replace(/\/$/, "")}/auth/callback`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo,
       });
 
       if (resetError) throw resetError;
       setSent(true);
-    } catch {
-      setError("メール送信に失敗しました。時間を置いて再度お試しください。");
+    } catch (err: any) {
+      console.error("Password reset email error:", err);
+      const isRateLimited =
+        err?.status === 429 ||
+        err?.code === "over_email_send_rate_limit" ||
+        String(err?.message || "").toLowerCase().includes("rate limit");
+
+      if (isRateLimited) {
+        setCooldownUntil(Date.now() + 60_000);
+        setError("短時間に再設定メールが複数回送信されています。1分ほど待ってから再度お試しください。");
+      } else {
+        setError("メール送信に失敗しました。時間を置いて再度お試しください。");
+      }
     } finally {
       setLoading(false);
     }
@@ -51,7 +89,7 @@ export default function ForgotPasswordPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-3">メールを送信しました</h2>
                 <p className="text-sm text-gray-600 leading-6">
                   入力されたメールアドレス宛にパスワード再設定用のリンクを送信しました。
-                  メール内のリンクを開いて、新しいパスワードを設定してください。
+                  メール内のリンクを開いて、新しいパスワードを設定してください。届かない場合は迷惑メールを確認し、再送は60秒以上あけてください。
                 </p>
                 <Link
                   href="/auth/login"
@@ -66,6 +104,21 @@ export default function ForgotPasswordPage() {
                 <p className="text-sm text-gray-600 mb-6">
                   パスワード再設定用の認証リンクを送信します。
                 </p>
+
+                <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-bold">
+                    <AlertTriangle className="h-4 w-4" />
+                    連続送信に注意してください
+                  </div>
+                  <p className="text-xs leading-6">
+                    再設定メールは短時間に何度も送れません。届かない場合は迷惑メールを確認し、
+                    少なくとも60秒以上あけてから再送してください。
+                  </p>
+                  <p className="mt-2 text-xs leading-6">
+                    大学メールでは受信側のフィルタにより、認証メールが遅延・ブロックされる場合があります。
+                    登録に使ったメールアドレスを正確に入力してください。
+                  </p>
+                </div>
 
                 {error && (
                   <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
@@ -91,7 +144,7 @@ export default function ForgotPasswordPage() {
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || cooldownSeconds > 0}
                     className="w-full py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
                   >
                     {loading ? (
@@ -99,6 +152,8 @@ export default function ForgotPasswordPage() {
                         <Loader2 className="w-5 h-5 animate-spin" />
                         送信中...
                       </span>
+                    ) : cooldownSeconds > 0 ? (
+                      `${cooldownSeconds}秒後に再送できます`
                     ) : (
                       "再設定メールを送信"
                     )}
