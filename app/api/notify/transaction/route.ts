@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
-import { sendTransactionProgressEmail, sendNewMessageEmail } from "@/lib/email";
+import { sendTransactionProgressEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,6 +12,12 @@ export async function POST(request: NextRequest) {
         // action: 'request', 'approve', 'decline', 'message'
         if (!action || !itemId || !receiverId) {
             return NextResponse.json({ error: "パラメータ不足" }, { status: 400 });
+        }
+
+        // 通常チャット1通ごとのメール通知は送らない。
+        // アプリ内通知・未読表示を優先し、メールは取引進行上重要なイベントに限定する。
+        if (action === "message") {
+            return NextResponse.json({ success: true, skipped: true, reason: "message_email_disabled" });
         }
 
         const cookieStore = cookies();
@@ -37,7 +43,7 @@ export async function POST(request: NextRequest) {
         // 受信者の通知設定を取得
         const { data: profile } = await supabase
             .from("profiles")
-            .select("email_notify_transaction_progress, email_notify_chat_messages, locale")
+            .select("email_notify_transaction_progress, locale")
             .eq("user_id", receiverId)
             .single();
 
@@ -46,9 +52,6 @@ export async function POST(request: NextRequest) {
         // 設定の確認
         const isTransactionAction = ["request", "approve", "decline", "rating_remind"].includes(action);
         if (isTransactionAction && !profile.email_notify_transaction_progress) {
-            return NextResponse.json({ success: true, skipped: true });
-        }
-        if (action === "message" && !profile.email_notify_chat_messages) {
             return NextResponse.json({ success: true, skipped: true });
         }
 
@@ -88,19 +91,6 @@ export async function POST(request: NextRequest) {
         const email = targetUser.email;
         const locale = profile.locale || "ja";
 
-        // 送信者ニックネームの取得（メッセージ通知用）
-        let senderName = "取引相手";
-        if (action === "message") {
-            const { data: senderProfile } = await supabase
-                .from("profiles")
-                .select("nickname")
-                .eq("user_id", session.user.id)
-                .single();
-            if (senderProfile?.nickname) {
-                senderName = senderProfile.nickname;
-            }
-        }
-
         if (action === "request") {
             const title = locale === "en" ? "Purchase Request Received" : "購入リクエストを受信しました";
             const content = locale === "en"
@@ -119,8 +109,6 @@ export async function POST(request: NextRequest) {
                 ? `Unfortunately, your purchase request for "${itemTitle}" was declined by the seller.`
                 : `残念ながら、商品「${itemTitle}」の購入リクエストは見送られました。`;
             await sendTransactionProgressEmail(email, title, content, actionUrl, locale);
-        } else if (action === "message") {
-            await sendNewMessageEmail(email, senderName, actionUrl, locale);
         } else if (action === "rating_remind") {
             const title = locale === "en" ? "Please Rate Your Transaction" : "取引相手からの評価が完了しました";
             const content = locale === "en"

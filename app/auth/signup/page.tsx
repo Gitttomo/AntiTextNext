@@ -10,6 +10,12 @@ import { isAllowedAdminEmail, isRegisteredEmail } from "@/lib/admin";
 
 type LegalKind = "terms" | "privacy";
 
+const EMAIL_SEND_COOLDOWN_MS = 60 * 1000;
+
+function formatCooldown(seconds: number) {
+    return seconds >= 60 ? `${Math.ceil(seconds / 60)}分後` : `${seconds}秒後`;
+}
+
 function renderLegalText(text: string) {
     return text.split("\n").map((line, index) => {
         const trimmed = line.trim();
@@ -71,11 +77,32 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
     const [activeLegal, setActiveLegal] = useState<LegalKind | null>(null);
+    const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
     // Prefetch login page for instant transition
     useEffect(() => {
         router.prefetch("/auth/login");
     }, [router]);
+
+    useEffect(() => {
+        if (!cooldownUntil) {
+            setCooldownSeconds(0);
+            return;
+        }
+
+        const updateCooldown = () => {
+            const seconds = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+            setCooldownSeconds(seconds);
+            if (seconds <= 0) {
+                setCooldownUntil(null);
+            }
+        };
+
+        updateCooldown();
+        const timer = window.setInterval(updateCooldown, 1000);
+        return () => window.clearInterval(timer);
+    }, [cooldownUntil]);
 
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -90,6 +117,12 @@ export default function SignupPage() {
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+
+        if (cooldownUntil && Date.now() < cooldownUntil) {
+            const remainingSeconds = Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000));
+            showError(`確認メールは連続送信できません。${formatCooldown(remainingSeconds)}に再度お試しください。`);
+            return;
+        }
 
         // Validate email domain
         const isCampusEmail = normalizedEmail.endsWith("@m.isct.ac.jp");
@@ -128,11 +161,12 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
+            const appOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
             const { data: authData, error: authError } = await supabase.auth.signUp({
-                email,
+                email: normalizedEmail,
                 password,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/auth/callback`,
+                    emailRedirectTo: `${appOrigin.replace(/\/$/, "")}/auth/callback?next=/auth/setup-profile`,
                     data: {
                         accepted_terms_version: CURRENT_TERMS_VERSION,
                         accepted_privacy_version: CURRENT_PRIVACY_VERSION,
@@ -156,7 +190,18 @@ export default function SignupPage() {
             ) {
                 showError("このアドレスはすでに登録されています");
             } else {
-                showError(message || "登録に失敗しました");
+                const isRateLimited =
+                    err?.status === 429 ||
+                    code === "over_email_send_rate_limit" ||
+                    message.toLowerCase().includes("rate limit") ||
+                    message.toLowerCase().includes("email rate limit");
+
+                if (isRateLimited) {
+                    setCooldownUntil(Date.now() + EMAIL_SEND_COOLDOWN_MS);
+                    showError("メール送信が一時的に混み合っています。時間を置いてから再度お試しください。");
+                } else {
+                    showError(message || "登録に失敗しました");
+                }
             }
         } finally {
             setLoading(false);
@@ -192,7 +237,7 @@ export default function SignupPage() {
                             </p>
                             <p className="text-gray-600 mb-6 animate-slide-in-left" style={{ animationDelay: '200ms' }}>
                                 上記のメールアドレスに確認メールを送信しました。
-                                メール内のリンクをクリックして、登録を完了してください。
+                                メール内のリンクをクリックして、登録を完了してください。再送が必要な場合も、60秒以上あけてください。
                             </p>
 
                             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-left mb-6 animate-slide-in-left" style={{ animationDelay: '300ms' }}>
@@ -200,7 +245,7 @@ export default function SignupPage() {
                                 <ul className="text-sm text-yellow-700 space-y-1">
                                     <li>• 迷惑メールフォルダを確認してください</li>
                                     <li>• メールアドレスが正しいか確認してください</li>
-                                    <li>• 数分待ってから再度お試しください</li>
+                                    <li>• 連続送信せず、少なくとも60秒以上待ってから再度お試しください</li>
                                 </ul>
                             </div>
 
@@ -308,6 +353,7 @@ export default function SignupPage() {
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 animate-slide-in-left" style={{ animationDelay: '250ms' }}>
                                 <p className="text-sm text-blue-800">
                                     📧 登録後、メールアドレスに確認メールが送信されます。メール内のリンクをクリックして登録を完了してください。
+                                    届かない場合も連続で押さず、迷惑メールを確認して60秒以上待ってから再度お試しください。
                                 </p>
                             </div>
 
@@ -343,7 +389,7 @@ export default function SignupPage() {
 
                              <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || cooldownSeconds > 0}
                                 className={`w-full py-4 rounded-xl font-semibold text-lg transition-all shadow-md mt-6 animate-slide-in-left ${
                                     agreedToLegal
                                         ? "bg-primary text-white hover:bg-primary/90 hover:shadow-lg"
@@ -351,7 +397,11 @@ export default function SignupPage() {
                                 } disabled:opacity-100 disabled:cursor-not-allowed`}
                                 style={{ animationDelay: '300ms' }}
                             >
-                                {loading ? "送信中..." : "確認メールを送信"}
+                                {loading
+                                    ? "送信中..."
+                                    : cooldownSeconds > 0
+                                        ? `${formatCooldown(cooldownSeconds)}に再送できます`
+                                        : "確認メールを送信"}
                             </button>
                         </form>
 

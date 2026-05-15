@@ -468,18 +468,6 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       if (error) throw error;
 
-      // メール通知APIを呼び出し（メッセージ）
-      fetch("/api/notify/transaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "message",
-          itemId: item.id,
-          receiverId: otherUserId,
-          extraData: { senderName: "取引相手", transactionId: transaction?.id },
-        }),
-      }).catch(e => console.error(e));
-
       // 送信成功後、すぐにメッセージを再取得
       setTimeout(() => fetchMessages(), 300);
     } catch (err: any) {

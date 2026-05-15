@@ -5,6 +5,16 @@ import Link from "next/link";
 import { AlertTriangle, ArrowLeft, CheckCircle, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+const RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
+
+const formatRemainingTime = (seconds: number) => {
+  if (seconds >= 60) {
+    const minutes = Math.ceil(seconds / 60);
+    return `${minutes}分後`;
+  }
+  return `${seconds}秒後`;
+};
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -37,14 +47,14 @@ export default function ForgotPasswordPage() {
     setError("");
     if (cooldownUntil && Date.now() < cooldownUntil) {
       const remainingSeconds = Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000));
-      setError(`短時間に複数回送信されています。${remainingSeconds}秒ほど待ってから再度お試しください。`);
+      setError(`現在メール送信の上限に達しています。${formatRemainingTime(remainingSeconds)}に再度お試しください。`);
       return;
     }
     setLoading(true);
 
     try {
       const appOrigin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-      const redirectTo = `${appOrigin.replace(/\/$/, "")}/auth/callback`;
+      const redirectTo = `${appOrigin.replace(/\/$/, "")}/auth/callback?next=/auth/update-password`;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo,
       });
@@ -59,8 +69,10 @@ export default function ForgotPasswordPage() {
         String(err?.message || "").toLowerCase().includes("rate limit");
 
       if (isRateLimited) {
-        setCooldownUntil(Date.now() + 60_000);
-        setError("短時間に再設定メールが複数回送信されています。1分ほど待ってから再度お試しください。");
+        setCooldownUntil(Date.now() + RATE_LIMIT_COOLDOWN_MS);
+        setError(
+          "現在メール送信の上限に達しています。短時間の連続送信だけでなく、認証メール全体の送信上限に達している可能性があります。しばらく時間を置いてから再度お試しください。"
+        );
       } else {
         setError("メール送信に失敗しました。時間を置いて再度お試しください。");
       }
@@ -89,7 +101,8 @@ export default function ForgotPasswordPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-3">メールを送信しました</h2>
                 <p className="text-sm text-gray-600 leading-6">
                   入力されたメールアドレス宛にパスワード再設定用のリンクを送信しました。
-                  メール内のリンクを開いて、新しいパスワードを設定してください。届かない場合は迷惑メールを確認し、再送は60秒以上あけてください。
+                  メール内のリンクを開いて、新しいパスワードを設定してください。届かない場合は迷惑メールを確認し、
+                  再送は60秒以上あけてください。同じエラーが続く場合は、認証メール全体の送信上限に達している可能性があります。
                 </p>
                 <Link
                   href="/auth/login"
@@ -113,6 +126,10 @@ export default function ForgotPasswordPage() {
                   <p className="text-xs leading-6">
                     再設定メールは短時間に何度も送れません。届かない場合は迷惑メールを確認し、
                     少なくとも60秒以上あけてから再送してください。
+                  </p>
+                  <p className="mt-2 text-xs leading-6">
+                    同じエラーが続く場合は、パスワード再設定だけでなく認証メール全体の送信上限に達している可能性があります。
+                    その場合はしばらく時間を置いてからお試しください。
                   </p>
                   <p className="mt-2 text-xs leading-6">
                     大学メールでは受信側のフィルタにより、認証メールが遅延・ブロックされる場合があります。
@@ -153,7 +170,7 @@ export default function ForgotPasswordPage() {
                         送信中...
                       </span>
                     ) : cooldownSeconds > 0 ? (
-                      `${cooldownSeconds}秒後に再送できます`
+                      `${formatRemainingTime(cooldownSeconds)}に再送できます`
                     ) : (
                       "再設定メールを送信"
                     )}

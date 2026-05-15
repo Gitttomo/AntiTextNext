@@ -14,18 +14,47 @@ export default function UpdatePasswordPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [canUpdate, setCanUpdate] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const hashError = hashParams.get("error_description") || hashParams.get("error");
+
+      if (hashError) {
+        setError("パスワード再設定リンクが無効、または期限切れです。もう一度メールを送信してください。");
+        setCheckingSession(false);
+        return;
+      }
+
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        window.history.replaceState(null, "", window.location.pathname);
+
+        if (sessionError) {
+          setError("パスワード再設定リンクの確認に失敗しました。もう一度メールを送信してください。");
+          setCheckingSession(false);
+          return;
+        }
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session) {
-        router.replace("/auth/forgot-password");
+        setError("パスワード再設定リンクが無効、または期限切れです。もう一度メールを送信してください。");
+        setCheckingSession(false);
         return;
       }
 
+      setCanUpdate(true);
       setCheckingSession(false);
     };
 
@@ -60,8 +89,13 @@ export default function UpdatePasswordPage() {
         router.replace("/auth/login");
         router.refresh();
       }, 1800);
-    } catch {
-      setError("パスワードの更新に失敗しました。メールのリンクを開き直して再度お試しください。");
+    } catch (err: any) {
+      const message = String(err?.message || "").toLowerCase();
+      if (message.includes("weak") || message.includes("password")) {
+        setError("パスワード条件を満たしていません。8文字以上で、推測されにくいパスワードを入力してください。");
+      } else {
+        setError("パスワードの更新に失敗しました。メールのリンクを開き直して再度お試しください。");
+      }
     } finally {
       setLoading(false);
     }
@@ -97,6 +131,18 @@ export default function UpdatePasswordPage() {
                   新しいパスワードでログインしてください。
                 </p>
               </div>
+            ) : !canUpdate ? (
+              <div className="text-center">
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-600">
+                  {error || "パスワード再設定リンクを確認できませんでした。"}
+                </div>
+                <Link
+                  href="/auth/forgot-password"
+                  className="inline-flex px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  再設定メールを送り直す
+                </Link>
+              </div>
             ) : (
               <>
                 <p className="text-sm text-gray-600 mb-6">
@@ -106,6 +152,11 @@ export default function UpdatePasswordPage() {
                 {error && (
                   <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
                     {error}
+                    <div className="mt-3">
+                      <Link href="/auth/forgot-password" className="font-semibold text-red-700 underline">
+                        再設定メールを送り直す
+                      </Link>
+                    </div>
                   </div>
                 )}
 
