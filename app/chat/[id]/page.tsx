@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
-import { uploadChatImage } from "@/lib/image-storage";
+import { ALLOWED_IMAGE_ACCEPT, assertAllowedImageFile, uploadChatImage } from "@/lib/image-storage";
 
 type Message = {
   id: string;
@@ -470,13 +470,11 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     const file = e.target.files?.[0];
     if (!file || !user || !item || !otherUserId || isUploadingImage || sending) return;
 
-    // ファイル形式・サイズチェック（例: 5MB以下）
-    if (!file.type.startsWith('image/')) {
-      alert('画像ファイルを選択してください');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('5MB以下の画像を選択してください');
+    try {
+      assertAllowedImageFile(file);
+    } catch (error: any) {
+      alert(error.message || 'アップロードできない画像です');
+      e.target.value = "";
       return;
     }
 
@@ -1132,7 +1130,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           <label className="cursor-pointer p-2 hover:bg-gray-100 rounded-full transition-colors relative">
             <input
               type="file"
-              accept="image/*"
+              accept={ALLOWED_IMAGE_ACCEPT}
               className="hidden"
               onChange={handleImageUpload}
               disabled={isUploadingImage}

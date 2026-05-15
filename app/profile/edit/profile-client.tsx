@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { ArrowLeft, User, GraduationCap, LogOut, Camera, CheckCircle, XCircle, Loader2, MessageSquare, ChevronRight } from "lucide-react";
 import { ProfileSkeleton } from "./skeleton";
+import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_MIME_TYPES } from "@/lib/image-storage";
 
 type Profile = {
     nickname: string | null;
@@ -127,8 +128,8 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
         const file = e.target.files?.[0];
         if (!file || !user) return;
 
-        if (!file.type.startsWith('image/')) {
-            setError("画像ファイルを選択してください");
+        if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+            setError("アップロードできる画像は JPG / PNG / WebP のみです");
             return;
         }
 
@@ -315,7 +316,7 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept="image/*"
+                                    accept={ALLOWED_IMAGE_ACCEPT}
                                     onChange={handleAvatarUpload}
                                     className="hidden"
                                 />

@@ -9,7 +9,11 @@ import { useAuth } from "@/components/auth-provider";
 import Quagga from "@ericblade/quagga2";
 import ListingTutorial from "@/components/ListingTutorial";
 import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
-import { uploadItemImageVariantsToR2 } from "@/lib/image-storage";
+import {
+  ALLOWED_IMAGE_ACCEPT,
+  assertAllowedImageFile,
+  uploadItemImageVariantsToR2,
+} from "@/lib/image-storage";
 
 type ListingStep = "form" | "confirm" | "success";
 type ScanStatus = "idle" | "scanning" | "detected";
@@ -243,6 +247,14 @@ export default function ListingPage() {
   ) => {
     const file = e.target.files?.[0];
     if (file) {
+      try {
+        assertAllowedImageFile(file);
+      } catch (error: any) {
+        alert(error.message || "アップロードできない画像です");
+        e.target.value = "";
+        return;
+      }
+
       // Blob URLを使用してメモリ効率を改善
       const url = URL.createObjectURL(file);
       if (type === "front") {
@@ -564,7 +576,7 @@ export default function ListingPage() {
                     <label className="block">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={ALLOWED_IMAGE_ACCEPT}
                         onChange={(e) => handleFileUpload(e, "front")}
                         className="hidden"
                       />
@@ -592,7 +604,7 @@ export default function ListingPage() {
                     <label className="block">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={ALLOWED_IMAGE_ACCEPT}
                         onChange={(e) => handleFileUpload(e, "back")}
                         className="hidden"
                       />

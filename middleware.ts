@@ -4,6 +4,40 @@ import { isCurrentUserAdmin } from '@/lib/admin';
 
 const ACCESS_VISITOR_COOKIE = 'textnext_visitor_id';
 
+const isAdminBasicAuthConfigured = () =>
+  Boolean(process.env.ADMIN_BASIC_USER && process.env.ADMIN_BASIC_PASSWORD);
+
+const verifyAdminBasicAuth = (request: NextRequest) => {
+  if (!isAdminBasicAuthConfigured()) return true;
+
+  const authorization = request.headers.get('authorization') || '';
+  if (!authorization.startsWith('Basic ')) return false;
+
+  try {
+    const decoded = atob(authorization.slice('Basic '.length));
+    const separatorIndex = decoded.indexOf(':');
+    if (separatorIndex === -1) return false;
+
+    const user = decoded.slice(0, separatorIndex);
+    const password = decoded.slice(separatorIndex + 1);
+
+    return (
+      user === process.env.ADMIN_BASIC_USER &&
+      password === process.env.ADMIN_BASIC_PASSWORD
+    );
+  } catch {
+    return false;
+  }
+};
+
+const adminBasicAuthResponse = () =>
+  new NextResponse('Authentication required', {
+    status: 401,
+    headers: {
+      'WWW-Authenticate': 'Basic realm="TextNext Admin", charset="UTF-8"',
+    },
+  });
+
 const shouldTrackAccess = (request: NextRequest, pathname: string) => {
   if (request.method !== 'GET') return false;
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/')) return false;
@@ -115,6 +149,10 @@ export async function middleware(request: NextRequest) {
   const isExcluded = excludedPaths.some(path => pathname.startsWith(path));
 
   if (isAdminRoute) {
+    if (!verifyAdminBasicAuth(request)) {
+      return adminBasicAuthResponse();
+    }
+
     if (!session?.user) {
       const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('redirectTo', pathname);
