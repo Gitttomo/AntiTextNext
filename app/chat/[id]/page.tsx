@@ -318,11 +318,13 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .eq("item_id", params.id)
         .order("created_at", { ascending: true });
 
-      const transactionPromise = supabase
+      const transactionPromise = (supabase as any)
         .from("transactions")
         .select("*")
         .eq("item_id", params.id)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       const [itemResult, messagesResult, transactionResult] = await Promise.all([
         itemPromise,
