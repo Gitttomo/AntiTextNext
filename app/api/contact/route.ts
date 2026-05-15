@@ -1,10 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { INPUT_LIMITS } from '@/lib/input-limits';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { username, email, category, categoryLabel, content } = body;
+        const username = String(body.username || '').trim();
+        const email = String(body.email || '').trim();
+        const category = String(body.category || '').trim();
+        const categoryLabel = String(body.categoryLabel || '').trim();
+        const content = String(body.content || '').trim();
 
         // バリデーション
         if (!username || !email || !category || !content) {
@@ -14,9 +19,23 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (content.length < 10) {
+        if (username.length > INPUT_LIMITS.contactUsernameMax) {
             return NextResponse.json(
-                { success: false, error: 'お問い合わせ内容は10文字以上で入力してください' },
+                { success: false, error: `ユーザー名は${INPUT_LIMITS.contactUsernameMax}文字以内で入力してください` },
+                { status: 400 }
+            );
+        }
+
+        if (content.length < INPUT_LIMITS.contactContentMin) {
+            return NextResponse.json(
+                { success: false, error: `お問い合わせ内容は${INPUT_LIMITS.contactContentMin}文字以上で入力してください` },
+                { status: 400 }
+            );
+        }
+
+        if (content.length > INPUT_LIMITS.contactContentMax) {
+            return NextResponse.json(
+                { success: false, error: `お問い合わせ内容は${INPUT_LIMITS.contactContentMax}文字以内で入力してください` },
                 { status: 400 }
             );
         }

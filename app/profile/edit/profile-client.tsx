@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import { ArrowLeft, User, GraduationCap, LogOut, Camera, CheckCircle, XCircle, Loader2, MessageSquare, ChevronRight } from "lucide-react";
 import { ProfileSkeleton } from "./skeleton";
 import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_MIME_TYPES } from "@/lib/image-storage";
+import { INPUT_LIMITS } from "@/lib/input-limits";
 
 type Profile = {
     nickname: string | null;
@@ -189,9 +190,9 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
         }
 
         // バリデーション
-        const usernameRegex = /^[a-zA-Z0-9_\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u3400-\u4DBF]{2,20}$/;
+        const usernameRegex = new RegExp(`^[a-zA-Z0-9_\\u3040-\\u309F\\u30A0-\\u30FF\\u4E00-\\u9FAF\\u3400-\\u4DBF]{${INPUT_LIMITS.profileNicknameMin},${INPUT_LIMITS.profileNicknameMax}}$`);
         if (!usernameRegex.test(nickname)) {
-            setError("ユーザーネームは2〜20文字の日本語・英数字・アンダースコアのみ使用可能です");
+            setError(`ユーザーネームは${INPUT_LIMITS.profileNicknameMin}〜${INPUT_LIMITS.profileNicknameMax}文字の日本語・英数字・アンダースコアのみ使用可能です`);
             return;
         }
 
@@ -362,7 +363,7 @@ export default function ProfileClient({ initialProfile, serverSession = true }: 
                                                     : "border-gray-300 focus:ring-primary"
                                         } focus:border-transparent`}
                                         required
-                                        maxLength={20}
+                                        maxLength={INPUT_LIMITS.profileNicknameMax}
                                     />
                                     {isNicknameChanged && (
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">

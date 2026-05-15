@@ -15,11 +15,12 @@
 | データディレクトリ露出対策 | `.env.local`はGit管理外、Secretの公開env化を禁止 | 実装済み | `.gitignore`, `.env.example` |
 | SQL Injection対策 | Supabase query builder/RPC中心。新規SQLは関数引数で受け取り文字列連結SQLなし | 実装済み | `supabase/migrations/20260515000002_stripe_security_baseline.sql` |
 | XSS対策 | `dangerouslySetInnerHTML`はアプリ本体で未使用。Reactの通常描画でエスケープ | 確認済み | `app/*`, `components/*` |
-| 入力値バリデーション | 画像アップロードはMIME/サイズ/拡張子を制限。本文系は追加強化余地あり | 一部実装 | `lib/image-storage.ts`, `app/listing/page.tsx` |
+| 入力値バリデーション | 画像・チャット本文・問い合わせ本文・プロフィール名・出品名に最小限の型/長さ制限 | 一部実装 | `lib/input-limits.ts`, `lib/image-storage.ts`, `app/contact/page.tsx`, `app/chat/[id]/page.tsx` |
 | 依存関係脆弱性確認 | `npm audit fix`で修正可能分を更新。Next/PostCSS系は破壊的更新が必要なため別途計画 | 一部対応 | `package.json`, `package-lock.json` |
 | 決済APIレート制限 | Stripe予定APIにSupabaseベースのレート制限土台を追加 | 実装済み | `lib/server-rate-limit.ts`, `app/api/stripe/*` |
-| Webhook署名検証 | `STRIPE_WEBHOOK_SECRET` + `stripe.webhooks.constructEvent()`で検証 | 実装済み | `app/api/stripe/webhook/route.ts` |
+| Webhook署名検証 | `STRIPE_WEBHOOK_SECRET` + `stripe.webhooks.constructEvent()`で検証し、イベントIDで二重処理を防止 | 実装済み | `app/api/stripe/webhook/route.ts`, `supabase/migrations/20260515000002_stripe_security_baseline.sql` |
 | アップロードファイル制限 | JPG/PNG/WebPのみ、SVG/PDF/HTML/JSは禁止、5MB上限 | 実装済み | `lib/image-storage.ts`, `app/api/item-images/upload/route.ts` |
+| セキュリティヘッダー | nosniff / frame deny / referrer policy / permissions policyを付与 | 実装済み | `middleware.ts` |
 
 ## 必要な環境変数
 
@@ -58,7 +59,7 @@
 
 - Supabase Auth MFAの導入可否確認と管理者2FAの追加
 - アカウント情報変更時・管理者ログイン時のメール通知
-- チャット本文、問い合わせ本文、プロフィール文などの長さ制限と禁止文字の追加確認
+- 本文系入力の禁止語・URL制限・スパム検知など、運用に合わせた追加制限
 - Next.jsを最新安定版へ上げる検証。`npm audit`上はNext/PostCSS由来のhigh/moderateが残る
 - Upstash Redisなど外部ストアによるレート制限への移行検討
 - Stripe Connect本実装時の本人確認状態、返金、Webhook再送の冪等性対応

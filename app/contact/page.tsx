@@ -19,6 +19,7 @@ import {
     ChevronLeft,
 } from "lucide-react";
 import { CONTACT_NOTICE_ITEMS } from "@/lib/legal";
+import { INPUT_LIMITS } from "@/lib/input-limits";
 
 const CATEGORIES = [
     { value: "bug", label: "不具合・バグ報告", icon: ""},
@@ -77,10 +78,12 @@ export default function ContactPage() {
     const validate = (): boolean => {
         const newErrors: Record<string, string> = {};
         if (!username.trim()) newErrors.username = "ユーザー名を入力してください";
+        if (username.trim().length > INPUT_LIMITS.contactUsernameMax) newErrors.username = `ユーザー名は${INPUT_LIMITS.contactUsernameMax}文字以内で入力してください`;
         if (!email.trim()) newErrors.email = "メールアドレスを入力してください";
         if (!category) newErrors.category = "お問い合わせ概要を選択してください";
         if (!content.trim()) newErrors.content = "お問い合わせ内容を入力してください";
-        if (content.trim().length < 10) newErrors.content = "お問い合わせ内容は10文字以上で入力してください";
+        if (content.trim().length < INPUT_LIMITS.contactContentMin) newErrors.content = `お問い合わせ内容は${INPUT_LIMITS.contactContentMin}文字以上で入力してください`;
+        if (content.trim().length > INPUT_LIMITS.contactContentMax) newErrors.content = `お問い合わせ内容は${INPUT_LIMITS.contactContentMax}文字以内で入力してください`;
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -494,6 +497,7 @@ export default function ContactPage() {
                                     onChange={(e) => setContent(e.target.value)}
                                     placeholder="お問い合わせの詳細をできるだけ具体的にご記入ください（10文字以上）"
                                     rows={6}
+                                    maxLength={INPUT_LIMITS.contactContentMax}
                                     className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none ${
                                         errors.content ? "border-red-400" : "border-gray-300"
                                     }`}
@@ -504,8 +508,8 @@ export default function ContactPage() {
                                     ) : (
                                         <span />
                                     )}
-                                    <p className={`text-xs ${content.length < 10 ? "text-gray-400" : "text-green-600"}`}>
-                                        {content.length}文字
+                                    <p className={`text-xs ${content.length < INPUT_LIMITS.contactContentMin ? "text-gray-400" : "text-green-600"}`}>
+                                        {content.length}/{INPUT_LIMITS.contactContentMax}文字
                                     </p>
                                 </div>
                             </div>

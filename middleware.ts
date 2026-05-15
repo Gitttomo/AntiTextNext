@@ -100,6 +100,14 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(self), microphone=(), geolocation=()'
+  );
+
   const { data: { session } } = await supabase.auth.getSession();
 
   const pathname = request.nextUrl.pathname;

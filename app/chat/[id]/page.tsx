@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { ALLOWED_IMAGE_ACCEPT, assertAllowedImageFile, uploadChatImage } from "@/lib/image-storage";
+import { INPUT_LIMITS } from "@/lib/input-limits";
 
 type Message = {
   id: string;
@@ -413,6 +414,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     const messageText = textOverride || newMessage.trim();
     if (!messageText && !imageUrlOverride) return;
     if (!user || !item || !otherUserId || sending) return;
+    if (!textOverride && messageText.length > INPUT_LIMITS.chatMessageMax) {
+      alert(`メッセージは${INPUT_LIMITS.chatMessageMax}文字以内で入力してください`);
+      return;
+    }
 
     if (!textOverride) setNewMessage("");
     setSending(true);
@@ -1153,6 +1158,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 handleSend();
               }
             }}
+            maxLength={INPUT_LIMITS.chatMessageMax}
             placeholder="メッセージを入力..."
             className="flex-1 px-4 py-3 bg-gray-100 rounded-full text-[15px] focus:outline-none focus:ring-2 focus:ring-primary/50 border border-gray-200"
             disabled={sending}

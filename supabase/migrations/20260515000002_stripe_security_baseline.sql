@@ -25,11 +25,23 @@ CREATE TABLE IF NOT EXISTS public.api_rate_limits (
   UNIQUE(scope, key, window_start)
 );
 
+CREATE TABLE IF NOT EXISTS public.stripe_webhook_events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_at TIMESTAMPTZ,
+  processing_error TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_api_rate_limits_lookup
 ON public.api_rate_limits(scope, key, window_start DESC);
 
+CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_received
+ON public.stripe_webhook_events(received_at DESC);
+
 ALTER TABLE public.login_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.api_rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stripe_webhook_events ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.admin_action_logs
 ADD COLUMN IF NOT EXISTS ip_address TEXT,
@@ -175,6 +187,46 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.record_stripe_webhook_event(
+  target_event_id TEXT,
+  target_event_type TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF target_event_id IS NULL OR TRIM(target_event_id) = '' THEN
+    RETURN FALSE;
+  END IF;
+
+  INSERT INTO public.stripe_webhook_events(event_id, event_type, received_at)
+  VALUES (TRIM(target_event_id), COALESCE(NULLIF(TRIM(target_event_type), ''), 'unknown'), NOW())
+  ON CONFLICT (event_id) DO NOTHING;
+
+  RETURN FOUND;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mark_stripe_webhook_event_processed(
+  target_event_id TEXT,
+  target_processing_error TEXT DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.stripe_webhook_events
+  SET
+    processed_at = NOW(),
+    processing_error = NULLIF(LEFT(COALESCE(target_processing_error, ''), 1000), '')
+  WHERE event_id = target_event_id;
+END;
+$$;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -200,13 +252,28 @@ BEGIN
     FOR SELECT
     USING (public.is_current_user_admin());
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'stripe_webhook_events'
+      AND policyname = 'Admins can read stripe webhook events'
+  ) THEN
+    CREATE POLICY "Admins can read stripe webhook events"
+    ON public.stripe_webhook_events
+    FOR SELECT
+    USING (public.is_current_user_admin());
+  END IF;
 END $$;
 
 GRANT SELECT ON public.login_attempts TO authenticated;
 GRANT SELECT ON public.api_rate_limits TO authenticated;
+GRANT SELECT ON public.stripe_webhook_events TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_log_action(TEXT, TEXT, TEXT, TEXT, JSONB) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_login_rate_limited(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_login_attempt(TEXT, TEXT, TEXT, BOOLEAN) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.check_api_rate_limit(TEXT, TEXT, INTEGER, INTEGER) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_stripe_webhook_event(TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mark_stripe_webhook_event_processed(TEXT, TEXT) TO anon, authenticated;
 
 NOTIFY pgrst, 'reload schema';

@@ -14,6 +14,7 @@ import {
   assertAllowedImageFile,
   uploadItemImageVariantsToR2,
 } from "@/lib/image-storage";
+import { INPUT_LIMITS } from "@/lib/input-limits";
 
 type ListingStep = "form" | "confirm" | "success";
 type ScanStatus = "idle" | "scanning" | "detected";
@@ -284,6 +285,10 @@ export default function ListingPage() {
     if (uploading) return;
     if (step === "form") {
       if (!canSubmit) return;
+      if (formData.bookName.trim().length > INPUT_LIMITS.listingTitleMax) {
+        alert(`教科書名は${INPUT_LIMITS.listingTitleMax}文字以内で入力してください`);
+        return;
+      }
       setStep("confirm");
     } else if (step === "confirm") {
       setUploading(true);
@@ -563,6 +568,7 @@ export default function ListingPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, bookName: e.target.value })
                   }
+                  maxLength={INPUT_LIMITS.listingTitleMax}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
               </div>
