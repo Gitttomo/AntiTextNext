@@ -318,10 +318,12 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .eq("item_id", params.id)
         .order("created_at", { ascending: true });
 
+      // pending_approval含め全ステータスのトランザクションを取得（最新1件）
       const transactionPromise = (supabase as any)
         .from("transactions")
         .select("*")
         .eq("item_id", params.id)
+        .not("status", "in", "(cancelled)")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -339,10 +341,23 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         const buyerId = transactionResult.data?.buyer_id;
         const sellerId = itemData.seller_id;
 
-        if (user.id !== buyerId && user.id !== sellerId) {
-          setAccessDenied(true);
-          setLoading(false);
-          return;
+        // アクセス権チェック:
+        // 1. 出品者 or 購入者であること
+        // 2. どちらでもない場合、メッセージの参加者であること（フォールバック）
+        const isParticipant = user.id === buyerId || user.id === sellerId;
+
+        if (!isParticipant) {
+          // トランザクションが見つからない場合でも、
+          // メッセージの送受信者ならアクセスを許可
+          const msgs = (messagesResult.data || []) as any[];
+          const hasMessages = msgs.some(
+            (m: any) => m.sender_id === user.id || m.receiver_id === user.id
+          );
+          if (!hasMessages) {
+            setAccessDenied(true);
+            setLoading(false);
+            return;
+          }
         }
 
         setItem({
