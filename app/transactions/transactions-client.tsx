@@ -91,7 +91,7 @@ export default function TransactionsClient({
                 { data: sellerItems },
                 { data: sellerTransactions },
                 { data: unreadMessages },
-                { count: activeListingCount },
+                { count: cumulativeListingCount },
                 { data: rewardSetting },
                 { data: rewardOverride }
             ] = await Promise.all([
@@ -129,7 +129,7 @@ export default function TransactionsClient({
                     .from("items")
                     .select("*", { count: "exact", head: true })
                     .eq("seller_id", user.id)
-                    .eq("status", "available"),
+                    .neq("status", "deleted"),
                 (supabase as any)
                     .from("reward_settings")
                     .select("*")
@@ -147,7 +147,7 @@ export default function TransactionsClient({
             }
 
             setProfileAvatar({
-                listingCount: activeListingCount ?? 0,
+                listingCount: cumulativeListingCount ?? 0,
                 earlyRegistration: resolveEarlyRegistrationEligible(
                     user.created_at,
                     rewardSetting as RewardSetting | null,

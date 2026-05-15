@@ -138,7 +138,7 @@ export default async function TransactionsPage() {
     }
 
     const active: TransactionItem[] = [];
-    const activeListingCount = (sellerItems || []).filter((item: any) => item.status === "available").length;
+    const cumulativeListingCount = (sellerItems || []).filter((item: any) => item.status !== "deleted").length;
 
     // Process Buyer Transactions
     for (const tx of (buyerTransactions || []) as any[]) {
@@ -222,7 +222,7 @@ export default async function TransactionsPage() {
         <TransactionsClient
             initialActiveItems={active}
             initialProfile={profileData as any}
-            initialListingCount={activeListingCount}
+            initialListingCount={cumulativeListingCount}
             initialEarlyRegistrationEligible={resolveEarlyRegistrationEligible(
                 session.user.created_at,
                 rewardSetting as any,

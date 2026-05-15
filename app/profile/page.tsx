@@ -73,7 +73,7 @@ export default async function Mypage() {
 
     // Filter listing items: available status AND no transactions
     const txItemIds = new Set((sellerTransactions || []).map(tx => tx.item_id));
-    const activeListingCount = (sellerItems || []).filter(item => item.status === 'available').length;
+    const cumulativeListingCount = (sellerItems || []).filter(item => item.status !== 'deleted').length;
     const listingItems = (sellerItems || []).filter(item => item.status === 'available' && !txItemIds.has(item.id));
 
     // Filter past items: sold status OR completed transaction
@@ -97,7 +97,7 @@ export default async function Mypage() {
             initialPastItems={pastItems as any[]}
             initialFavoriteItems={favoriteItems as any[]}
             averageRating={averageRating}
-            listingCount={activeListingCount}
+            listingCount={cumulativeListingCount}
             transactionCount={pastItems.length}
             earlyRegistrationEligible={resolveEarlyRegistrationEligible((profile as any)?.created_at, rewardSetting as any, rewardOverride as any)}
             badges={(badges ?? []) as any[]}

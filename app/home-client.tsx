@@ -183,7 +183,7 @@ export default function HomeClient({ items: initialRecommendedItems, popularItem
             .from("items")
             .select("*", { count: "exact", head: true })
             .eq("seller_id", user.id)
-            .eq("status", "available"),
+            .neq("status", "deleted"),
           (supabase as any)
             .from("reward_settings")
             .select("*")

@@ -44,6 +44,7 @@ export default function SellerDetailPage({
     const [favorites, setFavorites] = useState<string[]>([]);
     const [loginPromptItemId, setLoginPromptItemId] = useState<string | null>(null);
     const [averageRating, setAverageRating] = useState(0);
+    const [listingCount, setListingCount] = useState(0);
     const [transactionCount, setTransactionCount] = useState(0);
     const [rewardSetting, setRewardSetting] = useState<RewardSetting | null>(null);
     const [rewardOverride, setRewardOverride] = useState<RewardOverride | null>(null);
@@ -134,13 +135,18 @@ export default function SellerDetailPage({
             setProfile(profileData as SellerProfile);
 
             // プロフィールが見つかったら、残りのデータを並列取得（個別に失敗しても止まらない）
-            const [itemsResult, ratingsResult, transactionsResult, rewardSettingResult, badgesResult, rewardOverrideResult] = await Promise.allSettled([
+            const [itemsResult, listingCountResult, ratingsResult, transactionsResult, rewardSettingResult, badgesResult, rewardOverrideResult] = await Promise.allSettled([
                 supabase
                     .from("items")
                     .select("id, title, selling_price, front_image_url, front_thumbnail_url, front_image_storage_path, front_thumbnail_storage_path, image_storage_provider")
                     .eq("seller_id", params.id)
                     .eq("status", "available")
                     .order("created_at", { ascending: false }),
+                supabase
+                    .from("items")
+                    .select("*", { count: "exact", head: true })
+                    .eq("seller_id", params.id)
+                    .neq("status", "deleted"),
                 supabase
                     .from("ratings")
                     .select("score")
@@ -171,6 +177,10 @@ export default function SellerDetailPage({
             // アイテム（0件でもOK）
             if (itemsResult.status === 'fulfilled' && !itemsResult.value.error) {
                 setItems((itemsResult.value.data as Item[]) || []);
+            }
+
+            if (listingCountResult.status === 'fulfilled') {
+                setListingCount(listingCountResult.value.count || 0);
             }
 
             // 評価
@@ -396,7 +406,7 @@ export default function SellerDetailPage({
                             src={profile.avatar_url}
                             alt="Avatar"
                             size={80}
-                            listingCount={items.length}
+                            listingCount={listingCount}
                             earlyRegistration={resolveEarlyRegistrationEligible(profile.created_at, rewardSetting, rewardOverride)}
                         />
                         {isOwnPage && (
@@ -432,13 +442,13 @@ export default function SellerDetailPage({
                                     ))}
                                 </div>
                                 <span className="text-sm font-black text-gray-500">
-                                    {items.length}件出品
+                                    {listingCount}件出品
                                 </span>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="rounded-2xl bg-primary/5 px-3 py-2 text-center">
                                     <p className="text-[10px] font-black text-primary/70">出品数</p>
-                                    <p className="text-base font-black text-primary">{items.length}件</p>
+                                    <p className="text-base font-black text-primary">{listingCount}件</p>
                                 </div>
                                 <div className="rounded-2xl bg-gray-50 px-3 py-2 text-center">
                                     <p className="text-[10px] font-black text-gray-500">取引数</p>

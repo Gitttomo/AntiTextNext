@@ -49,7 +49,7 @@ export default async function ProductDetailPage({
       { data: sellerRewardOverride },
     ] = await Promise.all([
       supabase.from("ratings").select("score").eq("rated_id", sellerId),
-      supabase.from("items").select("*", { count: "exact", head: true }).eq("seller_id", sellerId).eq("status", "available"),
+      supabase.from("items").select("*", { count: "exact", head: true }).eq("seller_id", sellerId).neq("status", "deleted"),
       supabase.from("transactions").select("*", { count: "exact", head: true }).eq("seller_id", sellerId).eq("status", "completed"),
       (supabase as any).from("reward_settings").select("*").eq("id", "early_registration").single(),
       (supabase as any).from("user_badges").select("id,badge_type,label,note").eq("user_id", sellerId).is("revoked_at", null).order("created_at", { ascending: false }),
