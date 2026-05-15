@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
             .from("transactions") as any)
             .select("id")
             .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
-            .in("status", ["pending", "awaiting_rating", "transaction_pending"]);
+            .in("status", ["requested", "accepted", "scheduling", "scheduled", "awaiting_rating"]);
 
         if (activeTx && activeTx.length > 0) {
             return NextResponse.json(

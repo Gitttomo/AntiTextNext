@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
         const results = {
             remindersSent: 0,
-            autoDeclined: 0,
+            expiredRequests: 0,
             errors: [] as string[],
         };
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         const { data: upcomingTxs, error: upcomingError } = await supabase
             .from("transactions")
             .select("*, items(title), buyer:profiles!transactions_buyer_id_fkey(user_id, nickname, email_notify_reminders, locale), seller:profiles!transactions_seller_id_fkey(user_id, nickname, email_notify_reminders, locale)")
-            .eq("status", "confirmed")
+            .eq("status", "scheduled")
             .like("final_meetup_time", `${tomorrowPrefix}%`);
 
         if (upcomingError) {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         } else if (upcomingTxs && upcomingTxs.length > 0) {
             for (const tx of upcomingTxs) {
                 const itemTitle = tx.items?.title || "商品";
-                const chatUrl = `${baseUrl}/chat/${tx.item_id}`;
+                const chatUrl = `${baseUrl}/chat/${tx.item_id}?tx=${tx.id}`;
 
                 // Buyerへ通知
                 if (tx.buyer?.email_notify_reminders) {
@@ -66,33 +66,40 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 2. 1週間放置された「承認待ち」リクエストの自動辞退
+        // 2. 1週間放置された「承認待ち」リクエストの期限切れ処理
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
         
         const { data: oldPendingTxs, error: oldPendingError } = await supabase
             .from("transactions")
             .select("*, items(title), buyer:profiles!transactions_buyer_id_fkey(user_id, email_notify_transaction_progress, locale)")
-            .eq("status", "pending_approval")
+            .eq("status", "requested")
             .lt("created_at", oneWeekAgo.toISOString());
 
         if (oldPendingError) {
-            results.errors.push(`Fetch old pending error: ${oldPendingError.message}`);
+            results.errors.push(`Fetch old requested error: ${oldPendingError.message}`);
         } else if (oldPendingTxs && oldPendingTxs.length > 0) {
             for (const tx of oldPendingTxs) {
-                const reason = "一定期間（1週間）出品者からの応答がなかったため、自動的に辞退されました。";
+                const reason = "一定期間（1週間）出品者からの応答がなかったため、購入リクエストは期限切れになりました。";
                 
-                // トランザクションとアイテムのステータス更新
-                await supabase.from("transactions").update({ status: "declined", decline_reason: reason, declined_at: new Date().toISOString() }).eq("id", tx.id);
-                await supabase.from("items").update({ status: "available" }).eq("id", tx.item_id);
-                await supabase.from("purchase_request_history").update({ status: "declined", decline_reason: reason, resolved_at: new Date().toISOString() }).eq("item_id", tx.item_id).eq("buyer_id", tx.buyer_id).eq("status", "pending_approval");
+                // トランザクションのステータス更新。requested の間は item.status は available のまま。
+                await supabase
+                    .from("transactions")
+                    .update({ status: "expired", decline_reason: reason, declined_at: new Date().toISOString() })
+                    .eq("id", tx.id);
+                await supabase
+                    .from("purchase_request_history")
+                    .update({ status: "expired", decline_reason: reason, resolved_at: new Date().toISOString() })
+                    .eq("item_id", tx.item_id)
+                    .eq("buyer_id", tx.buyer_id)
+                    .eq("status", "requested");
 
                 // システムメッセージを挿入
                 await supabase.from("messages").insert({
                     item_id: tx.item_id,
                     sender_id: tx.seller_id,
                     receiver_id: tx.buyer_id,
-                    message: `【自動キャンセル】\n${reason}`,
+                    message: `【リクエスト期限切れ】\n${reason}`,
                     is_read: false
                 });
 
@@ -100,10 +107,10 @@ export async function POST(request: NextRequest) {
                 await supabase.from("notifications").insert({
                     user_id: tx.buyer_id,
                     type: "transaction_cancelled",
-                    title: "購入リクエストが自動キャンセルされました",
-                    message: `「${tx.items?.title}」への購入リクエストは一定期間応答がなかったため自動的にキャンセルされました。`,
+                    title: "購入リクエストが期限切れになりました",
+                    message: `「${tx.items?.title}」への購入リクエストは一定期間応答がなかったため期限切れになりました。`,
                     link_type: "chat",
-                    link_id: tx.item_id,
+                    link_id: `${tx.item_id}?tx=${tx.id}`,
                     is_read: false
                 });
 
@@ -111,16 +118,16 @@ export async function POST(request: NextRequest) {
                 if (tx.buyer?.email_notify_transaction_progress) {
                     const { data: buyerEmail } = await supabase.rpc("admin_get_user_email", { target_user_id: tx.buyer_id, reason: "自動キャンセル通知" });
                     if (buyerEmail) {
-                        const title = tx.buyer.locale === "en" ? "Purchase Request Auto-Declined" : "購入リクエストが自動キャンセルされました";
+                        const title = tx.buyer.locale === "en" ? "Purchase Request Expired" : "購入リクエストが期限切れになりました";
                         const content = tx.buyer.locale === "en" 
-                            ? `Your purchase request for "${tx.items?.title}" has been automatically declined due to no response from the seller for 7 days.` 
-                            : `商品「${tx.items?.title}」への購入リクエストは、出品者からの応答が1週間なかったため、自動的にキャンセルされました。`;
-                        const chatUrl = `${baseUrl}/chat/${tx.item_id}`;
+                            ? `Your purchase request for "${tx.items?.title}" expired because there was no response from the seller for 7 days.` 
+                            : `商品「${tx.items?.title}」への購入リクエストは、出品者からの応答が1週間なかったため、期限切れになりました。`;
+                        const chatUrl = `${baseUrl}/chat/${tx.item_id}?tx=${tx.id}`;
                         await sendTransactionProgressEmail(buyerEmail, title, content, chatUrl, tx.buyer.locale || "ja");
                     }
                 }
 
-                results.autoDeclined++;
+                results.expiredRequests++;
             }
         }
 

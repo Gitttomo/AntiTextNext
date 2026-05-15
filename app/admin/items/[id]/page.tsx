@@ -32,7 +32,7 @@ export default async function AdminItemDetailPage({ params }: { params: { id: st
   const frontUrl = item ? getItemImageUrl(item, "front", "detail") : null;
   const backUrl = item ? getItemImageUrl(item, "back", "detail") : null;
   const activeTransactionCount = ((transactions ?? []) as any[]).filter((tx) =>
-    ["pending_approval", "pending", "confirmed", "awaiting_rating"].includes(tx.status)
+    ["requested", "accepted", "scheduling", "scheduled", "awaiting_rating"].includes(tx.status)
   ).length;
 
   return (

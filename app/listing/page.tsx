@@ -597,7 +597,7 @@ export default function ListingPage() {
                     onChange={(e) => setFormData({ ...formData, hasDescription: e.target.checked })}
                     className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
                   />
-                  状態を説明する
+                  状態を説明する(任意)
                 </label>
                 {formData.hasDescription && (
                   <div className="mt-3">

@@ -37,7 +37,7 @@ export default async function AdminDashboardPage() {
     (supabase as any).rpc("admin_get_today_access_count"),
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("items").select("*", { count: "exact", head: true }),
-    supabase.from("transactions").select("*", { count: "exact", head: true }).in("status", ["pending", "confirmed", "awaiting_rating"]),
+    supabase.from("transactions").select("*", { count: "exact", head: true }).in("status", ["accepted", "scheduling", "scheduled", "awaiting_rating"]),
     supabase.from("transactions").select("*", { count: "exact", head: true }).eq("status", "completed"),
     (supabase as any).from("reports").select("*", { count: "exact", head: true }),
     (supabase as any).from("inquiries").select("*", { count: "exact", head: true }).in("status", ["open", "checking"]),

@@ -56,7 +56,7 @@ export default function SettingsPage() {
                 .from("transactions") as any)
                 .select("id, status")
                 .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-                .in("status", ["pending", "awaiting_rating", "transaction_pending"]);
+                .in("status", ["requested", "accepted", "scheduling", "scheduled", "awaiting_rating"]);
 
             const count = activeTx?.length || 0;
             setActiveTransactionCount(count);

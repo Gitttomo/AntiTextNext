@@ -20,6 +20,7 @@ type TransactionItem = {
     unreadCount: number;
     final_meetup_time?: string | null;
     final_meetup_location?: string | null;
+    transactionId?: string;
     transactionStatus?: string;
 };
 
@@ -138,7 +139,7 @@ export default async function TransactionsPage() {
         const item = tx.items;
         if (!item) continue;
 
-        if (tx.status === "completed" || tx.status === "declined" || item.status === "sold") {
+        if (["completed", "rejected", "expired", "auto_closed", "cancelled"].includes(tx.status) || item.status === "sold") {
             continue;
         }
 
@@ -157,6 +158,7 @@ export default async function TransactionsPage() {
             unreadCount: unreadCountMap.get(item.id) || 0,
             final_meetup_time: tx.final_meetup_time,
             final_meetup_location: tx.final_meetup_location,
+            transactionId: tx.id,
             transactionStatus: tx.status,
         };
 
@@ -164,42 +166,46 @@ export default async function TransactionsPage() {
     }
 
     // Process Seller Items & Transactions
-    const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }>();
+    const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }[]>();
     for (const tx of (sellerTransactions || []) as any[]) {
-        sellerTxMap.set(tx.item_id, { 
+        const txList = sellerTxMap.get(tx.item_id) || [];
+        txList.push({ 
             txId: tx.id, 
             txStatus: tx.status,
             final_meetup_time: tx.final_meetup_time,
             final_meetup_location: tx.final_meetup_location
         });
+        sellerTxMap.set(tx.item_id, txList);
     }
 
     for (const item of (sellerItems || []) as any[]) {
-        const txInfo = sellerTxMap.get(item.id);
-        if (item.status === "sold" || txInfo?.txStatus === "completed") {
+        if (item.status === "sold") {
             continue;
         }
 
-        const txItem: TransactionItem = {
-            id: item.id,
-            title: item.title,
-            selling_price: item.selling_price,
-            status: item.status,
-            front_image_url: item.front_image_url || null,
-            front_thumbnail_url: item.front_thumbnail_url || null,
-            front_image_storage_path: item.front_image_storage_path || null,
-            front_thumbnail_storage_path: item.front_thumbnail_storage_path || null,
-            image_storage_provider: item.image_storage_provider || null,
-            isBuyer: false,
-            hasTransaction: !!txInfo,
-            unreadCount: unreadCountMap.get(item.id) || 0,
-            final_meetup_time: txInfo?.final_meetup_time,
-            final_meetup_location: txInfo?.final_meetup_location,
-            transactionStatus: txInfo?.txStatus,
-        };
+        for (const txInfo of sellerTxMap.get(item.id) || []) {
+            if (["completed", "rejected", "expired", "auto_closed", "cancelled"].includes(txInfo.txStatus)) {
+                continue;
+            }
 
-        if (item.status === "transaction_pending" || (txInfo && txInfo.txStatus !== "declined")) {
-            active.push(txItem);
+            active.push({
+                id: item.id,
+                title: item.title,
+                selling_price: item.selling_price,
+                status: item.status,
+                front_image_url: item.front_image_url || null,
+                front_thumbnail_url: item.front_thumbnail_url || null,
+                front_image_storage_path: item.front_image_storage_path || null,
+                front_thumbnail_storage_path: item.front_thumbnail_storage_path || null,
+                image_storage_provider: item.image_storage_provider || null,
+                isBuyer: false,
+                hasTransaction: true,
+                unreadCount: unreadCountMap.get(item.id) || 0,
+                final_meetup_time: txInfo.final_meetup_time,
+                final_meetup_location: txInfo.final_meetup_location,
+                transactionId: txInfo.txId,
+                transactionStatus: txInfo.txStatus,
+            });
         }
     }
 

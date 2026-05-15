@@ -39,7 +39,7 @@ export default async function AdminItemsPage({ searchParams }: { searchParams: A
           <select name="status" defaultValue={status} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold">
             <option value="">すべて</option>
             <option value="available">出品中</option>
-            <option value="transaction_pending">取引中</option>
+            <option value="trading">取引中</option>
             <option value="sold">完了</option>
           </select>
           <button className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-black text-white">検索</button>

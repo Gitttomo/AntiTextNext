@@ -33,6 +33,7 @@ type TransactionItem = {
     unreadCount: number;
     final_meetup_time?: string | null;
     final_meetup_location?: string | null;
+    transactionId?: string;
     transactionStatus?: string;
 };
 
@@ -55,7 +56,7 @@ export default function TransactionsClient({
     const { user, avatarUrl, loading: authLoading } = useAuth();
     const { t } = useI18n();
     const [profile, setProfile] = useState<Profile | null>(initialProfile);
-    const [activeTab, setActiveTab] = useState<"upcoming" | "pending">("upcoming");
+    const [activeTab, setActiveTab] = useState<"upcoming" | "adjusting" | "requested">("upcoming");
     const [activeItems, setActiveItems] = useState<TransactionItem[]>(initialActiveItems);
     const [profileAvatar, setProfileAvatar] = useState({
         listingCount: initialListingCount,
@@ -162,7 +163,7 @@ export default function TransactionsClient({
                 const item = tx.items;
                 if (!item) continue;
 
-                if (tx.status === "completed" || tx.status === "declined" || item.status === "sold") {
+                if (["completed", "rejected", "expired", "auto_closed", "cancelled"].includes(tx.status) || item.status === "sold") {
                     continue;
                 }
 
@@ -181,50 +182,55 @@ export default function TransactionsClient({
                     unreadCount: unreadCountMap.get(item.id) || 0,
                     final_meetup_time: tx.final_meetup_time,
                     final_meetup_location: tx.final_meetup_location,
+                    transactionId: tx.id,
                     transactionStatus: tx.status,
                 };
 
-                // Include pending, confirmed, and awaiting_rating in active
+                // Include accepted, scheduled, and awaiting_rating in active
                 active.push(txItem);
             }
 
-            const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }>();
+            const sellerTxMap = new Map<string, { txId: string; txStatus: string; final_meetup_time: string | null; final_meetup_location: string | null }[]>();
             for (const tx of (sellerTransactions || []) as any[]) {
-                sellerTxMap.set(tx.item_id, {
+                const txList = sellerTxMap.get(tx.item_id) || [];
+                txList.push({
                     txId: tx.id,
                     txStatus: tx.status,
                     final_meetup_time: tx.final_meetup_time,
                     final_meetup_location: tx.final_meetup_location
                 });
+                sellerTxMap.set(tx.item_id, txList);
             }
 
             for (const item of (sellerItems || []) as any[]) {
-                const txInfo = sellerTxMap.get(item.id);
-                if (item.status === "sold" || txInfo?.txStatus === "completed") {
+                if (item.status === "sold") {
                     continue;
                 }
 
-                const txItem: TransactionItem = {
-                    id: item.id,
-                    title: item.title,
-                    selling_price: item.selling_price,
-                    status: item.status,
-                    front_image_url: item.front_image_url || null,
-                    front_thumbnail_url: item.front_thumbnail_url || null,
-                    front_image_storage_path: item.front_image_storage_path || null,
-                    front_thumbnail_storage_path: item.front_thumbnail_storage_path || null,
-                    image_storage_provider: item.image_storage_provider || null,
-                    isBuyer: false,
-                    hasTransaction: !!txInfo,
-                    unreadCount: unreadCountMap.get(item.id) || 0,
-                    final_meetup_time: txInfo?.final_meetup_time,
-                    final_meetup_location: txInfo?.final_meetup_location,
-                    transactionStatus: txInfo?.txStatus,
-                };
+                for (const txInfo of sellerTxMap.get(item.id) || []) {
+                    if (["completed", "rejected", "expired", "auto_closed", "cancelled"].includes(txInfo.txStatus)) {
+                        continue;
+                    }
 
-                if (item.status === "transaction_pending" || (txInfo && txInfo.txStatus !== "declined")) {
-                    // Include pending, pending_approval, confirmed, and awaiting_rating in active
-                    active.push(txItem);
+                    // Include accepted, requested, scheduled, and awaiting_rating in active
+                    active.push({
+                        id: item.id,
+                        title: item.title,
+                        selling_price: item.selling_price,
+                        status: item.status,
+                        front_image_url: item.front_image_url || null,
+                        front_thumbnail_url: item.front_thumbnail_url || null,
+                        front_image_storage_path: item.front_image_storage_path || null,
+                        front_thumbnail_storage_path: item.front_thumbnail_storage_path || null,
+                        image_storage_provider: item.image_storage_provider || null,
+                        isBuyer: false,
+                        hasTransaction: true,
+                        unreadCount: unreadCountMap.get(item.id) || 0,
+                        final_meetup_time: txInfo.final_meetup_time,
+                        final_meetup_location: txInfo.final_meetup_location,
+                        transactionId: txInfo.txId,
+                        transactionStatus: txInfo.txStatus,
+                    });
                 }
             }
 
@@ -291,13 +297,17 @@ export default function TransactionsClient({
         };
     }, [user, loadData, initialCheckDone]);
 
-    // Split items: confirmed (with date) vs pending (no date)
-    const confirmedItems = activeItems.filter(item => item.final_meetup_time);
-    const pendingItems = activeItems.filter(item => !item.final_meetup_time);
+    const requestedItems = activeItems.filter(item => item.transactionStatus === "requested");
+    const adjustingItems = activeItems.filter(item =>
+        ["accepted", "scheduling", "pending"].includes(item.transactionStatus || "") && !item.final_meetup_time
+    );
+    const confirmedItems = activeItems.filter(item =>
+        item.transactionStatus === "scheduled" || item.final_meetup_time
+    );
 
     const totalUnreadCount = activeItems.reduce((sum, item) => sum + item.unreadCount, 0);
 
-    // Grouping logic for confirmed items by date
+    // Grouping logic for scheduled items by date
     const groupedItemsByDate = confirmedItems.reduce((groups, item) => {
         const date = item.final_meetup_time!;
         if (!groups[date]) {
@@ -353,10 +363,10 @@ export default function TransactionsClient({
                         >
                             {item.isBuyer ? "購入" : "出品"}
                         </span>
-                        {item.transactionStatus === "pending_approval" ? (
+                        {item.transactionStatus === "requested" ? (
                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {t('chat.status_pending_approval')}
+                                {t('chat.status_requested')}
                             </span>
                         ) : item.transactionStatus === "awaiting_rating" ? (
                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full flex items-center gap-1">
@@ -368,7 +378,7 @@ export default function TransactionsClient({
                                 <CheckCircle className="w-3 h-3" />
                                 確定
                             </span>
-                        ) : activeTab === "pending" ? (
+                        ) : activeTab === "adjusting" ? (
                             <span className="text-[10px] uppercase font-black px-2.5 py-1 bg-yellow-50 text-yellow-600 border border-yellow-100 rounded-full">
                                 調整中
                             </span>
@@ -390,7 +400,7 @@ export default function TransactionsClient({
                                     onClick={async (e) => {
                                         e.stopPropagation();
                                         await clearUnreadForItem(item.id);
-                                        router.push(`/chat/${item.id}`);
+                                        router.push(item.transactionId ? `/chat/${item.id}?tx=${item.transactionId}` : `/chat/${item.id}`);
                                     }}
                                     className="flex items-center gap-1.5 px-4 py-2 gradient-btn-blue rounded-2xl font-black transition-all text-xs shadow-lg shadow-primary/20"
                                 >
@@ -475,13 +485,22 @@ export default function TransactionsClient({
                         {t('transactions.upcoming')} ({confirmedItems.length})
                     </button>
                     <button
-                        onClick={() => setActiveTab("pending")}
-                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "pending"
+                        onClick={() => setActiveTab("adjusting")}
+                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "adjusting"
                             ? "gradient-btn-tab"
                             : "text-gray-400 hover:text-gray-600"
                             }`}
                     >
-                        {t('transactions.pending')} ({pendingItems.length})
+                        日程調整中 ({adjustingItems.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("requested")}
+                        className={`flex-1 py-4 text-sm font-black transition-all rounded-[24px] ${activeTab === "requested"
+                            ? "gradient-btn-tab"
+                            : "text-gray-400 hover:text-gray-600"
+                            }`}
+                    >
+                        承認前 ({requestedItems.length})
                     </button>
                 </div>
             </div>
@@ -517,15 +536,26 @@ export default function TransactionsClient({
                             })}
                         </div>
                     )
-                ) : activeTab === "pending" ? (
+                ) : activeTab === "adjusting" ? (
                     <div className="space-y-4">
-                        {pendingItems.length === 0 ? (
+                        {adjustingItems.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
                                 <Calendar className="w-20 h-20 text-gray-100 mx-auto mb-4" />
                                 <p className="text-gray-400 font-black">{t('transactions.no_pending')}</p>
                             </div>
                         ) : (
-                            pendingItems.map((item, idx) => renderItem(item, idx))
+                            adjustingItems.map((item, idx) => renderItem(item, idx))
+                        )}
+                    </div>
+                ) : activeTab === "requested" ? (
+                    <div className="space-y-4">
+                        {requestedItems.length === 0 ? (
+                            <div className="text-center py-20 bg-white rounded-[40px] shadow-sm border border-gray-100">
+                                <Clock className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+                                <p className="text-gray-400 font-black">承認待ちのリクエストはありません</p>
+                            </div>
+                        ) : (
+                            requestedItems.map((item, idx) => renderItem(item, idx))
                         )}
                     </div>
                 ) : null}

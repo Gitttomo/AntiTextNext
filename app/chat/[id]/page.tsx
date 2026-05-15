@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Send, Loader2, User, Check, CheckCheck, Calendar, MapPin, Clock, RotateCcw, ImageIcon, Plus, X as XIcon, ChevronRight, CheckCircle2, AlertCircle, Package, ShieldCheck, XCircle, BookOpen } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { ALLOWED_IMAGE_ACCEPT, assertAllowedImageFile, uploadChatImage } from "@/lib/image-storage";
@@ -87,6 +87,8 @@ const formatScheduleCandidates = (slots: string[], locations: string[]) => {
 
 export default function ChatPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetTransactionId = searchParams.get("tx");
   const { user, loading: authLoading, avatarUrl } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -168,7 +170,13 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .order("created_at", { ascending: true });
 
       if (!error && data) {
-        const realMessages = data as Message[];
+        const realMessages = (data as Message[]).filter((message) => {
+          if (!otherUserId) return false;
+          return (
+            (message.sender_id === user.id && message.receiver_id === otherUserId) ||
+            (message.sender_id === otherUserId && message.receiver_id === user.id)
+          );
+        });
         setMessages(prev => {
           const tempMessages = prev.filter(m => m.id.startsWith('temp-'));
           const filteredTemp = tempMessages.filter(temp =>
@@ -191,7 +199,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
     } catch (err) {
       console.error("Error fetching messages:", err);
     }
-  }, [params.id, user, markMessagesAsRead]);
+  }, [params.id, user, otherUserId, markMessagesAsRead]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -319,15 +327,22 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .eq("item_id", params.id)
         .order("created_at", { ascending: true });
 
-      // pending_approval含め全ステータスのトランザクションを取得（最新1件）
-      const transactionPromise = (supabase as any)
+      // 現在ユーザーが参加している取引だけを取得する。
+      // tx が指定されていれば、複数 requested がある商品でも対象スレッドを固定する。
+      let transactionQuery = (supabase as any)
         .from("transactions")
         .select("*")
         .eq("item_id", params.id)
-        .not("status", "in", "(cancelled)")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+        .not("status", "in", "(cancelled)");
+
+      if (targetTransactionId) {
+        transactionQuery = transactionQuery.eq("id", targetTransactionId);
+      } else {
+        transactionQuery = transactionQuery.order("created_at", { ascending: false }).limit(1);
+      }
+
+      const transactionPromise = transactionQuery.maybeSingle();
 
       const [itemResult, messagesResult, transactionResult] = await Promise.all([
         itemPromise,
@@ -399,7 +414,15 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
       if (messagesResult.error) throw messagesResult.error;
       if (messagesResult.data) {
-        setMessages(messagesResult.data as Message[]);
+        const tx = transactionResult.data as Transaction | null;
+        const otherId = tx ? (user.id === tx.buyer_id ? tx.seller_id : tx.buyer_id) : otherUserId;
+        setMessages((messagesResult.data as Message[]).filter((message) => {
+          if (!otherId) return false;
+          return (
+            (message.sender_id === user.id && message.receiver_id === otherId) ||
+            (message.sender_id === otherId && message.receiver_id === user.id)
+          );
+        }));
         // 初回読み込み時に既読にする
         markMessagesAsRead();
       }
@@ -454,7 +477,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           action: "message",
           itemId: item.id,
           receiverId: otherUserId,
-          extraData: { senderName: "取引相手" },
+          extraData: { senderName: "取引相手", transactionId: transaction?.id },
         }),
       }).catch(e => console.error(e));
 
@@ -513,7 +536,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .update({
           final_meetup_time: formattedTime,
           final_meetup_location: formattedLocation,
-          status: 'confirmed',
+          status: 'scheduled',
           schedule_change_requested_by: null,
         })
         .eq("id", transaction.id);
@@ -525,7 +548,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         ...prev,
         final_meetup_time: formattedTime,
         final_meetup_location: formattedLocation,
-        status: 'confirmed',
+        status: 'scheduled',
         schedule_change_requested_by: null,
         previous_final_meetup_time: null,
         previous_final_meetup_location: null,
@@ -551,7 +574,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         .update({
           final_meetup_time: null,
           final_meetup_location: null,
-          status: 'pending' // または再調整用のステータス
+          status: 'scheduling' // または再調整用のステータス
         })
         .eq("id", transaction.id);
 
@@ -562,7 +585,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
         ...prev,
         final_meetup_time: null,
         final_meetup_location: null,
-        status: 'pending'
+        status: 'scheduling'
       } : prev);
 
       await handleSend("この先の受け渡し日程については、こちらのチャットにてご相談ください。\n\n日程が決まりましたら、日程変更・登録を行っていただくことで、予定が自動的にカレンダーへ登録されます");
@@ -712,13 +735,15 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   const statusLabel = {
     available: "出品中",
-    transaction_pending: "取引調整中",
+    transaction_pending: "取引中",
+    trading: "取引中",
     awaiting_rating: "評価待ち",
     sold: "取引完了",
-  }[item.status] || (transaction?.status === 'pending_approval' ? '承認待ち' : item.status);
+  }[item.status] || (transaction?.status === 'requested' || transaction?.status === 'pending_approval' ? '承認待ち' : item.status);
 
-  const isPendingApproval = transaction?.status === 'pending_approval';
-  const isDeclined = transaction?.status === 'declined';
+  const isPendingApproval = transaction?.status === 'requested' || transaction?.status === 'pending_approval';
+  const isDeclined = ['rejected', 'declined', 'expired', 'auto_closed'].includes(transaction?.status || '');
+  const canUseTradeActions = ['accepted', 'scheduling', 'scheduled', 'pending', 'confirmed'].includes(transaction?.status || '');
 
   const isSeller = user?.id === item.seller_id;
   const isScheduleChangeRequester = !!transaction?.schedule_change_requested_by && transaction.schedule_change_requested_by === user?.id;
@@ -783,30 +808,12 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                     if (isApproving || !transaction) return;
                     setIsApproving(true);
                     try {
-                      await (supabase.from('transactions') as any)
-                        .update({ status: 'pending' })
-                        .eq('id', transaction.id);
-                      await (supabase.from('items') as any)
-                        .update({ status: 'transaction_pending' })
-                        .eq('id', item.id);
-                      await (supabase.from('purchase_request_history') as any)
-                        .update({ status: 'approved', resolved_at: new Date().toISOString() })
-                        .eq('item_id', item.id)
-                        .eq('buyer_id', transaction.buyer_id)
-                        .eq('status', 'pending_approval');
-                      await (supabase.from('notifications') as any)
-                        .insert({
-                          user_id: transaction.buyer_id,
-                          type: 'purchase_request',
-                          title: '購入リクエストが承認されました',
-                          message: `「${item.title}」の購入リクエストが承認されました。チャットで日程を調整してください。`,
-                          link_type: 'chat',
-                          link_id: item.id,
-                          is_read: false,
-                        });
-                      await handleSend('【リクエスト承認】\n出品者が購入リクエストを承認しました。日程を調整しましょう！');
-                      setTransaction(prev => prev ? { ...prev, status: 'pending' } : prev);
-                      setItem(prev => prev ? { ...prev, status: 'transaction_pending' } : prev);
+                      const { error } = await (supabase as any).rpc('accept_purchase_request', {
+                        target_transaction_id: transaction.id,
+                      });
+                      if (error) throw error;
+                      setTransaction(prev => prev ? { ...prev, status: 'accepted' } : prev);
+                      setItem(prev => prev ? { ...prev, status: 'trading' } : prev);
 
                       // メール通知APIを非同期で呼び出し
                       fetch("/api/notify/transaction", {
@@ -816,6 +823,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                           action: "approve",
                           itemId: item.id,
                           receiverId: transaction.buyer_id,
+                          extraData: { transactionId: transaction.id },
                         }),
                       }).catch(e => console.error(e));
 
@@ -862,7 +870,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Action Bar (Below Header) — hide when pending_approval or declined */}
-      {!isPendingApproval && !isDeclined && (
+      {canUseTradeActions && !isDeclined && (
       <div className="fixed top-16 left-0 right-0 bg-white/95 backdrop-blur-md px-4 py-2 z-40 flex gap-2 border-b border-gray-100">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
@@ -1198,7 +1206,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 meetup_locations: locations,
                 final_meetup_time: null,
                 final_meetup_location: null,
-                status: 'pending',
+                status: 'scheduling',
                 schedule_change_requested_by: user.id,
                 previous_final_meetup_time: previousTime,
               })
@@ -1211,7 +1219,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
               meetup_locations: locations,
               final_meetup_time: null,
               final_meetup_location: null,
-              status: 'pending',
+              status: 'scheduling',
               schedule_change_requested_by: user.id,
               previous_final_meetup_time: previousTime,
               previous_final_meetup_location: previousLocation,
@@ -1265,45 +1273,16 @@ export default function ChatPage({ params }: { params: { id: string } }) {
           if (!transaction || !item) return;
           setIsApproving(true);
           try {
-            // Update transaction to declined
-            await (supabase.from('transactions') as any)
-              .update({
-                status: 'declined',
-                decline_reason: reason,
-                declined_at: new Date().toISOString(),
-              })
-              .eq('id', transaction.id);
-
-            // Update purchase_request_history
-            await (supabase.from('purchase_request_history') as any)
-              .update({
-                status: 'declined',
-                decline_reason: reason,
-                resolved_at: new Date().toISOString(),
-              })
-              .eq('item_id', item.id)
-              .eq('buyer_id', transaction.buyer_id)
-              .eq('status', 'pending_approval');
-
-            // Send notification to buyer
-            await (supabase.from('notifications') as any)
-              .insert({
-                user_id: transaction.buyer_id,
-                type: 'transaction_cancelled',
-                title: '購入リクエストが辞退されました',
-                message: `「${item.title}」への購入リクエストが出品者により辞退されました。理由: ${reason}`,
-                link_type: 'chat',
-                link_id: item.id,
-                is_read: false,
-              });
-
-            // Send system message
-            await handleSend(`【リクエスト辞退】\n出品者が購入リクエストを辞退しました。\n\n理由: ${reason}\n\n※チャットは引き続きご利用いただけます`);
+            const { error } = await (supabase as any).rpc('reject_purchase_request', {
+              target_transaction_id: transaction.id,
+              reason,
+            });
+            if (error) throw error;
 
             // Update local state
             setTransaction(prev => prev ? {
               ...prev,
-              status: 'declined',
+              status: 'rejected',
               decline_reason: reason,
             } : prev);
 
@@ -1315,6 +1294,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
                 action: "decline",
                 itemId: item.id,
                 receiverId: transaction.buyer_id,
+                extraData: { transactionId: transaction.id },
               }),
             }).catch(e => console.error(e));
 

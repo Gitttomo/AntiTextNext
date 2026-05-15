@@ -61,7 +61,9 @@ export async function POST(request: NextRequest) {
 
         const itemTitle = item?.title || "商品";
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://textnext.jp";
-        const actionUrl = `${baseUrl}/chat/${itemId}`;
+        const actionUrl = extraData?.transactionId
+            ? `${baseUrl}/chat/${itemId}?tx=${extraData.transactionId}`
+            : `${baseUrl}/chat/${itemId}`;
 
         // ===== メールアドレス取得 =====
         // Service Role キーを使ってサーバーサイドでメールアドレスを安全に取得

@@ -14,7 +14,7 @@ export default async function AdminTransactionsPage({ searchParams }: { searchPa
     .order("created_at", { ascending: false })
     .limit(200);
 
-  if (status === "active") query = query.in("status", ["pending", "confirmed", "awaiting_rating"]);
+  if (status === "active") query = query.in("status", ["accepted", "scheduling", "scheduled", "awaiting_rating"]);
   if (status === "completed") query = query.eq("status", "completed");
   if (status === "cancelled") query = query.eq("status", "cancelled");
 

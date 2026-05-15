@@ -244,13 +244,19 @@ export default function ProductDetailClient({ item }: { item: Item }) {
           alert(`前回の辞退から24時間経過していません。あと約${eligibility.hours_remaining}時間後にお試しください。`);
         } else if (eligibility.reason === 'pending_request_exists') {
           alert("この商品への承認待ちリクエストが既にあります。");
+        } else if (eligibility.reason === 'request_limit_reached') {
+          alert("現在この商品には複数の購入希望があるため、新しいリクエストを受け付けていません。");
+        } else if (eligibility.reason === 'active_transaction_exists') {
+          alert("この商品はすでに取引中です。");
+        } else if (eligibility.reason === 'seller_cannot_buy_own_item') {
+          alert("自分の商品にはリクエストできません。");
         }
         setIsSubmitting(false);
         return;
       }
 
       const autoMessage = generatePurchaseMessage(data);
-      const { error: purchaseError } = await (supabase as any).rpc("submit_purchase_request", {
+      const { data: createdTransactionId, error: purchaseError } = await (supabase as any).rpc("submit_purchase_request", {
         target_item_id: item.id,
         payment_method: data.paymentMethod,
         meetup_time_slots: data.timeSlots,
@@ -269,6 +275,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
             action: "request",
             itemId: item.id,
             receiverId: item.seller_id,
+            extraData: { transactionId: createdTransactionId },
           }),
         });
       } catch (notifyErr) {
@@ -276,7 +283,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
       }
 
       setIsPurchaseModalOpen(false);
-      router.push(`/chat/${item.id}`);
+      router.push(createdTransactionId ? `/chat/${item.id}?tx=${createdTransactionId}` : `/chat/${item.id}`);
     } catch (err: any) {
       console.error("Error submitting purchase request:", err);
       alert("購入リクエストの送信に失敗しました: " + err.message);
@@ -287,7 +294,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
 
   const isOwnItem = user?.id === item.seller_id;
   const isSold = currentStatus === "sold";
-  const isPending = currentStatus === "transaction_pending";
+  const isPending = currentStatus === "transaction_pending" || currentStatus === "trading";
   const isReserved = currentStatus === "reserved";
   const isAvailable = currentStatus === "available";
 
@@ -634,7 +641,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
               <div className="flex gap-2 flex-1">
                 <button
                   onClick={() => setIsEditModalOpen(true)}
-                  disabled={currentStatus === 'sold' || currentStatus === 'transaction_pending'}
+                  disabled={currentStatus === 'sold' || currentStatus === 'transaction_pending' || currentStatus === 'trading'}
                   className="flex-1 py-3 md:py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 text-sm"
                 >
                   <Pencil className="w-4 h-4" />
@@ -658,7 +665,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                       setIsManaging(false);
                     }
                   }}
-                  disabled={isManaging || currentStatus === 'sold' || currentStatus === 'transaction_pending'}
+                  disabled={isManaging || currentStatus === 'sold' || currentStatus === 'transaction_pending' || currentStatus === 'trading'}
                   className={`py-3 md:py-3.5 px-3 md:px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed ${
                     currentStatus === 'paused'
                       ? 'bg-green-500 text-white hover:bg-green-600'
@@ -675,7 +682,7 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                 </button>
                 <button
                   onClick={() => setIsDeleteModalOpen(true)}
-                  disabled={currentStatus === 'transaction_pending'}
+                  disabled={currentStatus === 'transaction_pending' || currentStatus === 'trading'}
                   className="py-3 md:py-3.5 px-3 md:px-4 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center text-sm"
                 >
                   <Trash2 className="w-4 h-4" />

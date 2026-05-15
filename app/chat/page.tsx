@@ -9,8 +9,9 @@ import { useAuth } from "@/components/auth-provider";
 
 type ChatConversation = {
   item_id: string;
+  transaction_id?: string;
   item_title: string;
-  other_user: string;
+  other_user_id: string;
   last_message: string;
   last_message_time: string;
 };
@@ -50,22 +51,38 @@ export default function ChatListPage() {
 
       if (messagesError) throw messagesError;
 
-      // Group by item_id and get the latest message for each
+      // Group by item + counterpart so multiple purchase requests for one item stay separate.
       const grouped = new Map<string, any>();
 
       for (const msg of (messages || []) as any[]) {
-        if (!grouped.has(msg.item_id)) {
-          grouped.set(msg.item_id, {
+        const otherUserId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+        const conversationKey = `${msg.item_id}:${otherUserId}`;
+        if (!grouped.has(conversationKey)) {
+          grouped.set(conversationKey, {
             item_id: msg.item_id,
             item_title: msg.items?.title || "不明",
             last_message: msg.message,
             last_message_time: msg.created_at,
-            other_user_id: msg.sender_id === user.id ? msg.receiver_id : msg.sender_id,
+            other_user_id: otherUserId,
           });
         }
       }
 
       const conversationList = Array.from(grouped.values());
+      const { data: transactions } = await (supabase as any)
+        .from("transactions")
+        .select("id, item_id, buyer_id, seller_id, status")
+        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+        .not("status", "in", "(cancelled)");
+
+      for (const conversation of conversationList) {
+        const tx = (transactions || []).find((candidate: any) => {
+          const otherUserId = candidate.buyer_id === user.id ? candidate.seller_id : candidate.buyer_id;
+          return candidate.item_id === conversation.item_id && otherUserId === conversation.other_user_id;
+        });
+        if (tx) conversation.transaction_id = tx.id;
+      }
+
       setConversations(conversationList);
     } catch (err) {
       console.error("Error loading conversations:", err);
@@ -96,7 +113,7 @@ export default function ChatListPage() {
         ) : (
           <div className="space-y-3">
             {conversations.map((chat) => (
-              <Link key={chat.item_id} href={`/chat/${chat.item_id}`}>
+              <Link key={`${chat.item_id}-${chat.transaction_id || chat.other_user_id}`} href={chat.transaction_id ? `/chat/${chat.item_id}?tx=${chat.transaction_id}` : `/chat/${chat.item_id}`}>
                 <div className="bg-white rounded-2xl border p-5 hover:shadow-lg hover:border-primary/30 transition-all">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">

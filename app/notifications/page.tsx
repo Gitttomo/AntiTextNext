@@ -108,7 +108,8 @@ export default function NotificationsPage() {
         if (notification.type === "admin_inquiry_reply" || notification.type === "admin_restriction_notice") {
             router.push(`/notifications/${notification.id}`);
         } else if (notification.link_type === "chat" && notification.link_id) {
-            router.push(`/chat/${notification.link_id}?from=notifications`);
+            const separator = notification.link_id.includes("?") ? "&" : "?";
+            router.push(`/chat/${notification.link_id}${separator}from=notifications`);
         } else if (notification.link_type === "transaction" && notification.link_id) {
             router.push(`/transactions`);
         } else if (notification.link_type === "profile") {
