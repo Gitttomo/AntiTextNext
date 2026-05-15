@@ -40,6 +40,8 @@ export default function ListingPage() {
     originalPrice: "",
     barcode: "",
     //condition: "良好",
+    hasDescription: false,
+    description: "",
     frontCover: null as File | null,
     backCover: null as File | null,
   });
@@ -289,6 +291,10 @@ export default function ListingPage() {
         alert(`教科書名は${INPUT_LIMITS.listingTitleMax}文字以内で入力してください`);
         return;
       }
+      if (formData.hasDescription && formData.description.trim().length > INPUT_LIMITS.listingDescriptionMax) {
+        alert(`商品説明は${INPUT_LIMITS.listingDescriptionMax}文字以内で入力してください`);
+        return;
+      }
       setStep("confirm");
     } else if (step === "confirm") {
       setUploading(true);
@@ -306,6 +312,7 @@ export default function ListingPage() {
           id: itemId,
           seller_id: user!.id,
           title: formData.bookName,
+          description: formData.hasDescription ? formData.description.trim() || null : null,
           original_price: Number(formData.originalPrice),
           selling_price: sellingPrice,
           status: "draft_uploading",
@@ -430,6 +437,15 @@ export default function ListingPage() {
                   定価: ¥{Number(formData.originalPrice).toLocaleString()}
                 </p>
               </div>
+
+              {formData.hasDescription && formData.description.trim() && (
+                <div>
+                  <span className="text-sm font-medium text-gray-600">商品説明</span>
+                  <p className="mt-2 whitespace-pre-wrap rounded-xl bg-gray-50 p-4 text-sm font-medium leading-6 text-gray-800">
+                    {formData.description.trim()}
+                  </p>
+                </div>
+              )}
 
               <div>
                 <span className="text-sm font-medium text-gray-600 block mb-3">写真</span>
@@ -571,6 +587,38 @@ export default function ListingPage() {
                   maxLength={INPUT_LIMITS.listingTitleMax}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 />
+              </div>
+
+              <div className="animate-slide-in-bottom">
+                <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.hasDescription}
+                    onChange={(e) => setFormData({ ...formData, hasDescription: e.target.checked })}
+                    className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  状態を説明する
+                </label>
+                {formData.hasDescription && (
+                  <div className="mt-3">
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value.slice(0, INPUT_LIMITS.listingDescriptionMax),
+                        })
+                      }
+                      maxLength={INPUT_LIMITS.listingDescriptionMax}
+                      rows={4}
+                      placeholder="例: 書き込み少しあり。表紙に小さな折れがあります。"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm leading-6 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <p className="mt-1 text-right text-xs font-bold text-gray-400">
+                      {formData.description.length}/{INPUT_LIMITS.listingDescriptionMax}文字
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="animate-slide-in-bottom" style={{ animationDelay: '200ms' }}>

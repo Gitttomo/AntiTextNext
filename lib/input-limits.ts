@@ -6,6 +6,7 @@ export const INPUT_LIMITS = {
   profileNicknameMin: 2,
   profileNicknameMax: 20,
   listingTitleMax: 80,
+  listingDescriptionMax: 100,
 } as const;
 
 export const trimToLimit = (value: string, maxLength: number) =>

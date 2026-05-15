@@ -18,6 +18,7 @@ import { getItemImageUrl } from "@/lib/image-storage";
 export type Item = {
   id: string;
   title: string;
+  description?: string | null;
   selling_price: number;
   original_price: number;
   //condition: string;
@@ -539,6 +540,15 @@ export default function ProductDetailClient({ item }: { item: Item }) {
                     定価: ¥{item.original_price.toLocaleString()}
                   </p>
                 </div>
+
+                {item.description && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">商品説明</h3>
+                    <p className="whitespace-pre-wrap rounded-2xl bg-gray-50 px-4 py-3 text-sm font-medium leading-6 text-gray-800">
+                      {item.description}
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">出品者</h3>
