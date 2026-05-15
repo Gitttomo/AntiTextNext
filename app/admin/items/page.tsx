@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../_components/admin-shell";
 import { AdminUserLink } from "../_components/admin-user-link";
 import { formatAdminDate, getStringParam, requireAdmin, type AdminSearchParams } from "@/lib/admin-utils";
@@ -62,7 +63,11 @@ export default async function AdminItemsPage({ searchParams }: { searchParams: A
             <tbody className="divide-y divide-slate-100">
               {((data ?? []) as any[]).map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-black">{item.title}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/items/${item.id}`} className="font-black text-primary hover:underline">
+                      {item.title}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3"><Thumb src={getItemImageUrl(item, "front", "thumbnail")} /></td>
                   <td className="px-4 py-3"><Thumb src={getItemImageUrl(item, "back", "thumbnail")} /></td>
                   <td className="px-4 py-3"><AdminUserLink id={item.seller_id} name={profileMap.get(item.seller_id) as string | undefined} /></td>
@@ -70,7 +75,11 @@ export default async function AdminItemsPage({ searchParams }: { searchParams: A
                   <td className="px-4 py-3"><StatusBadge value={item.status} /></td>
                   <td className="px-4 py-3"><StatusBadge value={item.transactions?.[0]?.status ?? "未取引"} /></td>
                   <td className="px-4 py-3">{reportedIds.has(item.id) ? <StatusBadge value="通報あり" /> : "-"}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-600">migration適用後に利用可</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/items/${item.id}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50">
+                      詳細
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

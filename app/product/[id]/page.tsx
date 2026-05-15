@@ -34,6 +34,10 @@ export default async function ProductDetailPage({
       return <ErrorDisplay message={itemError ? "商品の読み込みに失敗しました" : "商品が見つかりませんでした"} />;
     }
 
+    if ((itemData as any).status === "deleted") {
+      return <ErrorDisplay message="商品が見つかりませんでした" />;
+    }
+
     const sellerId = (itemData as any).seller_id;
 
     const [
