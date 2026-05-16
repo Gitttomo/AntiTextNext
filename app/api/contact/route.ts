@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
             category,
             content,
             status: 'open',
+            has_unread_user_message: true,
+            last_user_message_at: new Date().toISOString(),
         }).select('id').single();
 
         if (inquiryError) {

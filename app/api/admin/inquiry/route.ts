@@ -1,8 +1,28 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { adminLog, requireAdmin } from "@/lib/admin-utils";
+import { adminLog } from "@/lib/admin-utils";
+import { isCurrentUserAdmin } from "@/lib/admin";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { sendInquiryReplyEmail } from "@/lib/email";
 
 const allowedStatuses = new Set(["open", "checking", "replied", "completed", "no_action"]);
+
+async function getAdminContext() {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: NextResponse.json({ error: "ログインが必要です" }, { status: 401 }) };
+  }
+
+  const isAdmin = await isCurrentUserAdmin(supabase as any);
+  if (!isAdmin) {
+    return { error: NextResponse.json({ error: "管理者権限が必要です" }, { status: 403 }) };
+  }
+
+  return { supabase, user };
+}
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -17,7 +37,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "指定できない状態です" }, { status: 400 });
     }
 
-    const { supabase, user } = await requireAdmin();
+    const adminContext = await getAdminContext();
+    if (adminContext.error) return adminContext.error;
+    const { supabase, user } = adminContext;
     const { error } = await (supabase as any)
       .from("inquiries")
       .update({
@@ -52,7 +74,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "問い合わせIDとメッセージが必要です" }, { status: 400 });
     }
 
-    const { supabase, user } = await requireAdmin();
+    const adminContext = await getAdminContext();
+    if (adminContext.error) return adminContext.error;
+    const { supabase, user } = adminContext;
     const { data: inquiry, error: inquiryError } = await (supabase as any)
       .from("inquiries")
       .select("id, sender_user_id, sender_name, status, email")
@@ -125,6 +149,8 @@ export async function POST(request: NextRequest) {
       .from("inquiries")
       .update({
         assignee_id: user.id,
+        has_unread_user_message: false,
+        last_admin_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", inquiryId);

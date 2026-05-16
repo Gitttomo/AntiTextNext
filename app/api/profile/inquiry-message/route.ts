@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
       .from("inquiries")
       .update({
         status: inquiry.status === "completed" ? "checking" : "checking",
+        has_unread_user_message: true,
+        last_user_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", inquiry.id)

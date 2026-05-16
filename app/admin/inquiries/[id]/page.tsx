@@ -32,6 +32,13 @@ export default async function AdminInquiryDetailPage({ params }: { params: { id:
     ? await supabase.from("profiles").select("user_id,nickname").eq("user_id", inquiry.sender_user_id).single()
     : { data: null };
 
+  if (inquiry?.has_unread_user_message) {
+    await (supabase as any)
+      .from("inquiries")
+      .update({ has_unread_user_message: false })
+      .eq("id", params.id);
+  }
+
   return (
     <>
       <AdminPageHeader title="問い合わせ詳細" description="内容全文、対応状態、管理者メモを確認できます。" />

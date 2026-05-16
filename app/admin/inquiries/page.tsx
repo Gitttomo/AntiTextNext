@@ -41,13 +41,23 @@ export default async function AdminInquiriesPage({ searchParams }: { searchParam
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full min-w-[1000px] text-left text-sm">
             <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
-              <tr>{["ID", "送信日時", "送信者", "メール", "種別", "内容", "状態", "担当者", "最終更新"].map((h) => <th key={h} className="px-4 py-3">{h}</th>)}</tr>
+              <tr>{["ID", "通知", "送信日時", "送信者", "メール", "種別", "内容", "状態", "担当者", "最終更新"].map((h) => <th key={h} className="px-4 py-3">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {((data ?? []) as any[]).map((inq) => (
                 <tr key={inq.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-mono text-xs font-black">
                     <Link className="text-primary hover:underline" href={`/admin/inquiries/${inq.id}`}>{inq.id.slice(0, 8)}</Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    {inq.has_unread_user_message ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[11px] font-black text-red-600 ring-1 ring-red-100">
+                        <span className="h-2 w-2 rounded-full bg-red-500" />
+                        返信あり
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold text-slate-300">-</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-bold">{formatAdminDate(inq.created_at)}</td>
                   <td className="px-4 py-3 font-bold">

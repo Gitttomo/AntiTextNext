@@ -38,12 +38,14 @@ export default function InquiryActions({
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const save = async (nextStatus?: string) => {
     if (saving) return;
     const statusToSave = nextStatus ?? status;
     setSaving(true);
     setError("");
+    setSuccess("");
 
     try {
       const response = await fetch("/api/admin/inquiry", {
@@ -61,6 +63,7 @@ export default function InquiryActions({
       if (!response.ok) throw new Error(data.error || "更新に失敗しました");
 
       setStatus(statusToSave);
+      setSuccess("保存しました。");
       router.refresh();
     } catch (err: any) {
       setError(err.message || "更新に失敗しました");
@@ -73,6 +76,7 @@ export default function InquiryActions({
     if (sending || !message.trim()) return;
     setSending(true);
     setError("");
+    setSuccess("");
 
     try {
       const response = await fetch("/api/admin/inquiry", {
@@ -85,7 +89,7 @@ export default function InquiryActions({
       if (!response.ok) throw new Error(data.error || "送信に失敗しました");
 
       setMessage(defaultReplyMessage);
-      if (status !== "completed") setStatus("replied");
+      setSuccess("メッセージの送信が完了しました。");
       router.refresh();
     } catch (err: any) {
       setError(err.message || "送信に失敗しました");
@@ -122,6 +126,7 @@ export default function InquiryActions({
         </label>
       </div>
       {error && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
+      {success && <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{success}</p>}
       <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
@@ -149,9 +154,9 @@ export default function InquiryActions({
         <textarea
           value={message}
           onChange={(event) => setMessage(event.target.value)}
-          rows={4}
+          rows={12}
           disabled={!senderUserId}
-          className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold disabled:bg-slate-100"
+          className="mt-3 min-h-[320px] w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold leading-6 disabled:bg-slate-100"
           placeholder="ユーザーへ送る内容を入力"
         />
         <button

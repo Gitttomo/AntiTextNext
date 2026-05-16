@@ -81,7 +81,13 @@ export default async function AdminDashboardPage() {
         <section className="grid gap-6 xl:grid-cols-3">
           <Panel title="最近登録したユーザー">
             {(recentUsers.data ?? []).map((user: any) => (
-              <Row key={user.user_id} title={user.nickname} meta={user.department} sub={formatAdminDate(user.created_at)} />
+              <Row
+                key={user.user_id}
+                title={user.nickname || "未設定"}
+                meta={user.department || "-"}
+                sub={formatAdminDate(user.created_at)}
+                href={`/admin/users/${user.user_id}`}
+              />
             ))}
           </Panel>
           <Panel title="最近の通報">

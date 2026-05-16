@@ -10,11 +10,16 @@ CREATE TABLE IF NOT EXISTS public.inquiry_messages (
 CREATE INDEX IF NOT EXISTS idx_inquiry_messages_inquiry_created
 ON public.inquiry_messages(inquiry_id, created_at);
 
+ALTER TABLE public.inquiries
+ADD COLUMN IF NOT EXISTS has_unread_user_message BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS last_user_message_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS last_admin_message_at TIMESTAMPTZ;
+
 ALTER TABLE public.inquiry_messages ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT, INSERT ON public.inquiry_messages TO authenticated;
 GRANT SELECT ON public.inquiries TO authenticated;
-GRANT UPDATE (status, updated_at) ON public.inquiries TO authenticated;
+GRANT UPDATE (status, updated_at, has_unread_user_message, last_user_message_at, last_admin_message_at) ON public.inquiries TO authenticated;
 
 DO $$
 BEGIN
