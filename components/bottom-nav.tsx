@@ -160,7 +160,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-b from-sky-50/95 via-cyan-50/95 to-blue-100/95 backdrop-blur-xl border-t border-sky-100 z-50 safe-area-bottom shadow-[0_-10px_32px_rgba(14,116,144,0.16)] [.hide-bottom-nav_&]:hidden">
-      <div className="flex items-end justify-around h-20 max-w-screen-lg mx-auto px-2 pb-2">
+      <div className="flex items-end justify-around h-[5.75rem] max-w-screen-lg mx-auto px-2 pb-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.href === "/" 
@@ -173,7 +173,7 @@ export function BottomNav() {
                 key={item.href}
                 href={item.href}
                 prefetch={true}
-                className="flex flex-col items-center justify-center -mb-2"
+                className="flex flex-col items-center justify-center pb-1"
               >
                 <div className={cn(
                   "w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 -translate-y-4 bg-red-500 ring-4 ring-red-100",
@@ -184,7 +184,7 @@ export function BottomNav() {
                   <Icon className="w-8 h-8 transition-colors text-white" strokeWidth={2.5} />
                 </div>
                 <span className={cn(
-                  "text-[10px] font-bold -mt-3 transition-colors",
+                  "text-[10px] font-bold -mt-2 transition-colors",
                   isActive ? "text-primary" : "text-gray-400"
                 )}>{item.label}</span>
               </Link>

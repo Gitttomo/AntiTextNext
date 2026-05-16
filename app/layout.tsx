@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, M_PLUS_Rounded_1c } from "next/font/google";
 import dynamic from "next/dynamic";
 import "./globals.css";
@@ -45,7 +45,12 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
   themeColor: "#2563eb",
 };
 
@@ -59,7 +64,6 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
         <link rel="dns-prefetch" href="https://qbmxbkylelaixoxupfeq.supabase.co" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
       <body className={`${inter.variable} ${mplusRounded.variable} ${inter.className}`}>
         <Providers>
@@ -67,7 +71,7 @@ export default function RootLayout({
             <TrialNoticeBanner />
             <SwipeTabNavigation />
             <NavigationLoadingOverlay />
-            <main className="min-h-screen pb-24">{children}</main>
+            <main className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]">{children}</main>
             <LegalFooter />
             <BottomNav />
           </AuthProvider>
