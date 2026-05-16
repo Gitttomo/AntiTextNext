@@ -9,7 +9,11 @@ export default async function AdminInquiriesPage({ searchParams }: { searchParam
   const { supabase } = await requireAdmin();
   const status = getStringParam(searchParams, "status");
   let query = (supabase as any).from("inquiries").select("*").order("updated_at", { ascending: false }).limit(200);
-  if (status) query = query.eq("status", status);
+  if (status === "unresolved") {
+    query = query.neq("status", "completed").neq("status", "no_action");
+  } else if (status) {
+    query = query.eq("status", status);
+  }
   const { data, error } = await query;
   const userIds = Array.from(
     new Set(((data ?? []) as any[]).flatMap((inquiry) => [inquiry.sender_user_id, inquiry.assignee_id]).filter(Boolean))
@@ -24,7 +28,8 @@ export default async function AdminInquiriesPage({ searchParams }: { searchParam
         <form className="rounded-2xl border border-slate-200 bg-white p-4">
           <select name="status" defaultValue={status} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold">
             <option value="">すべて</option>
-            <option value="open">未対応</option>
+            <option value="unresolved">未対応（完了以外）</option>
+            <option value="open">未対応（新規）</option>
             <option value="checking">確認中</option>
             <option value="replied">返信済み</option>
             <option value="completed">対応完了</option>

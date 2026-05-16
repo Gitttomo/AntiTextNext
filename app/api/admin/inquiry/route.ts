@@ -85,12 +85,23 @@ export async function POST(request: NextRequest) {
       await sendInquiryReplyEmail(inquiry.email, trimmedMessage, userLocale);
     }
 
+    const { error: messageInsertError } = await (supabase as any).from("inquiry_messages").insert({
+      inquiry_id: inquiry.id,
+      sender_user_id: user.id,
+      sender_role: "admin",
+      message: trimmedMessage,
+    });
+
+    if (messageInsertError) {
+      return NextResponse.json({ error: messageInsertError.message }, { status: 500 });
+    }
+
     const rpcResult = await (supabase as any).rpc("admin_send_user_notification", {
       target_user_id: inquiry.sender_user_id,
       notification_title: "お問い合わせへの返信",
       notification_message: trimmedMessage,
       notification_type: "admin_inquiry_reply",
-      target_link_type: null,
+      target_link_type: "inquiry",
       target_link_id: inquiry.id,
     });
 
@@ -100,7 +111,7 @@ export async function POST(request: NextRequest) {
         type: "admin_inquiry_reply",
         title: "お問い合わせへの返信",
         message: trimmedMessage,
-        link_type: null,
+        link_type: "inquiry",
         link_id: inquiry.id,
         is_read: false,
       });
@@ -113,7 +124,6 @@ export async function POST(request: NextRequest) {
     await (supabase as any)
       .from("inquiries")
       .update({
-        status: inquiry.status === "completed" ? "completed" : "replied",
         assignee_id: user.id,
         updated_at: new Date().toISOString(),
       })

@@ -51,17 +51,27 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { error: inquiryError } = await (supabase as any).from('inquiries').insert({
+        const { data: inquiry, error: inquiryError } = await (supabase as any).from('inquiries').insert({
             sender_user_id: user.id,
             sender_name: username,
             email,
             category,
             content,
             status: 'open',
-        });
+        }).select('id').single();
 
         if (inquiryError) {
             console.error('Inquiry insert error:', inquiryError);
+        } else if (inquiry?.id) {
+            const { error: messageError } = await (supabase as any).from('inquiry_messages').insert({
+                inquiry_id: inquiry.id,
+                sender_user_id: user.id,
+                sender_role: 'user',
+                message: content,
+            });
+            if (messageError) {
+                console.error('Inquiry initial message insert error:', messageError);
+            }
         }
 
         if (!gasUrl) {

@@ -22,6 +22,12 @@ export default async function AdminInquiryDetailPage({ params }: { params: { id:
     .order("created_at", { ascending: false })
     .limit(30);
 
+  const { data: messages } = await (supabase as any)
+    .from("inquiry_messages")
+    .select("*")
+    .eq("inquiry_id", params.id)
+    .order("created_at", { ascending: true });
+
   const { data: senderProfile } = inquiry?.sender_user_id
     ? await supabase.from("profiles").select("user_id,nickname").eq("user_id", inquiry.sender_user_id).single()
     : { data: null };
@@ -56,6 +62,34 @@ export default async function AdminInquiryDetailPage({ params }: { params: { id:
               <Field label="作成/更新" value={`${formatAdminDate(inquiry.created_at)} / ${formatAdminDate(inquiry.updated_at)}`} />
               <Field className="md:col-span-2" label="問い合わせ内容" value={inquiry.content} />
               <Field className="md:col-span-2" label="管理者メモ" value={inquiry.admin_note || "-"} />
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-4 text-lg font-black">ユーザーとのやりとり</h2>
+              {((messages ?? []) as any[]).length === 0 ? (
+                <div className="flex justify-end">
+                  <div className="max-w-[86%] rounded-2xl bg-slate-100 px-4 py-3 text-slate-900">
+                    <p className="mb-1 text-[11px] font-black text-slate-500">ユーザー / {formatAdminDate(inquiry.created_at)}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm font-bold leading-6">{inquiry.content}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {((messages ?? []) as any[]).map((message) => {
+                    const isAdmin = message.sender_role === "admin";
+                    return (
+                    <div key={message.id} className={`flex ${isAdmin ? "justify-start" : "justify-end"}`}>
+                      <div className={`max-w-[86%] rounded-2xl px-4 py-3 ${isAdmin ? "bg-blue-50 text-blue-950" : "bg-slate-100 text-slate-900"}`}>
+                        <p className="mb-1 text-[11px] font-black opacity-70">
+                          {isAdmin ? "運営" : "ユーザー"} / {formatAdminDate(message.created_at)}
+                        </p>
+                        <p className="whitespace-pre-wrap break-words text-sm font-bold leading-6">{message.message}</p>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

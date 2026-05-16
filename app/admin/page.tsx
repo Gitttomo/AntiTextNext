@@ -12,7 +12,7 @@ const cards = [
   { key: "activeTransactions", label: "取引中の件数", href: "/admin/transactions?status=active", icon: ClipboardList, tone: "border-amber-100 bg-amber-50 text-amber-700" },
   { key: "completedTransactions", label: "完了取引数", href: "/admin/transactions?status=completed", icon: ClipboardList, tone: "border-violet-100 bg-violet-50 text-violet-700" },
   { key: "reports", label: "通報件数", href: "/admin/reports", icon: FileWarning, tone: "border-red-100 bg-red-50 text-red-700" },
-  { key: "openInquiries", label: "未対応のお問い合わせ数", href: "/admin/inquiries?status=open", icon: Inbox, tone: "border-cyan-100 bg-cyan-50 text-cyan-700" },
+  { key: "openInquiries", label: "未対応のお問い合わせ数", href: "/admin/inquiries?status=unresolved", icon: Inbox, tone: "border-cyan-100 bg-cyan-50 text-cyan-700" },
   { key: "restrictedUsers", label: "BAN中のユーザー数", href: "/admin/users?restriction=restricted", icon: Ban, tone: "border-rose-100 bg-rose-50 text-rose-700" },
   { key: "errors", label: "エラー件数", href: "/admin/errors", icon: Activity, tone: "border-slate-200 bg-slate-100 text-slate-700" },
 ];
@@ -40,7 +40,7 @@ export default async function AdminDashboardPage() {
     supabase.from("transactions").select("*", { count: "exact", head: true }).in("status", ["accepted", "scheduling", "scheduled", "awaiting_rating"]),
     supabase.from("transactions").select("*", { count: "exact", head: true }).eq("status", "completed"),
     (supabase as any).from("reports").select("*", { count: "exact", head: true }),
-    (supabase as any).from("inquiries").select("*", { count: "exact", head: true }).in("status", ["open", "checking"]),
+    (supabase as any).from("inquiries").select("*", { count: "exact", head: true }).not("status", "in", "(completed,no_action)"),
     (supabase as any).from("user_restrictions").select("*", { count: "exact", head: true }).is("lifted_at", null).or(`ends_at.is.null,ends_at.gt.${now}`),
     supabase.from("profiles").select("user_id, nickname, department, created_at").order("created_at", { ascending: false }).limit(5),
     (supabase as any).from("reports").select("id, reason, status, created_at").order("created_at", { ascending: false }).limit(5),

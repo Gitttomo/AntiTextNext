@@ -10,6 +10,7 @@ import {
     History,
     BookOpen,
     Heart,
+    Inbox,
     ChevronRight,
     ArrowRight,
     MoreHorizontal,
@@ -237,6 +238,19 @@ export default function MypageClient({
                             <Settings className="w-5 h-5 text-primary" />
                         </div>
                         <span className="font-bold text-gray-700">{t('profile.edit_profile')}</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </button>
+
+                <button
+                    onClick={() => router.push("/profile/inquiries")}
+                    className="w-full bg-white rounded-2xl p-4 shadow-md border border-gray-100 flex items-center justify-between group active:scale-[0.98] transition-all hover:border-primary/30"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center transition-colors group-hover:bg-blue-100">
+                            <Inbox className="w-5 h-5 text-primary" />
+                        </div>
+                        <span className="font-bold text-gray-700">お問い合わせ履歴</span>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </button>
