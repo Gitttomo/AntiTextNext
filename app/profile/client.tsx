@@ -79,18 +79,7 @@ export default function MypageClient({
         setFavoriteItems(initialFavoriteItems);
     }, [initialFavoriteItems]);
 
-    useEffect(() => {
-        if (!user) return;
-        const storageKey = `profile_rewards_tutorial_seen:${user.id}`;
-        if (!localStorage.getItem(storageKey)) {
-            setShowRewardsTutorial(true);
-        }
-    }, [user]);
-
     const handleCloseRewardsTutorial = () => {
-        if (user) {
-            localStorage.setItem(`profile_rewards_tutorial_seen:${user.id}`, "true");
-        }
         setShowRewardsTutorial(false);
     };
 

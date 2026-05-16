@@ -1,8 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import { AdminPageHeader, StatusBadge } from "../../_components/admin-shell";
 import { RevealEmailButton } from "../../_components/reveal-email-button";
 import { formatAdminDate, maskEmail, requireAdmin } from "@/lib/admin-utils";
+import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
+import { resolveEarlyRegistrationEligible } from "@/lib/rewards";
 import RestrictionActions from "./restriction-actions";
 import BadgeActions from "./badge-actions";
 import EarlyRewardActions from "./early-reward-actions";
@@ -14,10 +15,11 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
   const { supabase } = await requireAdmin();
   const userId = params.id;
 
-  const [profileResult, listResult, itemsResult, buyerTxResult, sellerTxResult, ratingsResult, reportsAgainstResult, reportsByResult, restrictionsResult, badgesResult, rewardOverrideResult] = await Promise.all([
+  const [profileResult, listResult, itemsResult, listingCountResult, buyerTxResult, sellerTxResult, ratingsResult, reportsAgainstResult, reportsByResult, restrictionsResult, badgesResult, rewardOverrideResult, rewardSettingResult] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", userId).single(),
     (supabase as any).rpc("admin_list_users", { search_text: userId, ban_filter: null }),
     supabase.from("items").select("id, title, status, created_at, front_image_url").eq("seller_id", userId).order("created_at", { ascending: false }).limit(20),
+    supabase.from("items").select("id", { count: "exact", head: true }).eq("seller_id", userId).neq("status", "deleted"),
     supabase.from("transactions").select("id, item_id, status, created_at").eq("buyer_id", userId).order("created_at", { ascending: false }).limit(20),
     supabase.from("transactions").select("id, item_id, status, created_at").eq("seller_id", userId).order("created_at", { ascending: false }).limit(20),
     (supabase as any).from("ratings").select("*").or(`rater_id.eq.${userId},rated_id.eq.${userId}`).order("created_at", { ascending: false }).limit(20),
@@ -26,9 +28,17 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
     (supabase as any).from("user_restrictions").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
     (supabase as any).from("user_badges").select("*").eq("user_id", userId).is("revoked_at", null).order("created_at", { ascending: false }).limit(20),
     (supabase as any).from("user_reward_overrides").select("*").eq("user_id", userId).maybeSingle(),
+    (supabase as any).from("reward_settings").select("*").eq("id", "early_registration").single(),
   ]);
 
   const profile = profileResult.data as any;
+  const badges = (badgesResult.data ?? []) as any[];
+  const listingCount = listingCountResult.count ?? 0;
+  const earlyRegistrationEligible = resolveEarlyRegistrationEligible(
+    profile?.created_at,
+    rewardSettingResult.data as any,
+    rewardOverrideResult.data as any
+  );
   const userSummary = ((listResult.data ?? []) as any[]).find((user) => user.user_id === userId);
   const maskedEmail = userSummary?.masked_email ?? maskEmail(null);
   const activeRestriction = ((restrictionsResult.data ?? []) as any[]).find((restriction) => {
@@ -43,11 +53,13 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
       <main className="space-y-6 p-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-5 md:flex-row md:items-start">
-            {profile?.avatar_url ? (
-              <Image src={profile.avatar_url} alt={profile.nickname} width={96} height={96} className="h-24 w-24 rounded-2xl object-cover" />
-            ) : (
-              <div className="h-24 w-24 rounded-2xl bg-slate-200" />
-            )}
+            <RewardAvatar
+              src={profile?.avatar_url}
+              alt={profile?.nickname ?? "ユーザー"}
+              size={96}
+              listingCount={listingCount}
+              earlyRegistration={earlyRegistrationEligible}
+            />
             <div className="grid flex-1 gap-4 md:grid-cols-2">
               <Field label="ユーザーネーム" value={profile?.nickname ?? "-"} />
               <Field label="アカウントID" value={userId} mono />
@@ -65,6 +77,43 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
           </div>
         </section>
 
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-black text-slate-900">ユーザー表示プレビュー</h2>
+            <p className="mt-1 text-xs font-bold text-slate-500">
+              通常ユーザーが見るアカウント写真・出品数の縁・早期特典・バッジ表示です。
+            </p>
+          </div>
+          <div className="rounded-3xl border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-5">
+            <div className="flex items-center gap-5">
+              <RewardAvatar
+                src={profile?.avatar_url}
+                alt={profile?.nickname ?? "ユーザー"}
+                size={80}
+                listingCount={listingCount}
+                earlyRegistration={earlyRegistrationEligible}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xl font-black text-slate-900">{profile?.nickname ?? "未設定"}</p>
+                <RewardBadges badges={badges} />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl bg-primary/5 px-3 py-2 text-center">
+                    <p className="text-[10px] font-black text-primary/70">出品数</p>
+                    <p className="text-lg font-black text-primary">{listingCount}件</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-100 px-3 py-2 text-center">
+                    <p className="text-[10px] font-black text-slate-500">バッジ</p>
+                    <p className="text-lg font-black text-slate-900">{badges.length}個</p>
+                  </div>
+                </div>
+                {earlyRegistrationEligible && (
+                  <p className="mt-3 text-xs font-bold text-amber-700">早期登録特典のスパークル表示が有効です。</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <RestrictionActions userId={userId} activeRestriction={activeRestriction?.restriction_type ?? userSummary?.restriction_status} />
         <EarlyRewardActions
           userId={userId}
@@ -74,7 +123,7 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
         <BadgeActions userId={userId} />
 
         <Grid>
-          <BadgeList badges={(badgesResult.data ?? []) as any[]} />
+          <BadgeList badges={badges} />
           <List title="出品一覧" rows={(itemsResult.data ?? []).map((item: any) => ({ href: `/admin/items?item=${item.id}`, title: item.title, meta: `${item.status} / ${formatAdminDate(item.created_at)}` }))} />
           <List title="購入履歴" rows={(buyerTxResult.data ?? []).map((tx: any) => ({ href: `/admin/transactions/${tx.id}`, title: tx.id, meta: `${tx.status} / ${formatAdminDate(tx.created_at)}` }))} />
           <List title="出品側取引履歴" rows={(sellerTxResult.data ?? []).map((tx: any) => ({ href: `/admin/transactions/${tx.id}`, title: tx.id, meta: `${tx.status} / ${formatAdminDate(tx.created_at)}` }))} />
