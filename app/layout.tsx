@@ -8,6 +8,7 @@ import LegalFooter from "@/components/legal-footer";
 import TrialNoticeBanner from "@/components/trial-notice-banner";
 import SwipeTabNavigation from "@/components/swipe-tab-navigation";
 import NavigationLoadingOverlay from "@/components/navigation-loading-overlay";
+import MobileGestureGuard from "@/components/mobile-gesture-guard";
 
 // BottomNavを遅延読み込み（初期表示を高速化）
 const BottomNav = dynamic(() => import("@/components/bottom-nav").then(mod => ({ default: mod.BottomNav })), {
@@ -71,6 +72,7 @@ export default function RootLayout({
             <TrialNoticeBanner />
             <SwipeTabNavigation />
             <NavigationLoadingOverlay />
+            <MobileGestureGuard />
             <main className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]">{children}</main>
             <LegalFooter />
             <BottomNav />
