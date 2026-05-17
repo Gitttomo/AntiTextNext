@@ -20,6 +20,27 @@ export type UploadedItemImage = {
   provider?: "r2" | "supabase";
 };
 
+export type ImageUploadFailureStage =
+  | "mime_validation"
+  | "size_validation"
+  | "browser_image_decode"
+  | "canvas_context"
+  | "canvas_encode"
+  | "r2_upload_request"
+  | "unknown";
+
+export class ImageProcessingError extends Error {
+  stage: ImageUploadFailureStage;
+  causeMessage?: string;
+
+  constructor(stage: ImageUploadFailureStage, message: string, cause?: unknown) {
+    super(message);
+    this.name = "ImageProcessingError";
+    this.stage = stage;
+    this.causeMessage = cause instanceof Error ? cause.message : typeof cause === "string" ? cause : undefined;
+  }
+}
+
 export type ItemImageLike = {
   image_storage_provider?: string | null;
   front_image_url?: string | null;
@@ -65,13 +86,37 @@ export const ALLOWED_IMAGE_MIME_TYPES = new Set([
 export const ALLOWED_IMAGE_ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
 export const MAX_ORIGINAL_IMAGE_BYTES = 5 * 1024 * 1024;
 
+export function getImageFailureStage(error: unknown): ImageUploadFailureStage {
+  return error instanceof ImageProcessingError ? error.stage : "unknown";
+}
+
+export function getImageFailureMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "画像処理中にエラーが発生しました";
+}
+
+export function getSafeImageFileMetadata(file?: File | null) {
+  if (!file) return null;
+  const extension = file.name.includes(".")
+    ? file.name.split(".").pop()?.slice(0, 16).toLowerCase() || null
+    : null;
+
+  return {
+    mime_type: file.type || null,
+    extension,
+    size_bytes: file.size,
+    last_modified: file.lastModified ? new Date(file.lastModified).toISOString() : null,
+  };
+}
+
 export function assertAllowedImageFile(file: File) {
   if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
-    throw new Error("アップロードできる画像は JPG / PNG / WebP のみです");
+    throw new ImageProcessingError("mime_validation", "アップロードできる画像は JPG / PNG / WebP のみです");
   }
 
   if (file.size > MAX_ORIGINAL_IMAGE_BYTES) {
-    throw new Error("画像サイズは5MB以下にしてください");
+    throw new ImageProcessingError("size_validation", "画像サイズは5MB以下にしてください");
   }
 }
 
@@ -85,7 +130,7 @@ const loadImage = (file: File) =>
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("画像の読み込みに失敗しました"));
+      reject(new ImageProcessingError("browser_image_decode", "画像の読み込みに失敗しました"));
     };
     image.src = url;
   });
@@ -94,7 +139,7 @@ const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality: number) 
   new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
-        reject(new Error("画像の圧縮に失敗しました"));
+        reject(new ImageProcessingError("canvas_encode", "画像の圧縮に失敗しました"));
         return;
       }
       resolve(blob);
@@ -115,7 +160,7 @@ export async function compressImageFile(file: File, options: ImageVariantOptions
   canvas.height = height;
 
   const context = canvas.getContext("2d", { alpha: false });
-  if (!context) throw new Error("画像処理を開始できませんでした");
+  if (!context) throw new ImageProcessingError("canvas_context", "画像処理を開始できませんでした");
 
   context.fillStyle = "#fff";
   context.fillRect(0, 0, width, height);
@@ -203,7 +248,7 @@ export async function uploadItemImageVariantsToR2(
   const payload = await response.json();
 
   if (!response.ok) {
-    throw new Error(payload.error || "画像アップロードに失敗しました");
+    throw new ImageProcessingError("r2_upload_request", payload.error || "画像アップロードに失敗しました");
   }
 
   return {

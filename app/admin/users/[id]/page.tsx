@@ -15,7 +15,7 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
   const { supabase } = await requireAdmin();
   const userId = params.id;
 
-  const [profileResult, listResult, itemsResult, listingCountResult, buyerTxResult, sellerTxResult, ratingsResult, reportsAgainstResult, reportsByResult, restrictionsResult, badgesResult, rewardOverrideResult, rewardSettingResult] = await Promise.all([
+  const [profileResult, listResult, itemsResult, listingCountResult, buyerTxResult, sellerTxResult, ratingsResult, reportsAgainstResult, reportsByResult, restrictionsResult, badgesResult, rewardOverrideResult, rewardSettingResult, imageErrorLogsResult] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", userId).single(),
     (supabase as any).rpc("admin_list_users", { search_text: userId, ban_filter: null }),
     supabase.from("items").select("id, title, status, created_at, front_image_url").eq("seller_id", userId).order("created_at", { ascending: false }).limit(20),
@@ -29,6 +29,7 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
     (supabase as any).from("user_badges").select("*").eq("user_id", userId).is("revoked_at", null).order("created_at", { ascending: false }).limit(20),
     (supabase as any).from("user_reward_overrides").select("*").eq("user_id", userId).maybeSingle(),
     (supabase as any).from("reward_settings").select("*").eq("id", "early_registration").single(),
+    (supabase as any).from("listing_image_error_logs").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
   ]);
 
   const profile = profileResult.data as any;
@@ -123,6 +124,7 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
         <BadgeActions userId={userId} />
 
         <Grid>
+          <ImageErrorLogList logs={(imageErrorLogsResult.data ?? []) as any[]} />
           <BadgeList badges={badges} />
           <List title="出品一覧" rows={(itemsResult.data ?? []).map((item: any) => ({ href: `/admin/items?item=${item.id}`, title: item.title, meta: `${item.status} / ${formatAdminDate(item.created_at)}` }))} />
           <List title="購入履歴" rows={(buyerTxResult.data ?? []).map((tx: any) => ({ href: `/admin/transactions/${tx.id}`, title: tx.id, meta: `${tx.status} / ${formatAdminDate(tx.created_at)}` }))} />
@@ -134,6 +136,58 @@ export default async function AdminUserDetailPage({ params }: { params: { id: st
         </Grid>
       </main>
     </>
+  );
+}
+
+function ImageErrorLogList({ logs }: { logs: any[] }) {
+  const stageLabel: Record<string, string> = {
+    mime_validation: "形式チェック",
+    size_validation: "サイズチェック",
+    browser_image_decode: "ブラウザ読み込み",
+    canvas_context: "画像処理開始",
+    canvas_encode: "圧縮/変換",
+    r2_upload_request: "R2アップロード",
+    unknown: "不明",
+  };
+
+  const formatSize = (bytes?: number | null) => {
+    if (!bytes) return "-";
+    if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+    return `${Math.round(bytes / 1024)}KB`;
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-1 text-lg font-black">出品画像エラー</h2>
+      <p className="mb-4 text-xs font-bold text-slate-500">
+        出品に失敗した画像だけの診断ログです。画像本体や元ファイル名は保存していません。
+      </p>
+      <div className="space-y-3">
+        {logs.map((log) => (
+          <div key={log.id} className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-rose-100 px-2 py-1 text-[11px] font-black text-rose-700">
+                {stageLabel[log.stage] ?? log.stage}
+              </span>
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-slate-600">
+                {log.side === "front" ? "表紙" : log.side === "back" ? "裏表紙" : "不明"}
+              </span>
+              <span className="text-xs font-bold text-slate-500">{formatAdminDate(log.created_at)}</span>
+            </div>
+            <p className="mt-2 text-sm font-black text-slate-900">{log.message}</p>
+            <p className="mt-1 text-xs font-bold text-slate-600">
+              形式: {log.mime_type || "-"} / 拡張子: {log.extension || "-"} / サイズ: {formatSize(log.size_bytes)}
+            </p>
+            {log.user_agent && (
+              <p className="mt-1 truncate text-[11px] font-bold text-slate-400" title={log.user_agent}>
+                UA: {log.user_agent}
+              </p>
+            )}
+          </div>
+        ))}
+        {logs.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-500">画像エラーログはありません</p>}
+      </div>
+    </div>
   );
 }
 

@@ -12,6 +12,9 @@ import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
 import {
   ALLOWED_IMAGE_ACCEPT,
   assertAllowedImageFile,
+  getImageFailureMessage,
+  getImageFailureStage,
+  getSafeImageFileMetadata,
   uploadItemImageVariantsToR2,
 } from "@/lib/image-storage";
 import { INPUT_LIMITS } from "@/lib/input-limits";
@@ -244,6 +247,33 @@ export default function ListingPage() {
     ? calculateSellingPrice(Number(formData.originalPrice))
     : 0;
 
+  const logImageUploadFailure = useCallback((
+    error: unknown,
+    itemId: string | null,
+    side: "front" | "back" | "unknown",
+    file?: File | null
+  ) => {
+    if (!user) return;
+
+    fetch("/api/listing/image-error-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        itemId,
+        side,
+        stage: getImageFailureStage(error),
+        message: getImageFailureMessage(error),
+        file: getSafeImageFileMetadata(file),
+        metadata: {
+          title_length: formData.bookName.trim().length,
+          has_description: formData.hasDescription,
+        },
+      }),
+    }).catch(() => {
+      // 診断ログの失敗で出品操作は止めない。
+    });
+  }, [formData.bookName, formData.hasDescription, user]);
+
   const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "front" | "back"
@@ -253,6 +283,7 @@ export default function ListingPage() {
       try {
         assertAllowedImageFile(file);
       } catch (error: any) {
+        logImageUploadFailure(error, null, type, file);
         alert(error.message || "アップロードできない画像です");
         e.target.value = "";
         return;
@@ -326,14 +357,26 @@ export default function ListingPage() {
         if (draftError) throw draftError;
 
         if (formData.frontCover) {
-          const frontImage = await uploadItemImageVariantsToR2(formData.frontCover, itemId, "front");
+          let frontImage;
+          try {
+            frontImage = await uploadItemImageVariantsToR2(formData.frontCover, itemId, "front");
+          } catch (error) {
+            logImageUploadFailure(error, itemId, "front", formData.frontCover);
+            throw error;
+          }
           frontImageStoragePath = frontImage.detail.path;
           frontThumbnailStoragePath = frontImage.thumbnail.path;
           uploadedR2Paths.push(frontImage.detail.path, frontImage.thumbnail.path);
         }
 
         if (formData.backCover) {
-          const backImage = await uploadItemImageVariantsToR2(formData.backCover, itemId, "back");
+          let backImage;
+          try {
+            backImage = await uploadItemImageVariantsToR2(formData.backCover, itemId, "back");
+          } catch (error) {
+            logImageUploadFailure(error, itemId, "back", formData.backCover);
+            throw error;
+          }
           backImageStoragePath = backImage.detail.path;
           backThumbnailStoragePath = backImage.thumbnail.path;
           uploadedR2Paths.push(backImage.detail.path, backImage.thumbnail.path);
