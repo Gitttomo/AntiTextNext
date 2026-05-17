@@ -85,6 +85,27 @@ export const ALLOWED_IMAGE_MIME_TYPES = new Set([
 
 export const ALLOWED_IMAGE_ACCEPT = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
 export const MAX_ORIGINAL_IMAGE_BYTES = 5 * 1024 * 1024;
+const HEIC_HELP_MESSAGE = [
+  "この画像はHEIC/HEIF形式の可能性があります。",
+  "現在まだ対応していない形式のため、お手数ですがJPG/PNG/WebP形式で再度アップロードしてください。",
+  "（スクリーンショットでうまくあがる可能性があります）",
+].join("\n");
+
+const isLikelyHeicFile = (file: File) => {
+  const mimeType = file.type.toLowerCase();
+  const extension = file.name.includes(".")
+    ? file.name.split(".").pop()?.toLowerCase()
+    : "";
+
+  return (
+    mimeType === "image/heic" ||
+    mimeType === "image/heif" ||
+    mimeType === "image/heic-sequence" ||
+    mimeType === "image/heif-sequence" ||
+    extension === "heic" ||
+    extension === "heif"
+  );
+};
 
 export function getImageFailureStage(error: unknown): ImageUploadFailureStage {
   return error instanceof ImageProcessingError ? error.stage : "unknown";
@@ -111,6 +132,10 @@ export function getSafeImageFileMetadata(file?: File | null) {
 }
 
 export function assertAllowedImageFile(file: File) {
+  if (isLikelyHeicFile(file)) {
+    throw new ImageProcessingError("mime_validation", HEIC_HELP_MESSAGE);
+  }
+
   if (!ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
     throw new ImageProcessingError("mime_validation", "アップロードできる画像は JPG / PNG / WebP のみです");
   }
@@ -130,7 +155,10 @@ const loadImage = (file: File) =>
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new ImageProcessingError("browser_image_decode", "画像の読み込みに失敗しました"));
+      reject(new ImageProcessingError(
+        "browser_image_decode",
+        isLikelyHeicFile(file) ? HEIC_HELP_MESSAGE : "画像の読み込みに失敗しました"
+      ));
     };
     image.src = url;
   });
