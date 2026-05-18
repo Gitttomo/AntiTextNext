@@ -75,7 +75,7 @@ export default function RootLayout({
             <NavigationLoadingOverlay />
             <MobileGestureGuard />
             <RouteScrollReset />
-            <main className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]">{children}</main>
+            <main className="min-h-screen pb-[calc(var(--bottom-nav-height)+var(--bottom-nav-safe-padding-min)+env(safe-area-inset-bottom))]">{children}</main>
             <LegalFooter />
             <BottomNav />
           </AuthProvider>
