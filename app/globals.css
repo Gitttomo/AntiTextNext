@@ -25,10 +25,10 @@
     --ring: 221 83% 53%;
     --radius: 0.75rem;
     /* 下部バナー調整: 高さを変える時はここを編集 */
-    --bottom-nav-height: 3.25rem;
+    --bottom-nav-height: 3.95rem;
     --bottom-nav-safe-padding-min: 0.03rem;
-    --bottom-nav-inner-bottom-padding: 0.2rem;
-    --bottom-nav-listing-lift: -1rem;
+    --bottom-nav-inner-bottom-padding: 0.05rem;
+    --bottom-nav-listing-lift: -0.6rem;
     --bottom-nav-active-dot-bottom: 0.35rem;
   }
 }
