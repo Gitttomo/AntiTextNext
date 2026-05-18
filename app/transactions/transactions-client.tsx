@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { GraduationCap, MessageCircle, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star } from "lucide-react";
+import { GraduationCap, MessageCircle, BookOpen, Calendar, MapPin, Clock, RotateCcw, ChevronDown, ChevronUp, CheckCircle, Star, HelpCircle, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -66,6 +66,7 @@ export default function TransactionsClient({
         listingCount: initialListingCount,
         earlyRegistration: initialEarlyRegistrationEligible,
     });
+    const [showFlowHelp, setShowFlowHelp] = useState(false);
     const [initialCheckDone, setInitialCheckDone] = useState(serverSession);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -463,6 +464,14 @@ export default function TransactionsClient({
                             </span>
                         )}
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowFlowHelp(true)}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-100 bg-gray-50 text-gray-500 shadow-sm transition-all active:scale-95"
+                        aria-label="取引の流れを表示"
+                    >
+                        <HelpCircle className="h-5 w-5" />
+                    </button>
                 </div>
 
                 {profile && (
@@ -576,6 +585,86 @@ export default function TransactionsClient({
                     </div>
                 ) : null}
             </div>
+            {showFlowHelp && <TransactionFlowHelp onClose={() => setShowFlowHelp(false)} />}
         </div>
+    );
+}
+
+function TransactionFlowHelp({ onClose }: { onClose: () => void }) {
+    const sellerFlow = [
+        "購入リクエストが届くと、承認前のチャットが作られます。",
+        "承認前は、メッセージで日程や受け渡し条件を確認します。",
+        "取引できそうな相手を選び、チャット内の「承認する」を押します。",
+        "承認後、その取引だけが日程調整中になり、他のリクエストは終了します。",
+        "日時と場所が決まったらチャット内で予定を登録します。",
+        "予定で決めた日時・場所で受け渡しを行います。",
+        "受け渡し後、取引完了と評価を行います。",
+    ];
+
+    const buyerFlow = [
+        "商品詳細から購入リクエストを送ると、出品者とのチャットが作られます。",
+        "承認前は、メッセージで日程や受け渡し条件を相談します。",
+        "出品者が承認するまでは、取引完了や本確定の操作はできません。",
+        "承認されると日程調整中になり、日時と場所を決められます。",
+        "予定が登録されると、今後の予定に表示されます。",
+        "予定で決めた日時・場所で受け渡しを行います。",
+        "受け渡し後、取引完了と評価を行います。",
+    ];
+
+    return (
+        <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-900/35 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+            <button
+                type="button"
+                className="absolute inset-0 cursor-default"
+                onClick={onClose}
+                aria-label="閉じる"
+            />
+            <div className="relative w-full max-w-2xl rounded-[32px] bg-white p-5 shadow-2xl sm:p-6">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-primary/60">Transaction Flow</p>
+                        <h2 className="mt-1 text-2xl font-black text-gray-900">取引の流れ</h2>
+                        <p className="mt-2 text-sm font-bold leading-relaxed text-gray-500">
+                            承認前は「相談」、承認後から「取引」として日程調整や完了操作ができます。
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition active:scale-95"
+                        aria-label="取引の流れを閉じる"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                    <FlowCard title="出品者の流れ" tone="seller" items={sellerFlow} />
+                    <FlowCard title="購入者の流れ" tone="buyer" items={buyerFlow} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function FlowCard({ title, tone, items }: { title: string; tone: "seller" | "buyer"; items: string[] }) {
+    const toneClass = tone === "seller"
+        ? "border-red-100 bg-red-50/60 text-red-600"
+        : "border-blue-100 bg-blue-50/60 text-blue-600";
+
+    return (
+        <section className="rounded-[24px] border border-gray-100 bg-gray-50 p-4">
+            <h3 className="mb-4 text-lg font-black text-gray-900">{title}</h3>
+            <ol className="space-y-3">
+                {items.map((item, index) => (
+                    <li key={item} className="flex gap-3">
+                        <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-black ${toneClass}`}>
+                            {index + 1}
+                        </span>
+                        <p className="text-sm font-bold leading-relaxed text-gray-600">{item}</p>
+                    </li>
+                ))}
+            </ol>
+        </section>
     );
 }
