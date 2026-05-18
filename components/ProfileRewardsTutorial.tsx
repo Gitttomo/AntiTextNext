@@ -27,13 +27,13 @@ function FrameProgressAnimation() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-white to-blue-50 px-5">
-      <div className="mb-7 text-center">
+    <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-white to-blue-50 px-5 py-5">
+      <div className="mb-5 text-center">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-primary/70">Profile Frame</p>
         <h3 className="mt-1 text-xl font-black text-gray-900">出品で枠が育ちます</h3>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         {frameSteps.map((step, index) => (
           <div key={step.count} className="flex flex-col items-center gap-2">
             <div
@@ -50,7 +50,7 @@ function FrameProgressAnimation() {
         ))}
       </div>
 
-      <div className="mt-7 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-primary shadow-sm">
+      <div className="mt-5 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-primary shadow-sm">
         <Sparkles className="h-4 w-4 animate-pulse" />
         累計出品数で自動変化
       </div>
@@ -67,15 +67,15 @@ function BadgeAnimation() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-white to-slate-50 px-6">
-      <div className="relative mb-8">
+    <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-white to-slate-50 px-6 py-5">
+      <div className="relative mb-5">
         <div className={`absolute inset-[-28px] rounded-full bg-red-100 transition-opacity duration-500 ${glow ? "opacity-80 blur-xl" : "opacity-20 blur-md"}`} />
-        <div className="relative flex h-28 w-28 items-center justify-center">
-          <BookOpen className={`h-20 w-20 text-red-500 transition-transform duration-500 ${glow ? "scale-110 rotate-[-4deg]" : "scale-100 rotate-[3deg]"}`} strokeWidth={1.8} />
+        <div className="relative flex h-24 w-24 items-center justify-center">
+          <BookOpen className={`h-16 w-16 text-red-500 transition-transform duration-500 ${glow ? "scale-110 rotate-[-4deg]" : "scale-100 rotate-[3deg]"}`} strokeWidth={1.8} />
           <Sparkles className={`absolute -right-2 top-1 h-7 w-7 text-yellow-400 transition-all duration-500 ${glow ? "scale-125 opacity-100" : "scale-90 opacity-50"}`} />
         </div>
       </div>
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 text-center shadow-sm">
+      <div className="rounded-2xl border border-slate-100 bg-white p-3 text-center shadow-sm">
         <p className="text-lg font-black text-gray-900">バッジ</p>
         <p className="mt-2 text-sm font-bold leading-6 text-gray-600">
           特定の条件でもらえることがあります。表示された本のマークをタップすると詳細を確認できます。
@@ -112,7 +112,7 @@ export default function ProfileRewardsTutorial({ onClose }: ProfileRewardsTutori
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl animate-scale-in">
+      <div className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-white shadow-2xl animate-scale-in">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-10 rounded-full bg-gray-100 p-2 transition-colors hover:bg-gray-200"
@@ -121,11 +121,11 @@ export default function ProfileRewardsTutorial({ onClose }: ProfileRewardsTutori
           <X className="h-4 w-4 text-gray-600" />
         </button>
 
-        <div className="relative aspect-[9/16] max-h-[400px] w-full overflow-hidden rounded-t-3xl bg-gray-100">
+        <div className="relative h-[min(50dvh,360px)] min-h-[300px] w-full shrink-0 overflow-hidden rounded-t-3xl bg-gray-100">
           <CurrentAnimation />
         </div>
 
-        <div className="p-6">
+        <div className="overflow-y-auto p-5">
           <h2 className="mb-2 text-center text-xl font-bold text-gray-900">
             {steps[currentStep].title}
           </h2>
