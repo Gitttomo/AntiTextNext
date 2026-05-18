@@ -24,6 +24,7 @@ import { getItemImageUrl } from "@/lib/image-storage";
 import { supabase } from "@/lib/supabase";
 import { RewardAvatar, RewardBadges } from "@/components/reward-avatar";
 import ProfileRewardsTutorial from "@/components/ProfileRewardsTutorial";
+import { LegalLinksPanel } from "@/components/legal-footer";
 import type { UserBadge } from "@/lib/rewards";
 
 type Profile = {
@@ -268,6 +269,11 @@ export default function MypageClient({
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
                 </button>
+
+                <section className="space-y-3">
+                    <h3 className="px-1 text-sm font-black text-gray-500">規約・ポリシー</h3>
+                    <LegalLinksPanel />
+                </section>
 
                 {/* History Section */}
                 <section className="space-y-4">

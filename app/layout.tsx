@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { Providers } from "@/components/providers";
-import LegalFooter from "@/components/legal-footer";
 import TrialNoticeBanner from "@/components/trial-notice-banner";
 import SwipeTabNavigation from "@/components/swipe-tab-navigation";
 import NavigationLoadingOverlay from "@/components/navigation-loading-overlay";
@@ -76,7 +75,6 @@ export default function RootLayout({
             <MobileGestureGuard />
             <RouteScrollReset />
             <main className="min-h-screen pb-[calc(var(--bottom-nav-height)+var(--bottom-nav-safe-padding-min)+env(safe-area-inset-bottom))]">{children}</main>
-            <LegalFooter />
             <BottomNav />
           </AuthProvider>
         </Providers>
