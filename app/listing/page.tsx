@@ -757,9 +757,6 @@ export default function ListingPage() {
                         />
                       </label>
                     </div>
-                    <p className="mt-1 text-center text-[10px] font-bold text-gray-400">
-                      端末によっては撮影後に確認画面が表示されます
-                    </p>
                     <p className="text-center mt-2 text-sm text-gray-600">裏表紙</p>
                   </div>
                 </div>

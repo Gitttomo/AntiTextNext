@@ -184,7 +184,7 @@ export function BottomNav() {
                   <Icon className="w-8 h-8 transition-colors text-white" strokeWidth={2.5} />
                 </div>
                 <span className={cn(
-                  "text-[10px] font-bold -mt-2 transition-colors",
+                  "text-[10px] font-bold -mt-2 translate-y-[var(--bottom-nav-listing-label-offset)] transition-colors",
                   isActive ? "text-primary" : "text-gray-400"
                 )}>{item.label}</span>
               </Link>
