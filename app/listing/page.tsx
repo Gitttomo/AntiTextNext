@@ -685,7 +685,13 @@ export default function ListingPage() {
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="w-full aspect-[3/4] bg-gray-100 rounded-xl flex flex-col items-center justify-center transition-colors border-2 border-dashed border-gray-300 overflow-hidden">
+                    <label className="block w-full aspect-[3/4] bg-gray-100 rounded-xl transition-colors border-2 border-dashed border-gray-300 overflow-hidden cursor-pointer hover:bg-gray-200 active:scale-[0.99]">
+                      <input
+                        type="file"
+                        accept={ALLOWED_IMAGE_ACCEPT}
+                        onChange={(e) => handleFileUpload(e, "front")}
+                        className="hidden"
+                      />
                       {frontCoverPreview ? (
                         <img
                           src={frontCoverPreview}
@@ -693,24 +699,15 @@ export default function ListingPage() {
                           className="w-full h-full object-cover rounded-xl"
                         />
                       ) : (
-                        <>
+                        <div className="flex h-full flex-col items-center justify-center">
                           <Upload className="w-10 h-10 text-gray-400 mb-2" />
                           <span className="text-gray-600 text-center px-4 text-sm">
                             表紙を追加
                           </span>
-                        </>
+                        </div>
                       )}
-                    </div>
-                    <div className="mt-2 space-y-1.5">
-                      <label className="block rounded-xl bg-primary px-3 py-2.5 text-center text-xs font-black text-white shadow-sm active:scale-[0.98]">
-                        写真を選択・撮影
-                        <input
-                          type="file"
-                          accept={ALLOWED_IMAGE_ACCEPT}
-                          onChange={(e) => handleFileUpload(e, "front")}
-                          className="hidden"
-                        />
-                      </label>
+                    </label>
+                    <div className="mt-2">
                       <label className="block text-center text-[10px] font-bold text-gray-400 underline underline-offset-2 active:scale-[0.98]">
                         うまくいかない場合はこちら
                         <input
@@ -722,14 +719,17 @@ export default function ListingPage() {
                         />
                       </label>
                     </div>
-                    <p className="mt-1 text-center text-[10px] font-bold text-gray-400">
-                      端末によって表示される選択肢は異なります
-                    </p>
                     <p className="text-center mt-2 text-sm text-gray-600">表紙</p>
                   </div>
 
                   <div>
-                    <div className="w-full aspect-[3/4] bg-gray-100 rounded-xl flex flex-col items-center justify-center transition-colors border-2 border-dashed border-gray-300 overflow-hidden">
+                    <label className="block w-full aspect-[3/4] bg-gray-100 rounded-xl transition-colors border-2 border-dashed border-gray-300 overflow-hidden cursor-pointer hover:bg-gray-200 active:scale-[0.99]">
+                      <input
+                        type="file"
+                        accept={ALLOWED_IMAGE_ACCEPT}
+                        onChange={(e) => handleFileUpload(e, "back")}
+                        className="hidden"
+                      />
                       {backCoverPreview ? (
                         <img
                           src={backCoverPreview}
@@ -737,24 +737,15 @@ export default function ListingPage() {
                           className="w-full h-full object-cover rounded-xl"
                         />
                       ) : (
-                        <>
+                        <div className="flex h-full flex-col items-center justify-center">
                           <Upload className="w-10 h-10 text-gray-400 mb-2" />
                           <span className="text-gray-600 text-center px-4 text-sm">
                             裏表紙を追加
                           </span>
-                        </>
+                        </div>
                       )}
-                    </div>
-                    <div className="mt-2 space-y-1.5">
-                      <label className="block rounded-xl bg-primary px-3 py-2.5 text-center text-xs font-black text-white shadow-sm active:scale-[0.98]">
-                        写真を選択・撮影
-                        <input
-                          type="file"
-                          accept={ALLOWED_IMAGE_ACCEPT}
-                          onChange={(e) => handleFileUpload(e, "back")}
-                          className="hidden"
-                        />
-                      </label>
+                    </label>
+                    <div className="mt-2">
                       <label className="block text-center text-[10px] font-bold text-gray-400 underline underline-offset-2 active:scale-[0.98]">
                         うまくいかない場合はこちら
                         <input
