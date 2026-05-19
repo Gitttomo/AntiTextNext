@@ -95,7 +95,7 @@ export const MAX_ORIGINAL_IMAGE_BYTES = 5 * 1024 * 1024;
 const BROWSER_DECODE_HELP_MESSAGE = [
   "この画像をブラウザで読み込めませんでした。",
   "Googleフォトから直接選択した画像や、一部の特殊なJPEG/HEIC画像では失敗する場合があります。",
-  "スクリーンショットを撮る、出品画面からその場で撮影する、またはJPEG/PNG/WebP形式で保存し直してから再度お試しください。",
+  "スクリーンショットを撮る、JPEG/PNG/WebP形式で保存し直す、または「うまくいかない場合はこちら」より撮影をお試しください。",
 ].join("\n");
 const HEIC_HELP_MESSAGE = [
   "この画像はHEIC/HEIF形式の可能性があります。",

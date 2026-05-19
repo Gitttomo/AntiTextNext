@@ -701,9 +701,18 @@ export default function ListingPage() {
                         </>
                       )}
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <label className="rounded-xl bg-primary px-2 py-2 text-center text-[11px] font-black text-white shadow-sm active:scale-[0.98]">
-                        写真を撮る
+                    <div className="mt-2 space-y-1.5">
+                      <label className="block rounded-xl bg-primary px-3 py-2.5 text-center text-xs font-black text-white shadow-sm active:scale-[0.98]">
+                        写真を選択・撮影
+                        <input
+                          type="file"
+                          accept={ALLOWED_IMAGE_ACCEPT}
+                          onChange={(e) => handleFileUpload(e, "front")}
+                          className="hidden"
+                        />
+                      </label>
+                      <label className="block text-center text-[10px] font-bold text-gray-400 underline underline-offset-2 active:scale-[0.98]">
+                        うまくいかない場合はこちら
                         <input
                           type="file"
                           accept={ALLOWED_IMAGE_ACCEPT}
@@ -712,18 +721,9 @@ export default function ListingPage() {
                           className="hidden"
                         />
                       </label>
-                      <label className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-center text-[11px] font-black text-gray-600 shadow-sm active:scale-[0.98]">
-                        写真から選ぶ
-                        <input
-                          type="file"
-                          accept={ALLOWED_IMAGE_ACCEPT}
-                          onChange={(e) => handleFileUpload(e, "front")}
-                          className="hidden"
-                        />
-                      </label>
                     </div>
                     <p className="mt-1 text-center text-[10px] font-bold text-gray-400">
-                      Googleフォトで失敗する場合は、その場で撮影すると安定する場合があります
+                      端末によって表示される選択肢は異なります
                     </p>
                     <p className="text-center mt-2 text-sm text-gray-600">表紙</p>
                   </div>
@@ -745,22 +745,22 @@ export default function ListingPage() {
                         </>
                       )}
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <label className="rounded-xl bg-primary px-2 py-2 text-center text-[11px] font-black text-white shadow-sm active:scale-[0.98]">
-                        写真を撮る
+                    <div className="mt-2 space-y-1.5">
+                      <label className="block rounded-xl bg-primary px-3 py-2.5 text-center text-xs font-black text-white shadow-sm active:scale-[0.98]">
+                        写真を選択・撮影
                         <input
                           type="file"
                           accept={ALLOWED_IMAGE_ACCEPT}
-                          capture="environment"
                           onChange={(e) => handleFileUpload(e, "back")}
                           className="hidden"
                         />
                       </label>
-                      <label className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-center text-[11px] font-black text-gray-600 shadow-sm active:scale-[0.98]">
-                        写真から選ぶ
+                      <label className="block text-center text-[10px] font-bold text-gray-400 underline underline-offset-2 active:scale-[0.98]">
+                        うまくいかない場合はこちら
                         <input
                           type="file"
                           accept={ALLOWED_IMAGE_ACCEPT}
+                          capture="environment"
                           onChange={(e) => handleFileUpload(e, "back")}
                           className="hidden"
                         />
