@@ -178,6 +178,17 @@ function ImageErrorLogList({ logs }: { logs: any[] }) {
             <p className="mt-1 text-xs font-bold text-slate-600">
               形式: {log.mime_type || "-"} / 拡張子: {log.extension || "-"} / サイズ: {formatSize(log.size_bytes)}
             </p>
+            <p className="mt-1 text-xs font-bold text-slate-600">
+              実体判定: {log.detected_format || "-"} / 先頭bytes: {log.magic_bytes || "-"}
+            </p>
+            <p className="mt-1 text-xs font-bold text-slate-600">
+              decode: {log.decode_method || "-"} / objectURL: {log.object_url_decode_result || "-"} / dataURL: {log.data_url_decode_result || "-"} / bitmap: {log.create_image_bitmap_result || "-"}
+            </p>
+            {(log.decoded_width || log.decoded_height) && (
+              <p className="mt-1 text-xs font-bold text-slate-600">
+                画像サイズ: {log.decoded_width || "-"} x {log.decoded_height || "-"} px
+              </p>
+            )}
             {log.user_agent && (
               <p className="mt-1 truncate text-[11px] font-bold text-slate-400" title={log.user_agent}>
                 UA: {log.user_agent}

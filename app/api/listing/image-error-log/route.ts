@@ -24,6 +24,11 @@ const safeInteger = (value: unknown) => {
   return Math.max(0, Math.floor(value));
 };
 
+const safeDecodeResult = (value: unknown) => {
+  const result = trimText(value, 40);
+  return result && /^[a-z_]+$/.test(result) ? result : null;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createSupabaseServerClient();
@@ -44,8 +49,11 @@ export async function POST(request: NextRequest) {
     const extension = trimText(file.extension, 16);
     const mimeType = trimText(file.mime_type, 80);
     const lastModified = trimText(file.last_modified, 80);
+    const magicBytes = trimText(file.magic_bytes, 64);
+    const detectedFormat = trimText(file.detected_format, 40);
     const userAgent = trimText(request.headers.get("user-agent"), 500);
     const sizeBytes = safeInteger(file.size_bytes);
+    const metadata = body?.metadata && typeof body.metadata === "object" ? body.metadata : {};
 
     const { error } = await (supabase.from("listing_image_error_logs") as any).insert({
       user_id: session.user.id,
@@ -57,11 +65,21 @@ export async function POST(request: NextRequest) {
       extension,
       size_bytes: sizeBytes,
       last_modified: lastModified,
+      magic_bytes: magicBytes,
+      detected_format: detectedFormat,
+      decode_method: safeDecodeResult(metadata.decode_method),
+      decoded_width: safeInteger(metadata.decoded_width),
+      decoded_height: safeInteger(metadata.decoded_height),
+      object_url_decode_result: safeDecodeResult(metadata.object_url_decode_result),
+      data_url_decode_result: safeDecodeResult(metadata.data_url_decode_result),
+      create_image_bitmap_result: safeDecodeResult(metadata.create_image_bitmap_result),
       user_agent: userAgent,
       metadata: {
         source: "listing_page",
-        title_length: safeInteger(body?.metadata?.title_length),
-        has_description: Boolean(body?.metadata?.has_description),
+        title_length: safeInteger(metadata.title_length),
+        has_description: Boolean(metadata.has_description),
+        detected_format_confidence: trimText(file.detected_format_confidence, 20),
+        variant: trimText(metadata.variant, 40),
       },
     });
 

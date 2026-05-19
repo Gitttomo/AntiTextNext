@@ -12,6 +12,8 @@ import { LISTING_NOTICE_ITEMS } from "@/lib/legal";
 import {
   ALLOWED_IMAGE_ACCEPT,
   assertAllowedImageFile,
+  assertAllowedImageFileSignature,
+  getImageFailureDiagnostics,
   getImageFailureMessage,
   getImageFailureStage,
   getSafeImageFileMetadata,
@@ -247,13 +249,14 @@ export default function ListingPage() {
     ? calculateSellingPrice(Number(formData.originalPrice))
     : 0;
 
-  const logImageUploadFailure = useCallback((
+  const logImageUploadFailure = useCallback(async (
     error: unknown,
     itemId: string | null,
     side: "front" | "back" | "unknown",
     file?: File | null
   ) => {
     if (!user) return;
+    const fileMetadata = await getSafeImageFileMetadata(file);
 
     fetch("/api/listing/image-error-log", {
       method: "POST",
@@ -263,10 +266,11 @@ export default function ListingPage() {
         side,
         stage: getImageFailureStage(error),
         message: getImageFailureMessage(error),
-        file: getSafeImageFileMetadata(file),
+        file: fileMetadata,
         metadata: {
           title_length: formData.bookName.trim().length,
           has_description: formData.hasDescription,
+          ...getImageFailureDiagnostics(error),
         },
       }),
     }).catch(() => {
@@ -274,7 +278,7 @@ export default function ListingPage() {
     });
   }, [formData.bookName, formData.hasDescription, user]);
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "front" | "back"
   ) => {
@@ -282,8 +286,9 @@ export default function ListingPage() {
     if (file) {
       try {
         assertAllowedImageFile(file);
+        await assertAllowedImageFileSignature(file);
       } catch (error: any) {
-        logImageUploadFailure(error, null, type, file);
+        void logImageUploadFailure(error, null, type, file);
         alert(error.message || "アップロードできない画像です");
         e.target.value = "";
         return;
@@ -361,7 +366,7 @@ export default function ListingPage() {
           try {
             frontImage = await uploadItemImageVariantsToR2(formData.frontCover, itemId, "front");
           } catch (error) {
-            logImageUploadFailure(error, itemId, "front", formData.frontCover);
+            await logImageUploadFailure(error, itemId, "front", formData.frontCover);
             throw error;
           }
           frontImageStoragePath = frontImage.detail.path;
@@ -374,7 +379,7 @@ export default function ListingPage() {
           try {
             backImage = await uploadItemImageVariantsToR2(formData.backCover, itemId, "back");
           } catch (error) {
-            logImageUploadFailure(error, itemId, "back", formData.backCover);
+            await logImageUploadFailure(error, itemId, "back", formData.backCover);
             throw error;
           }
           backImageStoragePath = backImage.detail.path;
@@ -680,58 +685,90 @@ export default function ListingPage() {
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block">
-                      <input
-                        type="file"
-                        accept={ALLOWED_IMAGE_ACCEPT}
-                        onChange={(e) => handleFileUpload(e, "front")}
-                        className="hidden"
-                      />
-                      <div className="w-full aspect-[3/4] bg-gray-100 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-300">
-                        {frontCoverPreview ? (
-                          <img
-                            src={frontCoverPreview}
-                            alt="表紙"
-                            className="w-full h-full object-cover rounded-xl"
-                          />
-                        ) : (
-                          <>
-                            <Upload className="w-10 h-10 text-gray-400 mb-2" />
-                            <span className="text-gray-600 text-center px-4 text-sm">
-                              表紙をアップロード
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </label>
+                    <div className="w-full aspect-[3/4] bg-gray-100 rounded-xl flex flex-col items-center justify-center transition-colors border-2 border-dashed border-gray-300 overflow-hidden">
+                      {frontCoverPreview ? (
+                        <img
+                          src={frontCoverPreview}
+                          alt="表紙"
+                          className="w-full h-full object-cover rounded-xl"
+                        />
+                      ) : (
+                        <>
+                          <Upload className="w-10 h-10 text-gray-400 mb-2" />
+                          <span className="text-gray-600 text-center px-4 text-sm">
+                            表紙を追加
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <label className="rounded-xl bg-primary px-2 py-2 text-center text-[11px] font-black text-white shadow-sm active:scale-[0.98]">
+                        写真を撮る
+                        <input
+                          type="file"
+                          accept={ALLOWED_IMAGE_ACCEPT}
+                          capture="environment"
+                          onChange={(e) => handleFileUpload(e, "front")}
+                          className="hidden"
+                        />
+                      </label>
+                      <label className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-center text-[11px] font-black text-gray-600 shadow-sm active:scale-[0.98]">
+                        写真から選ぶ
+                        <input
+                          type="file"
+                          accept={ALLOWED_IMAGE_ACCEPT}
+                          onChange={(e) => handleFileUpload(e, "front")}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    <p className="mt-1 text-center text-[10px] font-bold text-gray-400">
+                      Googleフォトで失敗する場合は、その場で撮影すると安定する場合があります
+                    </p>
                     <p className="text-center mt-2 text-sm text-gray-600">表紙</p>
                   </div>
 
                   <div>
-                    <label className="block">
-                      <input
-                        type="file"
-                        accept={ALLOWED_IMAGE_ACCEPT}
-                        onChange={(e) => handleFileUpload(e, "back")}
-                        className="hidden"
-                      />
-                      <div className="w-full aspect-[3/4] bg-gray-100 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors border-2 border-dashed border-gray-300">
-                        {backCoverPreview ? (
-                          <img
-                            src={backCoverPreview}
-                            alt="裏表紙"
-                            className="w-full h-full object-cover rounded-xl"
-                          />
-                        ) : (
-                          <>
-                            <Upload className="w-10 h-10 text-gray-400 mb-2" />
-                            <span className="text-gray-600 text-center px-4 text-sm">
-                              裏表紙をアップロード
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </label>
+                    <div className="w-full aspect-[3/4] bg-gray-100 rounded-xl flex flex-col items-center justify-center transition-colors border-2 border-dashed border-gray-300 overflow-hidden">
+                      {backCoverPreview ? (
+                        <img
+                          src={backCoverPreview}
+                          alt="裏表紙"
+                          className="w-full h-full object-cover rounded-xl"
+                        />
+                      ) : (
+                        <>
+                          <Upload className="w-10 h-10 text-gray-400 mb-2" />
+                          <span className="text-gray-600 text-center px-4 text-sm">
+                            裏表紙を追加
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <label className="rounded-xl bg-primary px-2 py-2 text-center text-[11px] font-black text-white shadow-sm active:scale-[0.98]">
+                        写真を撮る
+                        <input
+                          type="file"
+                          accept={ALLOWED_IMAGE_ACCEPT}
+                          capture="environment"
+                          onChange={(e) => handleFileUpload(e, "back")}
+                          className="hidden"
+                        />
+                      </label>
+                      <label className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-center text-[11px] font-black text-gray-600 shadow-sm active:scale-[0.98]">
+                        写真から選ぶ
+                        <input
+                          type="file"
+                          accept={ALLOWED_IMAGE_ACCEPT}
+                          onChange={(e) => handleFileUpload(e, "back")}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    <p className="mt-1 text-center text-[10px] font-bold text-gray-400">
+                      端末によっては撮影後に確認画面が表示されます
+                    </p>
                     <p className="text-center mt-2 text-sm text-gray-600">裏表紙</p>
                   </div>
                 </div>
